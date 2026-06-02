@@ -1,0 +1,56 @@
+# Omakase Ruby styling for Rails
+inherit_gem: { rubocop-rails-omakase: rubocop.yml }
+
+AllCops:
+  NewCops: enable
+  TargetRubyVersion: 4.0
+  Exclude:
+    - "db/schema.rb"
+    - "db/*_schema.rb"
+    - "db/migrate/*"
+    - "bin/**/*"
+    - "node_modules/**/*"
+    - "vendor/**/*"
+    - "data/**/*"
+
+Layout:
+  Enabled: true
+Lint:
+  Enabled: true
+Metrics:
+  Enabled: true
+Naming:
+  Enabled: true
+Performance:
+  Enabled: true
+  Exclude:
+    - "test/**/*"
+Rails:
+  Enabled: true
+Security:
+  Enabled: true
+Style:
+  Enabled: true
+
+Style/Documentation:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 15
+
+Metrics/ClassLength:
+  Max: 100
+
+Layout/LineLength:
+  Max: 120
+
+# Configuration DSL blocks (initializers, environments, routes) are legitimately
+# long, so the default 25-line block limit should not apply to them.
+Metrics/BlockLength:
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - "config/initializers/**/*"
+    - "config/environments/*"
+    - "config/routes.rb"

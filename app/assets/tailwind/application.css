@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+/*
+  Tailwind CSS v4 is configured here in CSS (there is no tailwind.config.js).
+  Content sources are auto-detected from the project, so most apps need no
+  @source lines; add one only for paths outside the app root.
+
+  Customize the design system with @theme, for example:
+
+    @theme {
+      --color-brand: oklch(0.62 0.21 256);
+      --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    }
+
+  Put bespoke styles in @layer components { ... } or @layer utilities { ... }.
+  Third-party plugins load via @plugin "name" (that path needs a package.json
+  and npm, so it is avoided here to keep the build Node-free).
+*/
