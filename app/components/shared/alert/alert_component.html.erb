@@ -1,0 +1,6 @@
+<div role="alert" class="flex items-start gap-3 rounded-xl border <%= container_class %> px-4 py-3">
+  <i class="hgi-stroke <%= icon %> <%= icon_color %> mt-0.5 shrink-0" aria-hidden="true"></i>
+  <div class="text-sm leading-relaxed text-ink-secondary">
+    <% if title.present? %><span class="font-medium text-ink"><%= title %></span> <% end %><%= content %>
+  </div>
+</div>

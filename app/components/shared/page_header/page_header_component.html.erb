@@ -1,0 +1,9 @@
+<%= content_tag wrapper_tag, class: wrapper_class do %>
+  <% if eyebrow.present? %>
+    <p class="font-mono text-xs uppercase tracking-widest text-copper mb-2.5"><%= eyebrow %></p>
+  <% end %>
+  <h1 class="font-display font-semibold text-2xl sm:text-3xl tracking-tight text-ink"><%= title %></h1>
+  <% if subtitle.present? %>
+    <p class="text-ink-muted mt-2.5 max-w-2xl leading-relaxed"><%= subtitle %></p>
+  <% end %>
+<% end %>

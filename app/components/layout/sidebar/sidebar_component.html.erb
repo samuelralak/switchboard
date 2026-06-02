@@ -1,0 +1,39 @@
+<div class="flex h-16 shrink-0 items-center gap-3">
+  <span class="grid size-9 place-items-center rounded-xl border border-border bg-surface text-copper">
+    <i class="hgi-stroke hgi-radar-01 text-lg" aria-hidden="true"></i>
+  </span>
+  <span class="flex flex-col gap-1 leading-none">
+    <span class="text-base font-semibold tracking-tight text-ink">Switchboard</span>
+    <span class="font-mono text-xs text-ink-faint">money in · data out</span>
+  </span>
+</div>
+
+<nav class="flex flex-1 flex-col">
+  <ul role="list" class="flex flex-1 flex-col gap-y-7">
+    <li>
+      <ul role="list" class="-mx-2 space-y-1">
+        <% nav_items.each do |item| %>
+          <li>
+            <a href="<%= item[:href] %>"<%= " aria-current=\"page\"".html_safe if item[:active] %> class="group flex items-center gap-x-3 rounded-md p-2 text-sm/6 font-semibold <%= item[:active] ? "bg-surface text-copper" : "text-ink-muted hover:bg-surface hover:text-ink" %>">
+              <i class="hgi-stroke <%= item[:icon] %> shrink-0 text-lg <%= item[:active] ? "text-copper" : "text-ink-faint group-hover:text-ink" %>" aria-hidden="true"></i>
+              <%= item[:label] %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
+    </li>
+
+    <li class="mt-auto">
+      <p class="mb-2.5 px-2 font-mono text-xs uppercase tracking-widest text-ink-faint">relays</p>
+      <ul role="list" class="flex flex-col gap-2.5 px-2 font-mono text-xs text-ink-muted">
+        <% relays.each do |relay| %>
+          <li class="flex items-center gap-2.5">
+            <span class="size-1.5 shrink-0 rounded-full <%= relay[:status] == :live ? "bg-lamp-live" : "bg-lamp-settled" %>"></span>
+            <%= relay[:host] %>
+          </li>
+        <% end %>
+      </ul>
+      <p class="mt-5 px-2 font-mono text-xs text-ink-faint">prototype shell · mock data</p>
+    </li>
+  </ul>
+</nav>

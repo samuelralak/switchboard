@@ -16,11 +16,15 @@ module Switchboard
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
-    # ViewComponent (https://viewcomponent.org): scaffold each component with a
-    # sidecar template plus a matching preview. Previews are served at
+    # ViewComponent (https://viewcomponent.org): components inherit
+    # ApplicationComponent and live in a folder per component (namespaced), e.g.
+    # app/components/sidebar/sidebar_component.rb with an adjacent template.
+    # Previews render in the dark component_preview layout and are served at
     # /rails/view_components in development and test.
-    config.view_component.generate.sidecar = true
+    config.view_component.component_parent_class = "ApplicationComponent"
+    config.view_component.generate.sidecar = false
     config.view_component.generate.preview = true
+    config.view_component.previews.default_layout = "component_preview"
 
     # Configuration for the application, engines, and railties goes here.
     #

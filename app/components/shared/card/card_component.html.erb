@@ -1,0 +1,7 @@
+<% if card_tag == :a %>
+  <%= tag.a content, class: classes, href: href %>
+<% elsif card_tag == :button %>
+  <%= tag.button content, class: classes, type: "button" %>
+<% else %>
+  <%= tag.div content, class: classes %>
+<% end %>

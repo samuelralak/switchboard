@@ -1,0 +1,44 @@
+<% content_for :title, "Switchboard" %>
+
+<header class="mb-8">
+  <p class="mb-2.5 font-mono text-xs uppercase tracking-widest text-copper">shell ready</p>
+  <h1 class="text-hero font-semibold leading-tight tracking-tight text-ink">Switchboard is wired up.</h1>
+  <p class="mt-3 max-w-2xl leading-relaxed text-ink-muted">
+    The layout, design tokens, fonts, Hugeicons, and Tailwind Plus Elements are live. The catalog,
+    requests, and provider studio will render in this region.
+  </p>
+</header>
+
+<div class="mb-8">
+  <%= render Shared::Alert::AlertComponent.new(tone: :info, title: "Every transaction is escrowed.") do %>
+    Funds lock at request and release only on delivery, with an automatic refund if the work never
+    arrives. The platform guarantees it on every job, not the provider.
+  <% end %>
+</div>
+
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <div class="rounded-2xl border border-border bg-surface p-5">
+    <p class="mb-3 font-mono text-xs uppercase tracking-wider text-ink-muted">status lamps</p>
+    <ul class="flex flex-col gap-2.5 font-mono text-xs text-ink-muted">
+      <li class="flex items-center gap-2.5"><span class="size-1.5 rounded-full bg-lamp-live"></span>live · awaiting</li>
+      <li class="flex items-center gap-2.5"><span class="size-1.5 rounded-full bg-lamp-settled"></span>settled · completed</li>
+      <li class="flex items-center gap-2.5"><span class="size-1.5 rounded-full bg-lamp-fault"></span>fault · refunded</li>
+    </ul>
+  </div>
+
+  <div class="rounded-2xl border border-border bg-surface p-5">
+    <p class="mb-3 font-mono text-xs uppercase tracking-wider text-ink-muted">price</p>
+    <span class="font-mono text-2xl font-medium tabular-nums text-copper">5,000<span class="text-sm font-normal text-ink-faint"> sat</span></span>
+    <p class="mt-1.5 text-xs text-ink-muted">copper accent in JetBrains Mono</p>
+  </div>
+
+  <div class="rounded-2xl border border-border bg-surface p-5">
+    <p class="mb-3 font-mono text-xs uppercase tracking-wider text-ink-muted">ink hierarchy</p>
+    <div class="flex flex-col gap-1 text-sm">
+      <span class="text-ink">primary ink</span>
+      <span class="text-ink-secondary">secondary</span>
+      <span class="text-ink-muted">muted</span>
+      <span class="text-ink-faint">faint</span>
+    </div>
+  </div>
+</div>

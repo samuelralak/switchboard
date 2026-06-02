@@ -54,3 +54,13 @@ Metrics/BlockLength:
     - "config/initializers/**/*"
     - "config/environments/*"
     - "config/routes.rb"
+
+# ViewComponent components define their own initializer without calling super
+# (ViewComponent::Base needs no initialization arguments); that is the framework's
+# documented pattern, so the missing-super warning is a false positive here.
+Lint/MissingSuper:
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - "app/components/**/*"

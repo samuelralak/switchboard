@@ -1,0 +1,8 @@
+<div class="rounded-2xl border border-border bg-surface p-8 text-center">
+  <i class="hgi-stroke hgi-<%= icon %> text-3xl text-ink-faint" aria-hidden="true"></i>
+  <p class="text-ink mt-4 mb-1.5"><%= title %></p>
+  <p class="text-ink-muted text-sm leading-relaxed mb-5 max-w-sm mx-auto"><%= body %></p>
+  <% if content? %>
+    <div class="flex gap-2.5 justify-center flex-wrap"><%= content %></div>
+  <% end %>
+</div>

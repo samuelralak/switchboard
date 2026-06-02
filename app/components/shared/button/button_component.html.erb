@@ -1,0 +1,3 @@
+<%= content_tag(link? ? :a : :button, class: classes, **html_attributes) do %>
+  <% if leading_icon.present? %><i class="hgi-stroke hgi-<%= leading_icon %>" aria-hidden="true"></i><% end %><%= content %><% if trailing_icon.present? %><i class="hgi-stroke hgi-<%= trailing_icon %>" aria-hidden="true"></i><% end %>
+<% end %>

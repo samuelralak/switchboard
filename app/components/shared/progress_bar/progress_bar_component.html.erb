@@ -1,0 +1,8 @@
+<div class="flex items-center gap-2.5">
+  <div class="h-1 flex-1 rounded-full bg-inset overflow-hidden">
+    <div class="h-full rounded-full bg-copper" style="width: <%= pct %>%"></div>
+  </div>
+  <% if show_value? %>
+    <span class="font-mono text-xs text-ink-secondary tabular-nums"><%= readout %></span>
+  <% end %>
+</div>

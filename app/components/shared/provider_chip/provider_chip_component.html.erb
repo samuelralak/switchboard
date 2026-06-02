@@ -1,0 +1,6 @@
+<span class="inline-flex items-center gap-2 min-w-0">
+  <span class="rounded overflow-hidden ring-1 ring-border shrink-0">
+    <%= render Shared::Avatar::AvatarComponent.new(seed: npub, size: size, ring: false) %>
+  </span>
+  <span class="font-mono text-xs text-ink-muted truncate"><%= name %> · <%= short_npub %>…</span>
+</span>

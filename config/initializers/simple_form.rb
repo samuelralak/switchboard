@@ -1,31 +1,35 @@
 # frozen_string_literal: true
 
-# Simple Form configured for Tailwind CSS v4.
-#
-# These wrappers style inputs with explicit utility classes (no @tailwindcss/forms
-# plugin), which keeps the asset build Node-free. Checkboxes/radios use accent-*
-# so they tint correctly without the forms plugin. For richer controls (custom
-# selects, comboboxes, dialogs) reach for Tailwind Plus Elements in the markup.
+# Simple Form skinned to the Switchboard prototype (dark canvas, copper accent,
+# JetBrains Mono labels). Text inputs, textareas, and selects share one field
+# style; numeric/URL fields add font-mono; the invalid state forces a
+# lamp-fault border, all matching the prototype. No @tailwindcss/forms plugin,
+# so the asset build stays Node-free.
 
-# Let Simple Form own error styling via :error_class. Without this, Rails wraps
-# every invalid field in <div class="field_with_errors">, which breaks layouts.
+# Let Simple Form own error styling via :error_class instead of Rails' default
+# field_with_errors wrapper, which injects a div that breaks the layout.
 ActionView::Base.field_error_proc = proc { |html_tag, _instance| html_tag }
 
 SimpleForm.setup do |config|
-  # Shared utility class strings, defined once and reused across wrappers.
-  label_class = "block text-sm font-medium text-gray-900"
-  input_class = "mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 " \
-                "text-sm text-gray-900 placeholder:text-gray-400 shadow-xs " \
-                "focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 " \
-                "disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500"
-  input_error_class = "border-red-400 text-red-900 placeholder:text-red-300 " \
-                      "focus:border-red-500 focus:ring-red-500"
-  input_valid_class = "border-green-500"
-  hint_class  = "mt-1 text-sm text-gray-500"
-  error_class = "mt-1 text-sm text-red-600"
+  focus = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright " \
+          "focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
 
-  # Default wrapper: text-like inputs (string, email, password, number, text, select, ...).
-  config.wrappers :tailwind, class: "mb-5" do |b|
+  # The prototype's INPUT constant: text inputs, textareas, and selects share it.
+  field = "w-full rounded-lg border border-border bg-inset px-3.5 py-2.5 text-sm text-ink " \
+          "placeholder:text-ink-faint transition-colors hover:border-border-strong #{focus}"
+  field_mono = "#{field} font-mono" # numeric / URL / identifier fields
+
+  # Field label: mono + uppercase, with the required/optional marker pushed to
+  # the right (the marker text/colour comes from config.label_text below).
+  label_class = "flex items-baseline justify-between gap-2 font-mono text-xs uppercase " \
+                "tracking-wider text-ink-muted mb-2"
+
+  error_input = "!border-lamp-fault"
+  error_text  = "mt-1.5 font-mono text-xs text-lamp-fault"
+  hint_text   = "mt-1.5 font-mono text-xs text-ink-faint"
+
+  # Default wrapper: string / email / password / text / select.
+  config.wrappers :switchboard, class: "mb-5" do |b|
     b.use :html5
     b.use :placeholder
     b.optional :maxlength
@@ -35,61 +39,90 @@ SimpleForm.setup do |config|
     b.optional :readonly
 
     b.use :label, class: label_class
-    b.use :input, class: input_class, error_class: input_error_class, valid_class: input_valid_class
-    b.use :error, wrap_with: { tag: :p, class: error_class }
-    b.use :hint,  wrap_with: { tag: :p, class: hint_class }
+    b.use :input, class: field, error_class: error_input
+    b.use :error, wrap_with: { tag: :p, class: error_text }
+    b.use :hint,  wrap_with: { tag: :p, class: hint_text }
   end
 
-  # Checkboxes and single boolean inputs: checkbox beside its label.
-  config.wrappers :tailwind_boolean, class: "mb-5" do |b|
+  # Numeric and URL fields: identical, plus font-mono (machine values).
+  config.wrappers :switchboard_mono, class: "mb-5" do |b|
+    b.use :html5
+    b.use :placeholder
+    b.optional :maxlength
+    b.optional :minlength
+    b.optional :pattern
+    b.optional :min_max
+    b.optional :readonly
+
+    b.use :label, class: label_class
+    b.use :input, class: field_mono, error_class: error_input
+    b.use :error, wrap_with: { tag: :p, class: error_text }
+    b.use :hint,  wrap_with: { tag: :p, class: hint_text }
+  end
+
+  # Checkbox / boolean: copper-accented control beside an inline label.
+  config.wrappers :switchboard_boolean, class: "mb-5" do |b|
     b.use :html5
     b.optional :readonly
 
-    b.wrapper :boolean_row, tag: "div", class: "flex items-center gap-x-2" do |ba|
-      ba.use :input, class: "h-4 w-4 rounded border-gray-300 accent-indigo-600 focus:ring-indigo-500",
-                     error_class: "border-red-400"
-      ba.use :label, class: label_class
+    b.wrapper :boolean_row, tag: "div", class: "flex items-center gap-x-2.5" do |ba|
+      ba.use :input, class: "size-4 accent-copper #{focus}", error_class: error_input
+      ba.use :label, class: "text-sm text-ink-secondary"
     end
-    b.use :error, wrap_with: { tag: :p, class: error_class }
-    b.use :hint,  wrap_with: { tag: :p, class: hint_class }
+    b.use :error, wrap_with: { tag: :p, class: error_text }
+    b.use :hint,  wrap_with: { tag: :p, class: hint_text }
   end
 
-  # File inputs: styled upload button via the file: modifier.
-  config.wrappers :tailwind_file, class: "mb-5" do |b|
+  # File input: the prototype has none, so this extrapolates the system with a
+  # copper upload button on the shared field shell.
+  config.wrappers :switchboard_file, class: "mb-5" do |b|
     b.use :html5
     b.use :label, class: label_class
     b.use :input,
-          class: "mt-1 block w-full text-sm text-gray-700 file:mr-4 file:rounded-md file:border-0 " \
-                 "file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold " \
-                 "file:text-indigo-700 hover:file:bg-indigo-100",
-          error_class: "text-red-700"
-    b.use :error, wrap_with: { tag: :p, class: error_class }
-    b.use :hint,  wrap_with: { tag: :p, class: hint_class }
+          class: "w-full text-sm text-ink-muted file:mr-4 file:rounded-md file:border-0 " \
+                 "file:bg-copper/10 file:px-4 file:py-2 file:text-sm file:font-medium " \
+                 "file:text-copper hover:file:bg-copper/20 #{focus}",
+          error_class: error_input
+    b.use :error, wrap_with: { tag: :p, class: error_text }
+    b.use :hint,  wrap_with: { tag: :p, class: hint_text }
   end
 
-  config.default_wrapper = :tailwind
+  config.default_wrapper = :switchboard
   config.wrapper_mappings = {
-    boolean: :tailwind_boolean,
-    file: :tailwind_file
+    boolean: :switchboard_boolean,
+    file: :switchboard_file,
+    integer: :switchboard_mono,
+    decimal: :switchboard_mono,
+    float: :switchboard_mono,
+    url: :switchboard_mono
   }
 
-  # inline => checkbox + label as siblings (matches the :tailwind_boolean flex row).
+  # inline => checkbox + label as siblings (matches the boolean_row above).
   config.boolean_style = :inline
   config.boolean_label_class = nil
 
-  # Submit/action buttons.
-  config.button_class = "inline-flex justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm " \
-                        "font-semibold text-white shadow-xs hover:bg-indigo-500 focus:outline-none " \
-                        "focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 " \
-                        "disabled:cursor-not-allowed disabled:opacity-50"
+  # Right-aligned "required" / "optional" marker (copper / faint, normal-case),
+  # matching the prototype. Pairs with the flex label_class above.
+  config.label_text = lambda do |label, required, _explicit_label|
+    helpers = ActionController::Base.helpers
+    tone = required.present? ? "text-copper" : "text-ink-faint"
+    marker = helpers.content_tag(:span, required.present? ? "required" : "optional",
+                                 class: "#{tone} normal-case tracking-normal")
+    helpers.safe_join([ label, marker ])
+  end
 
-  # error_notification helper (form-level error banner).
+  # Primary action button = the prototype's BTN_PRIMARY.
+  config.button_class = "inline-flex items-center justify-center gap-2 rounded-lg font-medium " \
+                        "transition-colors #{focus} disabled:opacity-40 disabled:pointer-events-none " \
+                        "h-10 px-4 bg-copper text-canvas hover:bg-copper-bright active:translate-y-px"
+
+  # Form-level error banner = the prototype's error banner (without the icon).
   config.error_notification_tag = :div
-  config.error_notification_class = "mb-4 rounded-md bg-red-50 p-4 text-sm font-medium text-red-700"
+  config.error_notification_class = "rounded-xl border border-lamp-fault/40 bg-lamp-fault/5 " \
+                                    "px-3.5 py-2.5 mb-4 text-sm text-ink-secondary"
 
-  # Error/valid classes for the bare f.input_field helper.
-  config.input_field_error_class = input_error_class
-  config.input_field_valid_class = input_valid_class
+  # Error class for the bare f.input_field helper.
+  config.input_field_error_class = error_input
 
   # Rely on server-side validations rather than native browser popups.
   config.browser_validations = false

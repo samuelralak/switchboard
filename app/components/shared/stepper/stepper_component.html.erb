@@ -1,0 +1,12 @@
+<div class="flex items-center gap-x-2.5 gap-y-2 flex-wrap">
+  <% steps.each_with_index do |label, idx| %>
+    <% i = idx + 1 %>
+    <span class="inline-flex items-center gap-2">
+      <span class="grid place-items-center h-5 w-5 rounded-full font-mono text-xs <%= circle_class(i) %>"><%= mark_for(i) %></span>
+      <span class="font-mono text-xs <%= label_class(i) %>"><%= label %></span>
+    </span>
+    <% unless last_step?(i) %>
+      <span class="h-px w-5 <%= connector_class(i) %>"></span>
+    <% end %>
+  <% end %>
+</div>

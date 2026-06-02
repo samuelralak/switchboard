@@ -1,0 +1,5 @@
+<div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+  <% segments.each do |segment| %>
+    <%= link_to segment[:label], segment[:href], class: segment_class(segment), aria: aria_attrs(segment) %>
+  <% end %>
+</div>

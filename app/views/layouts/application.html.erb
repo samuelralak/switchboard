@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="h-full bg-canvas">
   <head>
     <title><%= content_for(:title) || "Switchboard" %></title>
     <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -18,14 +18,92 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
+    <%# Hanken Grotesk (display) + JetBrains Mono, and Hugeicons, per the design system %>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css">
+
     <%# Includes all stylesheet files in app/assets/stylesheets %>
     <%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <main class="container mx-auto mt-28 px-5 flex">
-      <%= yield %>
-    </main>
+  <body class="h-full bg-canvas text-ink font-display antialiased selection:bg-copper/20">
+    <%# Mobile sidebar: a slide-over dialog toggled by the top-bar menu button (Tailwind Plus Elements). %>
+    <el-dialog>
+      <dialog id="mobile-sidebar" class="backdrop:bg-transparent lg:hidden">
+        <el-dialog-backdrop class="fixed inset-0 bg-canvas/80 backdrop-blur-sm transition-opacity duration-300 ease-linear data-closed:opacity-0"></el-dialog-backdrop>
+
+        <div tabindex="0" class="fixed inset-0 flex focus:outline-none">
+          <el-dialog-panel class="group/dialog-panel relative mr-16 flex w-full max-w-xs flex-1 transform transition duration-300 ease-in-out data-closed:-translate-x-full">
+            <div class="absolute top-0 left-full flex w-16 justify-center pt-5 duration-300 ease-in-out group-data-closed/dialog-panel:opacity-0">
+              <button type="button" command="close" commandfor="mobile-sidebar" class="-m-2.5 p-2.5">
+                <span class="sr-only">Close sidebar</span>
+                <i class="hgi-stroke hgi-cancel-01 text-xl text-ink" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="relative flex grow flex-col gap-y-5 overflow-y-auto border-r border-border bg-canvas px-6 pb-4">
+              <%= render Layout::Sidebar::SidebarComponent.new %>
+            </div>
+          </el-dialog-panel>
+        </div>
+      </dialog>
+    </el-dialog>
+
+    <%# Static sidebar for desktop. %>
+    <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
+      <div class="flex grow flex-col gap-y-5 overflow-y-auto border-r border-border bg-canvas px-6 pb-4">
+        <%= render Layout::Sidebar::SidebarComponent.new %>
+      </div>
+    </div>
+
+    <div class="lg:pl-72">
+      <div class="sticky top-0 z-40 lg:mx-auto lg:max-w-7xl lg:px-8">
+        <div class="flex h-16 items-center gap-x-4 border-b border-border bg-canvas/85 px-4 backdrop-blur sm:gap-x-6 sm:px-6 lg:px-0">
+          <button type="button" command="show-modal" commandfor="mobile-sidebar" class="-m-2.5 p-2.5 text-ink-muted hover:text-ink lg:hidden">
+            <span class="sr-only">Open sidebar</span>
+            <i class="hgi-stroke hgi-menu-01 text-xl" aria-hidden="true"></i>
+          </button>
+
+          <%# Separator %>
+          <div aria-hidden="true" class="h-6 w-px bg-border lg:hidden"></div>
+
+          <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
+            <form action="#" method="get" class="grid flex-1 grid-cols-1">
+              <input type="search" name="q" placeholder="Search the catalog" aria-label="Search" class="col-start-1 row-start-1 block size-full bg-transparent pl-8 text-base text-ink outline-hidden placeholder:text-ink-faint sm:text-sm/6">
+              <i class="hgi-stroke hgi-search-01 pointer-events-none col-start-1 row-start-1 size-5 self-center text-ink-faint" aria-hidden="true"></i>
+            </form>
+
+            <div class="flex items-center gap-x-4 lg:gap-x-6">
+              <button type="button" class="-m-2.5 p-2.5 text-ink-faint hover:text-ink">
+                <span class="sr-only">View notifications</span>
+                <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
+              </button>
+
+              <%# Separator %>
+              <div aria-hidden="true" class="hidden lg:block lg:h-6 lg:w-px lg:bg-border"></div>
+
+              <%# Identity / signer menu %>
+              <%= render Layout::IdentityMenu::IdentityMenuComponent.new %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <main class="py-10">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <% if flash.any? %>
+            <div class="mb-8 space-y-3">
+              <% flash.each do |type, message| %>
+                <%= render Shared::Alert::AlertComponent.for_flash(type, message) %>
+              <% end %>
+            </div>
+          <% end %>
+          <%= yield %>
+        </div>
+      </main>
+    </div>
   </body>
 </html>
