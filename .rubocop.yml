@@ -64,3 +64,10 @@ Lint/MissingSuper:
       - Exclude
   Exclude:
     - "app/components/**/*"
+
+Layout/IndentationStyle:
+  Enabled: true
+  EnforcedStyle: tabs
+
+Layout/AccessModifierIndentation:
+  Enabled: false

@@ -1,0 +1,6 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Intentionally empty. Events carry NOT NULL raw_event/tags plus hex-format check
+# constraints on event_id/pubkey/sig, so the default generated placeholders are
+# invalid and break fixture loading for the whole suite. No test relies on event
+# fixtures yet; build events in-test, or add a valid fixture here when one does.

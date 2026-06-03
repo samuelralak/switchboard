@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 source "https://rubygems.org"
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
@@ -27,6 +29,17 @@ gem "simple_form", "~> 5.4"
 # Reusable, testable, encapsulated view components [https://viewcomponent.org]
 gem "view_component", "~> 4.11"
 
+# --- Nostr connectivity (server-side relay client) ---
+gem "nostr", "~> 0.7"            # NIP-01 events, BIP-340 Schnorr verification, bech32 (NIP-19)
+gem "faye-websocket", "~> 0.12"  # WebSocket client for outbound relay connections
+gem "eventmachine", "~> 1.2"     # reactor powering the persistent relay connections
+
+# --- Service layer (dry-rb: typed initializers, validation, types, configuration) ---
+gem "dry-initializer", "~> 3.2"
+gem "dry-validation", "~> 1.11"
+gem "dry-types", "~> 1.8"
+gem "dry-configurable", "~> 1.4"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 
@@ -51,26 +64,26 @@ gem "thruster", require: false
 gem "image_processing", "~> 1.2"
 
 group :development, :test do
-  # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
-  gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
+	# See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
+	gem "debug", platforms: %i[ mri windows ], require: "debug/prelude"
 
-  # Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
-  gem "bundler-audit", require: false
+	# Audits gems for known security defects (use config/bundler-audit.yml to ignore issues)
+	gem "bundler-audit", require: false
 
-  # Static analysis for security vulnerabilities [https://brakemanscanner.org/]
-  gem "brakeman", require: false
+	# Static analysis for security vulnerabilities [https://brakemanscanner.org/]
+	gem "brakeman", require: false
 
-  # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
-  gem "rubocop-rails-omakase", require: false
+	# Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
+	gem "rubocop-rails-omakase", require: false
 end
 
 group :development do
-  # Use console on exceptions pages [https://github.com/rails/web-console]
-  gem "web-console"
+	# Use console on exceptions pages [https://github.com/rails/web-console]
+	gem "web-console"
 end
 
 group :test do
-  # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
-  gem "capybara"
-  gem "selenium-webdriver"
+	# Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
+	gem "capybara"
+	gem "selenium-webdriver"
 end

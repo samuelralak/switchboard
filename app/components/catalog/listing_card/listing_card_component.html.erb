@@ -1,0 +1,23 @@
+<article id="<%= dom_id %>"
+         data-catalog-target="card"
+         data-search="<%= search_text %>"
+         data-mode="<%= filter_mode %>"
+         class="group flex h-full flex-col gap-3.5 rounded-2xl border border-border bg-surface p-5 transition-colors hover:border-border-strong hover:bg-surface-2">
+  <div class="flex items-start justify-between gap-3">
+    <h3 class="font-display font-medium leading-snug tracking-tight transition-colors group-hover:text-copper"><%= title %></h3>
+    <% if price? %>
+      <%= render Shared::PriceTag::PriceTagComponent.new(amount: price_amount, suffix: price_currency) %>
+    <% end %>
+  </div>
+
+  <% if fulfillment.present? %>
+    <div><%= render Shared::Chip::ChipComponent.new(tone: fulfillment_tone, label: fulfillment_label) %></div>
+  <% end %>
+
+  <p class="line-clamp-2 flex-1 text-sm leading-relaxed text-ink-muted"><%= blurb %></p>
+
+  <div class="flex items-center justify-between gap-3 border-t border-border pt-3.5">
+    <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: provider_npub, size: 18) %>
+    <span class="shrink-0 font-mono text-xs text-ink-faint"><%= status %></span>
+  </div>
+</article>

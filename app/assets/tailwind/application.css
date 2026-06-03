@@ -29,10 +29,11 @@
   --color-border: oklch(0.86 0.01 250 / 0.09);
   --color-border-strong: oklch(0.86 0.01 250 / 0.17);
 
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --text-hero: clamp(1.9rem, 1.2rem + 3vw, 3rem);
+  --text-hero: clamp(1.75rem, 1.1rem + 2.5vw, 2.75rem);
 
   --shadow-panel: 0 24px 60px -28px oklch(0 0 0 / 0.75);
   --shadow-lamp: 0 0 0 4px oklch(0.84 0.13 82 / 0.12);

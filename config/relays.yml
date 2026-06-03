@@ -1,0 +1,17 @@
+# Bootstrap (seed) relays for the server-side NostrClient: the set it connects to
+# at startup, per environment. A signed-in user's own relays (NIP-65) are added
+# on top of these at runtime, so this is only the seed, not the full relay list.
+default: &default
+  urls:
+    - wss://relay.damus.io
+    - wss://relay.nostr.band
+    - wss://nos.lol
+
+development:
+  <<: *default
+
+test:
+  <<: *default
+
+production:
+  <<: *default

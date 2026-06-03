@@ -1,0 +1,54 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+module Catalog
+	class SearchTest < ActiveSupport::TestCase
+		test "returns recent active classified listings, newest first" do
+			older = build_event(title: "Logo design", d: "logo", created_at: 2.hours.ago)
+			newer = build_event(title: "Tax filing", d: "tax", created_at: 1.hour.ago)
+
+			results = Catalog::Search.call
+
+			assert results.all?(Catalog::Listing)
+			assert_equal [ newer.event_id, older.event_id ], results.map { |listing| listing.event.event_id }
+		end
+
+		test "narrows to listings matching the free-text query" do
+			build_event(title: "Logo design", d: "logo")
+			build_event(title: "Tax filing", d: "tax")
+
+			assert_equal [ "Logo design" ], Catalog::Search.call(query: "logo").map(&:title)
+		end
+
+		test "excludes non-classified and expired events" do
+			build_event(title: "Live service", d: "live")
+			build_event(title: "Expired service", d: "exp", expiration: 1.hour.ago)
+			build_event(kind: 1, title: "A note")
+
+			assert_equal [ "Live service" ], Catalog::Search.call.map(&:title)
+		end
+
+		test "caps results at shown" do
+			3.times { |i| build_event(title: "Service #{i}", d: "svc-#{i}") }
+
+			assert_equal 2, Catalog::Search.call(shown: 2).size
+		end
+
+		test "matches on description and capability, not only the title" do
+			build_event(title: "Service A", content: "expert WORDPRESS migration", d: "a")
+			build_event(title: "Service B", d: "b", extra_tags: [ [ "l", "kubernetes", "x.capability" ] ])
+			build_event(title: "Service C", d: "c")
+
+			assert_equal [ "Service A" ], Catalog::Search.call(query: "wordpress").map(&:title)
+			assert_equal [ "Service B" ], Catalog::Search.call(query: "kubernetes").map(&:title)
+		end
+
+		test "matches a query that spans the title and description" do
+			build_event(title: "Wordpress Migration", content: "Service for moving your site", d: "wp")
+			build_event(title: "Other", d: "o")
+
+			assert_equal [ "Wordpress Migration" ], Catalog::Search.call(query: "migration service").map(&:title)
+		end
+	end
+end

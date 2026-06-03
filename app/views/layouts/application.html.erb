@@ -18,10 +18,10 @@
     <link rel="icon" href="/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="/icon.png">
 
-    <%# Hanken Grotesk (display) + JetBrains Mono, and Hugeicons, per the design system %>
+    <%# DM Sans (sans/body) + Hanken Grotesk (display) + JetBrains Mono, and Hugeicons, per the design system %>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css">
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
@@ -29,7 +29,7 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body class="h-full bg-canvas text-ink font-display antialiased selection:bg-copper/20">
+  <body class="h-full bg-canvas text-ink font-sans antialiased selection:bg-copper/20">
     <%# Mobile sidebar: a slide-over dialog toggled by the top-bar menu button (Tailwind Plus Elements). %>
     <el-dialog>
       <dialog id="mobile-sidebar" class="backdrop:bg-transparent lg:hidden">
@@ -70,13 +70,11 @@
           <%# Separator %>
           <div aria-hidden="true" class="h-6 w-px bg-border lg:hidden"></div>
 
-          <div class="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-            <form action="#" method="get" class="grid flex-1 grid-cols-1">
-              <input type="search" name="q" placeholder="Search the catalog" aria-label="Search" class="col-start-1 row-start-1 block size-full bg-transparent pl-8 text-base text-ink outline-hidden placeholder:text-ink-faint sm:text-sm/6">
-              <i class="hgi-stroke hgi-search-01 pointer-events-none col-start-1 row-start-1 size-5 self-center text-ink-faint" aria-hidden="true"></i>
-            </form>
+          <div class="flex flex-1 items-center gap-x-4 lg:gap-x-6">
+            <%# Wayfinding: breadcrumb trail, held visible by the sticky bar as the page scrolls. %>
+            <%= render Layout::Breadcrumb::BreadcrumbComponent.new(crumbs: [ { label: content_for(:title) } ]) %>
 
-            <div class="flex items-center gap-x-4 lg:gap-x-6">
+            <div class="ml-auto flex items-center gap-x-4 lg:gap-x-6">
               <button type="button" class="-m-2.5 p-2.5 text-ink-faint hover:text-ink">
                 <span class="sr-only">View notifications</span>
                 <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>

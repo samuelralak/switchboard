@@ -1,0 +1,21 @@
+<nav aria-label="Breadcrumb" class="flex min-w-0">
+  <ol role="list" class="flex min-w-0 items-center gap-2">
+    <li class="flex shrink-0">
+      <%= link_to home_path, class: "flex items-center rounded-md text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas" do %>
+        <%= render Shared::Icon::IconComponent.new(name: "home-01", size: :lg, extra: "shrink-0") %>
+        <span class="sr-only">Home</span>
+      <% end %>
+    </li>
+
+    <% crumbs.each_with_index do |crumb, index| %>
+      <li class="flex min-w-0 items-center gap-2">
+        <%= render Shared::Icon::IconComponent.new(name: "arrow-right-01", size: :sm, color: "text-ink-faint", extra: "shrink-0") %>
+        <% if link?(index) %>
+          <%= link_to crumb[:label], crumb[:href], class: "truncate rounded-md text-sm font-medium text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas" %>
+        <% else %>
+          <%= tag.span crumb[:label], class: "truncate text-sm font-medium text-ink", aria: { current: current?(index) ? "page" : nil } %>
+        <% end %>
+      </li>
+    <% end %>
+  </ol>
+</nav>
