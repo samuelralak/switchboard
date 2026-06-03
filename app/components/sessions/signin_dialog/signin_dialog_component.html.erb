@@ -1,0 +1,98 @@
+<el-dialog>
+  <dialog id="<%= DIALOG_ID %>" class="backdrop:bg-transparent" data-action="close->nostr-auth#clearSecrets">
+    <el-dialog-backdrop class="fixed inset-0 bg-canvas/75 backdrop-blur-sm transition-opacity duration-200 ease-out data-closed:opacity-0"></el-dialog-backdrop>
+
+    <div class="fixed inset-0 grid place-items-center p-4">
+      <el-dialog-panel class="w-full max-w-md transform overflow-hidden rounded-2xl border border-border-strong bg-surface-2 shadow-panel transition duration-200 ease-out data-closed:scale-95 data-closed:opacity-0">
+        <div class="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
+          <i class="hgi-stroke hgi-square-lock-02 text-copper" aria-hidden="true"></i>
+          <span class="font-mono text-xs uppercase tracking-widest text-ink-secondary">Sign in</span>
+          <button type="button" command="close" commandfor="<%= DIALOG_ID %>" class="-m-1.5 ml-auto p-1.5 text-ink-faint hover:text-ink">
+            <span class="sr-only">Close</span>
+            <i class="hgi-stroke hgi-cancel-01" aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <div class="p-5">
+          <%= render Shared::Alert::AlertComponent.new(tone: :note) do %>
+            Switchboard's servers only ever receive the signed event, never your private key.
+          <% end %>
+
+          <div data-controller="tabs" class="mt-4">
+            <div role="tablist" aria-label="Sign-in method" data-action="keydown->tabs#navigate" class="flex gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+              <% ["Extension", "Remote signer", "Private key"].each_with_index do |label, index| %>
+                <button type="button" role="tab" id="signin-tab-<%= index %>" aria-controls="signin-panel-<%= index %>"
+                        data-tabs-target="tab" data-action="tabs#select" aria-selected="<%= index.zero? %>" tabindex="<%= index.zero? ? 0 : -1 %>"
+                        class="h-8 flex-1 rounded-md text-sm font-medium text-ink-muted transition-colors hover:text-ink aria-selected:bg-surface-2 aria-selected:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright"><%= label %></button>
+              <% end %>
+            </div>
+
+            <%# NIP-07 browser extension: the recommended path, key stays in the signer. %>
+            <div data-tabs-target="panel" role="tabpanel" id="signin-panel-0" aria-labelledby="signin-tab-0" tabindex="0" class="pt-4">
+              <%= render Shared::Button::ButtonComponent.new(full: true, data: { action: "nostr-auth#signInWithExtension", "nostr-auth-target": "extensionButton" }) do %>
+                Browser extension
+              <% end %>
+              <p data-nostr-auth-target="extensionHint" class="mt-2 text-center text-xs text-ink-faint"></p>
+            </div>
+
+            <%# NIP-46 remote signer (bunker). %>
+            <div data-tabs-target="panel" role="tabpanel" id="signin-panel-1" aria-labelledby="signin-tab-1" tabindex="0" class="pt-4">
+              <%= helpers.simple_form_for :remote_signer, url: "#",
+                    html: { data: { turbo: false, action: "submit->nostr-auth#signInWithBunker" } } do |form| %>
+                <%= form.input :bunker_url, label: false,
+                      placeholder: "bunker://… or name@domain",
+                      input_html: { autocomplete: "off", "aria-label": "Bunker URL or name@domain",
+                                    data: { "nostr-auth-target": "bunkerUrl" } } %>
+                <%= render Shared::Button::ButtonComponent.new(variant: :ghost, full: true, type: "submit") do %>
+                  Connect remote signer
+                <% end %>
+              <% end %>
+            </div>
+
+            <%# Pasted nsec. Read once to sign in; optionally saved NIP-49-encrypted on this device. %>
+            <div data-tabs-target="panel" role="tabpanel" id="signin-panel-2" aria-labelledby="signin-tab-2" tabindex="0" class="pt-4">
+              <div data-nostr-auth-target="pasteForm">
+                <%= render Shared::Alert::AlertComponent.new(tone: :error) do %>
+                  Least private: your key is read by this browser to sign in, then discarded unless you save it below. Prefer the extension or a remote signer.
+                <% end %>
+                <%= helpers.simple_form_for :private_key, url: "#",
+                      html: { class: "mt-4", data: { turbo: false, action: "submit->nostr-auth#signInWithNsec" } } do |form| %>
+                  <%= form.input :nsec, as: :password, label: false,
+                        placeholder: "nsec1…",
+                        input_html: { autocomplete: "off", "aria-label": "Private key (nsec)",
+                                      data: { "nostr-auth-target": "nsec" } } %>
+                  <%= form.input :passphrase, as: :password, label: false,
+                        placeholder: "Passphrase to save this key on this device (optional)",
+                        input_html: { autocomplete: "off", "aria-label": "Passphrase to save this key",
+                                      data: { "nostr-auth-target": "savePassphrase" } } %>
+                  <%= render Shared::Button::ButtonComponent.new(variant: :ghost, full: true, type: "submit") do %>
+                    Sign in with key
+                  <% end %>
+                <% end %>
+              </div>
+
+              <div data-nostr-auth-target="unlockForm" hidden>
+                <%= render Shared::Alert::AlertComponent.new(tone: :note) do %>
+                  A key is saved on this device. Enter your passphrase to unlock it.
+                <% end %>
+                <%= helpers.simple_form_for :saved_key, url: "#",
+                      html: { class: "mt-4", data: { turbo: false, action: "submit->nostr-auth#unlockSavedKey" } } do |form| %>
+                  <%= form.input :passphrase, as: :password, label: false,
+                        placeholder: "Passphrase",
+                        input_html: { autocomplete: "off", "aria-label": "Passphrase",
+                                      data: { "nostr-auth-target": "unlockPassphrase" } } %>
+                  <%= render Shared::Button::ButtonComponent.new(variant: :ghost, full: true, type: "submit") do %>
+                    Unlock and sign in
+                  <% end %>
+                <% end %>
+                <button type="button" data-action="nostr-auth#forgetKey" class="mt-2 w-full text-center text-xs text-ink-faint hover:text-ink">Forget saved key</button>
+              </div>
+            </div>
+          </div>
+
+          <p data-nostr-auth-target="status" role="status" aria-live="polite" class="mt-3 min-h-5 text-center text-sm text-ink-muted"></p>
+        </div>
+      </el-dialog-panel>
+    </div>
+  </dialog>
+</el-dialog>

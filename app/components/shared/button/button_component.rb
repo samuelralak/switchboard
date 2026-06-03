@@ -28,7 +28,7 @@ module Shared
 			}.freeze
 
 			def initialize(variant: :primary, size: :md, tag: :button, href: nil, # rubocop:disable Metrics/ParameterLists
-										type: "button", disabled: false, full: false, icon: nil, trailing_icon: nil, extra: nil)
+										type: "button", disabled: false, full: false, icon: nil, trailing_icon: nil, extra: nil, data: {})
 				@variant = VARIANTS.key?(variant.to_s.to_sym) ? variant.to_s.to_sym : :primary
 				@size = SIZES.key?(size.to_s.to_sym) ? size.to_s.to_sym : :md
 				@tag = tag.to_s == "a" ? :a : :button
@@ -37,6 +37,7 @@ module Shared
 				@disabled = disabled
 				@full = full
 				@extra = extra
+				@data = data
 				@leading_icon = icon
 				@trailing_icon = trailing_icon
 			end
@@ -48,11 +49,8 @@ module Shared
 			end
 
 			def html_attributes
-				if link?
-					{ href: @href }
-				else
-					{ type: @type, disabled: @disabled }
-				end
+				base = link? ? { href: @href } : { type: @type, disabled: @disabled }
+				base.merge(data: @data)
 			end
 
 			attr_reader :leading_icon, :trailing_icon

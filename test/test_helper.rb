@@ -3,6 +3,7 @@
 ENV["RAILS_ENV"] ||= "test"
 require_relative "../config/environment"
 require "rails/test_help"
+require "nostr"
 
 module ActiveSupport
 	class TestCase
@@ -29,6 +30,27 @@ module ActiveSupport
 				nostr_created_at: created_at,
 				raw_event: { "id" => SecureRandom.hex(32) }
 			)
+		end
+
+		# Builds and BIP-340-signs a NIP-98 (kind 27235) HTTP-auth event with a fresh
+		# keypair; returns the wire hash (string keys). Shared by the auth tests.
+		def sign_nip98(tags:, created_at: Time.now.to_i, kind: Events::Kinds::HTTP_AUTH, content: "")
+			keypair = Nostr::Keygen.new.generate_key_pair
+			pubkey = keypair.public_key.to_s
+			id = ::Digest::SHA256.hexdigest(::JSON.generate([ 0, pubkey, created_at, kind, tags, content ]))
+			sig = Nostr::Crypto.new.sign_message(id, keypair.private_key).to_s
+			{
+				"id" => id, "pubkey" => pubkey, "created_at" => created_at, "kind" => kind,
+				"tags" => tags, "content" => content, "sig" => sig
+			}
+		end
+
+		# NIP-98 u/method tags, plus an optional `challenge` (session path) or `payload` hash.
+		def nip98_tags(url:, http_method: "POST", challenge: nil, payload: nil)
+			tags = [ [ "u", url ], [ "method", http_method ] ]
+			tags << [ "challenge", challenge ] if challenge
+			tags << [ "payload", payload ] if payload
+			tags
 		end
 	end
 end

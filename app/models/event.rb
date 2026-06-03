@@ -5,6 +5,9 @@
 class Event < ApplicationRecord
 	include Events::Ingestable
 
+	# The author's projected identity (joined by pubkey); nil until a kind-0 is seen.
+	belongs_to :author, class_name: "User", primary_key: :pubkey, foreign_key: :pubkey, optional: true
+
 	validates :event_id, presence: true, uniqueness: true, format: { with: Events::Kinds::HEX64 }
 	validates :pubkey, presence: true, format: { with: Events::Kinds::HEX64 }
 	validates :sig, presence: true, format: { with: Events::Kinds::HEX128 }

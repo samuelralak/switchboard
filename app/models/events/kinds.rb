@@ -34,6 +34,7 @@ module Events
 		ZAP            = 9735    # NIP-57
 		GIFT_WRAP      = 1059    # NIP-59
 		AUTH           = 22_242  # NIP-42 client authentication
+		HTTP_AUTH      = 27_235  # NIP-98 HTTP authentication (sign-in); never persisted
 		CLASSIFIED     = 30_402  # NIP-99 classified listing (the service catalog)
 		HANDLER_REC    = 31_989  # NIP-89 handler recommendation
 		HANDLER_INFO   = 31_990  # NIP-89 handler information

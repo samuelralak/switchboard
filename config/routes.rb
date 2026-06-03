@@ -11,6 +11,16 @@ Rails.application.routes.draw do
 	# get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
 	# get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
+	# Sign in with Nostr (NIP-98): challenge issues a single-use nonce; create verifies
+	# the signed event and establishes the session; destroy signs out.
+	resource :session, only: %i[create destroy]
+	post "session/challenge", to: "sessions#challenge", as: :session_challenge
+
+	# Stateless NIP-98 API auth for non-browser / nsec clients (per-request Authorization header).
+	namespace :api do
+		get "identity", to: "identity#show"
+	end
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

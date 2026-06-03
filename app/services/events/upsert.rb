@@ -20,6 +20,7 @@ module Events
 
 				txn.after_commit do
 					Catalog::Ui::Update.call(event:) if event.kind == Kinds::CLASSIFIED
+					Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
 				end
 
 				event

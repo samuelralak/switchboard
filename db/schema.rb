@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_03_102606) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_03_142223) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -43,4 +43,54 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_03_102606) do
     t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "events_pubkey_hex"
     t.check_constraint "sig::text ~ '^[a-f0-9]{128}$'::text", name: "events_sig_hex"
   end
+
+  create_table "login_challenges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "consumed_at"
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "nonce", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_login_challenges_on_expires_at"
+    t.index ["nonce"], name: "index_login_challenges_on_nonce", unique: true
+  end
+
+  create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "ip_address"
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id", null: false
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.text "about"
+    t.text "banner"
+    t.boolean "bot", default: false, null: false
+    t.datetime "created_at", null: false
+    t.string "display_name"
+    t.jsonb "external_identities", default: [], null: false
+    t.datetime "first_seen_at"
+    t.boolean "flagged", default: false, null: false
+    t.string "lud06"
+    t.string "lud16"
+    t.string "metadata_event_id", limit: 64
+    t.string "name"
+    t.string "nip05"
+    t.boolean "nip05_verified", default: false, null: false
+    t.datetime "nip05_verified_at"
+    t.datetime "nostr_created_at"
+    t.text "picture"
+    t.string "pubkey", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.text "website"
+    t.index ["name"], name: "index_users_on_name"
+    t.index ["nip05"], name: "index_users_on_nip05"
+    t.index ["nostr_created_at"], name: "index_users_on_nostr_created_at"
+    t.index ["pubkey"], name: "index_users_on_pubkey", unique: true
+    t.check_constraint "metadata_event_id IS NULL OR metadata_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "users_metadata_event_id_hex"
+    t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "users_pubkey_hex"
+  end
+
+  add_foreign_key "sessions", "users"
 end

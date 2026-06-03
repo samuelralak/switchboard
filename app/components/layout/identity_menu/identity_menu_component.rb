@@ -2,28 +2,25 @@
 
 module Layout
 	module IdentityMenu
-		# Top-bar identity menu showing the connected npub and signer status with a
-		# dropdown of account actions.
+		# Top-bar identity menu: a "Sign in" button when signed out, or the connected npub
+		# with a dropdown of account actions when signed in.
 		class IdentityMenuComponent < ApplicationComponent
-			def initialize(npub: "npub1you000000000000000000000000000000000000000000k4m2", signer: "key in signer")
-				@npub = npub
-				@signer = signer
+			def initialize(user: nil)
+				@user = user
 			end
 
-			attr_reader :signer
+			def signed_in? = @user.present?
 
-			# Returns the npub truncated to a prefix/suffix for display.
+			# The connected npub, truncated to a prefix and suffix for display.
 			def display_npub
-				return @npub if @npub.length <= 14
-
-				"#{@npub[0, 8]}…#{@npub[-4..]}"
+				npub = @user.npub
+				npub.length <= 14 ? npub : "#{npub[0, 8]}…#{npub[-4..]}"
 			end
 
 			def menu_items
 				[
-					{ label: "Your profile",      href: "#" },
-					{ label: "Your listings",     href: "#" },
-					{ label: "Disconnect signer", href: "#", separated: true }
+					{ label: "Your profile",  href: "#" },
+					{ label: "Your listings", href: "#" }
 				]
 			end
 		end

@@ -3,13 +3,12 @@
 module Layout
 	module IdentityMenu
 		class IdentityMenuComponentPreview < ViewComponent::Preview
-			def default
-				render(Layout::IdentityMenu::IdentityMenuComponent.new)
+			def signed_out
+				render(IdentityMenuComponent.new(user: nil))
 			end
 
-			def remote_signer
-				render(Layout::IdentityMenu::IdentityMenuComponent.new(npub: "npub1apollo7x9q00000abcd",
-																																																										signer: "nip-46 remote"))
+			def signed_in
+				render(IdentityMenuComponent.new(user: User.new(pubkey: "a" * 64)))
 			end
 		end
 	end

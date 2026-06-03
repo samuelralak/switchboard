@@ -104,8 +104,12 @@ module Events
 	# test transaction.
 	class UpsertBroadcastTest < ActiveSupport::TestCase
 		self.use_transactional_tests = false
+		include ActiveJob::TestHelper
 
-		teardown { Event.delete_all }
+		teardown do
+			Event.delete_all
+			User.delete_all
+		end
 
 		test "broadcasts a classified listing once after the row commits" do
 			ids = recording_broadcasts { Events::Upsert.call(event_data: stored(kind: Events::Kinds::CLASSIFIED)) }
@@ -124,6 +128,44 @@ module Events
 
 			assert_raises(RuntimeError) { raising_broadcast { Events::Upsert.call(event_data: event) } }
 			assert_equal 1, Event.where(event_id: event["id"]).count
+		end
+
+		test "enqueues a projection that fills the user for a stored kind-0 metadata event" do
+			pubkey = SecureRandom.hex(32)
+			event = stored(kind: Events::Kinds::METADATA, pubkey:)
+			event["content"] = { "name" => "alice" }.to_json
+
+			perform_enqueued_jobs { Events::Upsert.call(event_data: event) }
+
+			user = User.find_by(pubkey:)
+			assert_not_nil user
+			assert_equal "alice", user.name
+			assert_equal event["id"], user.metadata_event_id
+		end
+
+		test "does not enqueue a projection for a non-metadata event" do
+			pubkey = SecureRandom.hex(32)
+
+			assert_no_enqueued_jobs(only: Users::ProjectJob) do
+				recording_broadcasts { Events::Upsert.call(event_data: stored(kind: Events::Kinds::CLASSIFIED, pubkey:)) }
+			end
+			assert_nil User.find_by(pubkey:)
+		end
+
+		test "an older kind-0 arriving second does not re-project over the newer one" do
+			pubkey = SecureRandom.hex(32)
+			newer = stored(kind: Events::Kinds::METADATA, pubkey:, created_at: 200)
+			newer["content"] = { "name" => "newer" }.to_json
+			older = stored(kind: Events::Kinds::METADATA, pubkey:, created_at: 100)
+			older["content"] = { "name" => "older" }.to_json
+
+			perform_enqueued_jobs { Events::Upsert.call(event_data: newer) }
+			# The older event does not supersede, so Events::Upsert rolls back before the
+			# after_commit hook: no projection job is enqueued and the projection is unchanged.
+			assert_no_enqueued_jobs(only: Users::ProjectJob) { Events::Upsert.call(event_data: older) }
+
+			assert_equal "newer", User.find_by(pubkey:).name
+			assert_equal 1, Event.of_kind(Events::Kinds::METADATA).where(pubkey:).count
 		end
 
 		private

@@ -21,7 +21,7 @@
     <%# DM Sans (sans/body) + Hanken Grotesk (display) + JetBrains Mono, and Hugeicons, per the design system %>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css">
 
     <%# Includes all stylesheet files in app/assets/stylesheets %>
@@ -84,7 +84,7 @@
               <div aria-hidden="true" class="hidden lg:block lg:h-6 lg:w-px lg:bg-border"></div>
 
               <%# Identity / signer menu %>
-              <%= render Layout::IdentityMenu::IdentityMenuComponent.new %>
+              <%= render Layout::IdentityMenu::IdentityMenuComponent.new(user: current_user) %>
             </div>
           </div>
         </div>
