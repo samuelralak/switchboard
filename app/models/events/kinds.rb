@@ -33,6 +33,8 @@ module Events
 		ZAP_REQUEST    = 9734    # NIP-57
 		ZAP            = 9735    # NIP-57
 		GIFT_WRAP      = 1059    # NIP-59
+		RELAY_LIST     = 10_002  # NIP-65 relay list (replaceable)
+		RELAY_LIST_DM  = 10_050  # NIP-17 DM inbox relay list (replaceable)
 		AUTH           = 22_242  # NIP-42 client authentication
 		HTTP_AUTH      = 27_235  # NIP-98 HTTP authentication (sign-in); never persisted
 		CLASSIFIED     = 30_402  # NIP-99 classified listing (the service catalog)
