@@ -13,9 +13,6 @@ module NostrClient
 	class Error < StandardError
 	end
 
-	class ConnectionError < Error
-	end
-
 	class << self
 		def configuration = Configuration.config
 

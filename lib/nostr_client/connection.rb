@@ -1,15 +1,18 @@
 # frozen_string_literal: true
 
 require "dry-initializer"
+require "eventmachine"
 require "faye/websocket"
 require "json"
 
 module NostrClient
-	# A single WebSocket connection to one relay: manages socket lifecycle,
-	# linear-backoff reconnection, and subscriptions. Inbound frames are forwarded
-	# to the `on_message` callable for NIP-01 dispatch.
+	# A single WebSocket connection to one relay: manages socket lifecycle, linear-backoff
+	# reconnection, and subscriptions. Inbound frames are forwarded to the `on_message` callable
+	# for NIP-01 dispatch. Publishing (OK correlation) and NIP-42 AUTH are mixed in.
 	class Connection
 		extend Dry::Initializer
+		include Publishing
+		include Authentication
 
 		option :url, type: Types::RelayUrl
 		option :on_message, type: Types::Callable, reader: :private
@@ -40,9 +43,11 @@ module NostrClient
 			send_frame(Messages::Outbound::REQ, subscription_id, *filters) if connected?
 		end
 
-		# Removes a tracked subscription without sending CLOSE.
+		# Removes a tracked subscription and tells the relay to stop it (NIP-01 CLOSE); send_frame
+		# no-ops when disconnected, so a relay that already dropped the sub is not contacted.
 		def drop_subscription(subscription_id)
 			subscriptions.delete(subscription_id)
+			send_frame(Messages::Outbound::CLOSE, subscription_id)
 		end
 
 		private
@@ -77,11 +82,13 @@ module NostrClient
 			logger.error("[NostrClient] dropped frame from #{url}: #{e.class}: #{e.message}")
 		end
 
-		# Reconnect unless we are stopping or the close was deliberate, so a relay that
-		# was unreachable at boot is retried too, not only one that dropped after opening.
+		# Reconnect unless we are stopping or the close was deliberate, so a relay that was
+		# unreachable at boot is retried too, not only one that dropped after opening.
 		def on_close(event)
 			reconnecting = !@stopping && state != :closing
 			transition_to(:disconnected)
+			fail_all("disconnected")
+			reset_auth
 			logger.info("[NostrClient] disconnected #{url} code=#{event.code}")
 			schedule_reconnect if reconnecting
 		end
@@ -99,10 +106,9 @@ module NostrClient
 
 			delay = config.reconnect_delay_seconds * @reconnect_attempts
 			logger.info("[NostrClient] reconnecting #{url} in #{delay}s (attempt #{@reconnect_attempts})")
-			Thread.new do
-				sleep delay
-				connect if state == :disconnected && !@stopping
-			end
+			# Reactor-bound timer (we are on the reactor thread in on_close): no per-close thread churn,
+			# and it dies with the reactor on shutdown rather than sleeping past it.
+			EM.add_timer(delay) { connect unless @stopping }
 		end
 
 		def send_frame(*frame)

@@ -17,9 +17,6 @@ module NostrClient
 		# Connection lifecycle states (NIP-01 client).
 		ConnectionState = Strict::Symbol.enum(:disconnected, :connecting, :connected, :closing)
 
-		# A NIP-01 subscription identifier.
-		SubscriptionId = Strict::String
-
 		# Anything that responds to #call (a proc or a Method).
 		Callable = Interface(:call)
 	end

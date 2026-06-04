@@ -7,7 +7,12 @@
 # development; the Types::Relays constructor rejects a malformed URL here.
 Rails.application.config.to_prepare do
 	NostrClient.configure do |config|
-		config.relays = Rails.application.config_for(:relays).urls
+		relays = Rails.application.config_for(:relays)
+		config.relays = relays.urls
+		config.dm_relays = relays.dm_relays || []
+		# Answer NIP-42 AUTH with the R_op key, but only once it is provisioned in credentials
+		# (so boot and the catalog ingest work fine before the operational key exists).
+		config.auth_signer = Operational::Signer.new if Operational::Signer.configured?
 	end
 rescue StandardError => e
 	Rails.logger.warn("[NostrClient] relay configuration skipped: #{e.class}: #{e.message}")
