@@ -38,3 +38,53 @@
   --shadow-panel: 0 24px 60px -28px oklch(0 0 0 / 0.75);
   --shadow-lamp: 0 0 0 4px oklch(0.84 0.13 82 / 0.12);
 }
+
+/*
+  Rendered NIP-99 listing content (Markdown to safe HTML, see MarkdownHelper).
+  A scoped, theme-aware prose style: the standalone Tailwind CLI ships without
+  @tailwindcss/typography, and the copper/ink palette wants its own treatment.
+*/
+@layer components {
+  .markdown {
+    @apply text-sm leading-relaxed text-ink-secondary;
+  }
+  .markdown > :first-child { @apply mt-0; }
+  .markdown > :last-child { @apply mb-0; }
+
+  .markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+    @apply mb-2 mt-5 font-display font-semibold tracking-tight text-ink;
+  }
+  .markdown h1 { @apply text-lg; }
+  .markdown h2 { @apply text-base; }
+  .markdown h3, .markdown h4 { @apply text-sm; }
+
+  .markdown p { @apply mb-3; }
+  .markdown ul, .markdown ol { @apply mb-3 pl-5; }
+  .markdown ul { @apply list-disc; }
+  .markdown ol { @apply list-decimal; }
+  .markdown li { @apply mb-1; }
+  .markdown li::marker { @apply text-ink-faint; }
+
+  .markdown a {
+    @apply text-copper underline decoration-copper-dim underline-offset-2 transition-colors hover:text-copper-bright;
+  }
+  .markdown strong { @apply font-semibold text-ink; }
+  .markdown em { @apply italic; }
+
+  .markdown code {
+    @apply rounded bg-inset px-1.5 py-0.5 font-mono text-xs text-ink;
+  }
+  .markdown pre {
+    @apply mb-3 overflow-x-auto rounded-lg border border-border bg-inset p-3.5;
+  }
+  .markdown pre code { @apply bg-transparent p-0 text-xs leading-relaxed; }
+
+  .markdown blockquote {
+    @apply mb-3 border-l-2 border-copper-dim/50 pl-3.5 text-ink-muted;
+  }
+  .markdown hr { @apply my-5 border-border; }
+
+  .markdown table { @apply mb-3 w-full border-collapse text-left text-xs; }
+  .markdown th, .markdown td { @apply border-b border-border px-2 py-1.5; }
+  .markdown th { @apply font-medium text-ink; }
+}

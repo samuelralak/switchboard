@@ -36,7 +36,7 @@ module Shared
 			end
 
 			def wrapper_class
-				base = "inline-flex items-center gap-2 font-mono text-xs"
+				base = "inline-flex items-center gap-2 text-xs"
 				[ base, TONES.fetch(@tone)[:text], (@bordered ? BORDERED_CLASS : nil) ].compact.join(" ")
 			end
 

@@ -8,7 +8,7 @@ module Shared
 			def test_completed_maps_to_settled_tone
 				render_inline(StateChipComponent.new(state: :completed))
 
-				assert_selector "span.text-lamp-settled.font-mono"
+				assert_selector "span.text-lamp-settled"
 				assert_selector "span.bg-lamp-settled"
 				assert_text "completed"
 			end

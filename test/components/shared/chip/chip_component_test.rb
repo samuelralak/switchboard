@@ -8,7 +8,7 @@ module Shared
 			def test_renders_label_with_tone_text_and_dot
 				render_inline(ChipComponent.new(tone: :settled, label: "completed"))
 
-				assert_selector "span.text-lamp-settled.font-mono.text-xs"
+				assert_selector "span.text-lamp-settled.text-xs"
 				assert_selector "span.rounded-full.bg-lamp-settled"
 				assert_text "completed"
 			end

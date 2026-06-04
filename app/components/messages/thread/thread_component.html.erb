@@ -1,0 +1,102 @@
+<div class="flex flex-col gap-5">
+  <%# header: order metadata, the (clickable) service, the client + their signed history %>
+  <div class="flex items-start gap-3.5">
+    <%= render Shared::Avatar::AvatarComponent.new(seed: conversation.npub, size: 40, rounded: :lg) %>
+    <div class="min-w-0 flex-1">
+      <%# hero: the service (opens the detail drawer), with a quiet order id in the corner %>
+      <div class="flex items-start justify-between gap-3">
+        <h2 class="min-w-0">
+          <button type="button" command="show-modal" commandfor="<%= Messages::ServiceDetail::ServiceDetailComponent::DRAWER_ID %>"
+                  class="group flex max-w-full items-center gap-1.5 text-left">
+            <span class="truncate font-display text-xl font-semibold tracking-tight text-ink transition-colors group-hover:text-copper"><%= conversation.service %></span>
+            <%= render Shared::Icon::IconComponent.new(name: "arrow-right-01", size: :sm, extra: "shrink-0 text-ink-faint transition-colors group-hover:text-copper") %>
+          </button>
+        </h2>
+        <span class="mt-1 shrink-0 font-mono text-xs text-ink-faint"><%= conversation.id %></span>
+      </div>
+      <p class="mt-1 text-sm text-ink-muted">from <span class="text-ink-secondary"><%= conversation.name %></span></p>
+
+      <%# the client's signed track record, one quiet line; only a dispute draws color %>
+      <p class="mt-2 text-xs text-ink-faint">
+        <% if conversation.track.fresh? %>
+          new npub · no track record yet · since <%= conversation.track.since %>
+        <% else %>
+          <%= conversation.track.completed %> completed · <%= conversation.track.settled %> sat settled
+          <% if conversation.track.flagged? %>· <span class="text-lamp-fault"><%= helpers.pluralize(conversation.track.disputes, "release dispute") %></span><% end %>
+          · since <%= conversation.track.since %>
+        <% end %>
+      </p>
+    </div>
+  </div>
+
+  <%# status strip: lamp + state + the one key fact + the note (the live clock lives here) %>
+  <div role="status" class="flex items-start gap-3 rounded-xl border <%= tone[:band] %> px-4 py-3">
+    <span class="mt-1.5 size-2 shrink-0 rounded-full <%= tone[:lamp] %> <%= "motion-safe:animate-pulse" if status[:pulse] %>" aria-hidden="true"></span>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-baseline justify-between gap-3">
+        <span class="text-sm font-medium <%= tone[:text] %>"><%= status[:label] %></span>
+        <% if conversation.deadline && %i[accepted awaiting_fulfillment].include?(conversation.state) %>
+          <span class="shrink-0 text-xs text-ink-muted">deliver in <span class="font-mono tabular-nums <%= tone[:text] %>"><%= conversation.deadline %></span></span>
+        <% elsif conversation.state == :completed %>
+          <span class="shrink-0 text-xs text-ink-muted">paid <%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :inline, tone: :ink) %></span>
+        <% elsif conversation.state == :expired %>
+          <span class="shrink-0 text-xs text-ink-muted">refunded <%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :inline, tone: :ink) %></span>
+        <% end %>
+      </div>
+      <% if conversation.note %>
+        <p class="mt-0.5 text-sm leading-relaxed text-ink-secondary"><%= conversation.note %></p>
+      <% end %>
+    </div>
+  </div>
+
+  <%# the request: the filled schema the client sealed to you (the spec lives in the service drawer) %>
+  <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+    <div class="mb-4 flex items-center gap-2">
+      <%= render Shared::Icon::IconComponent.new(name: "package", size: :sm, color: "text-ink-muted") %>
+      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">request from <%= conversation.name %></p>
+    </div>
+    <dl class="-mb-3 divide-y divide-border">
+      <% conversation.inputs.each do |input| %>
+        <div class="py-3">
+          <dt class="mb-1 text-xs font-medium text-ink-muted"><%= input[:label] %></dt>
+          <dd class="text-sm whitespace-pre-wrap break-words text-ink"><%= input[:value] %></dd>
+        </div>
+      <% end %>
+    </dl>
+  <% end %>
+
+  <%# your delivery, once submitted %>
+  <% if conversation.result %>
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <p class="mb-3 text-xs font-medium uppercase tracking-wider text-ink-muted">your delivery</p>
+      <p class="text-sm leading-relaxed whitespace-pre-wrap text-ink-secondary"><%= conversation.result %></p>
+    <% end %>
+  <% end %>
+
+  <%# escrow terms: a recessed well; the live timelock lives in the status strip %>
+  <div class="rounded-xl border border-border bg-inset p-5">
+    <div class="mb-4 flex items-center gap-2">
+      <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-ink-muted") %>
+      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow · <%= conversation.mode %></p>
+      <span class="ml-auto"><%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :inline) %></span>
+    </div>
+    <ul class="flex flex-col gap-2.5 text-sm">
+      <% escrow_terms.each do |key, value| %>
+        <li class="flex items-baseline justify-between gap-3">
+          <span class="shrink-0 text-ink-muted"><%= key %></span>
+          <span class="text-right text-ink"><%= value %></span>
+        </li>
+      <% end %>
+    </ul>
+    <p class="mt-4 text-xs leading-relaxed text-ink-faint">Coordinated by the runtime, which never holds the funds or your keys.</p>
+  </div>
+
+  <%# the decision this state calls for %>
+  <% if actions.any? %>
+    <div class="flex flex-col gap-2 sm:flex-row">
+      <% actions.each do |action| %>
+        <%= render Shared::Button::ButtonComponent.new(variant: action[:variant], full: true, icon: action[:icon]) do %><%= action[:label] %><% end %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

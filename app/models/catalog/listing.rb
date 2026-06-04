@@ -34,12 +34,28 @@ module Catalog
 
 			amount.include?(".") ? BigDecimal(amount) : amount.to_i
 		end
+
 		def price_currency = price_tag[2].presence || "sat"
 		def price? = price_amount.present?
 
 		# Microstandard capability: ["l", value, "<ns>.capability"].
 		def capability
 			event.tags.find { |t| t.is_a?(Array) && t[0] == "l" && t[2].to_s.end_with?(CAPABILITY_L) }&.dig(1)
+		end
+
+		# Microstandard input schema: one ["input_schema", "<JSON array>"] tag (brief §7.1).
+		# Each field is { label:, type:, required: }. Tolerates absent / malformed tags.
+		def input_schema
+			raw = event.tag("input_schema")
+			return [] if raw.blank?
+
+			Array(JSON.parse(raw)).filter_map do |field|
+				next unless field.is_a?(Hash)
+
+				{ label: field["label"].to_s, type: field["type"].to_s, required: field["required"] == true }
+			end
+		rescue JSON::ParserError
+			[]
 		end
 
 		def provider_npub

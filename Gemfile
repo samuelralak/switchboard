@@ -28,6 +28,8 @@ gem "tailwindcss-rails", "~> 4.4"
 gem "simple_form", "~> 5.4"
 # Reusable, testable, encapsulated view components [https://viewcomponent.org]
 gem "view_component", "~> 4.11"
+# Render NIP-99 listing content (Markdown) to HTML; GFM, raw HTML escaped by default [https://github.com/gjtorikian/commonmarker]
+gem "commonmarker", "~> 2.8"
 
 # --- Nostr connectivity (server-side relay client) ---
 gem "nostr", "~> 0.7"            # NIP-01 events, BIP-340 Schnorr verification, bech32 (NIP-19)

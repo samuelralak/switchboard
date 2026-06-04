@@ -21,6 +21,10 @@ Rails.application.routes.draw do
 		get "identity", to: "identity#show"
 	end
 
+	# Order-scoped messages inbox (NIP-17 DMs); :id selects the open thread.
+	get "messages", to: "messages#index", as: :messages
+	get "messages/:id", to: "messages#index", as: :message
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

@@ -1,0 +1,45 @@
+<% content_for :title, "Messages" %>
+<% section_labels = { needs_you: "Needs you", in_progress: "In progress", done: "Done" } %>
+
+<%# Two-pane inbox: the provider's request queue on the left, the open request on the right. %>
+<div class="flex items-start gap-x-6">
+  <%# queue (primary on narrow screens) %>
+  <div class="w-full shrink-0 lg:w-96 <%= "hidden lg:block" if @thread_open %>">
+    <div class="mb-5">
+      <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Messages</h1>
+      <p class="mt-0.5 text-sm text-ink-muted">Requests clients have sent you.</p>
+    </div>
+
+    <% if @conversations.any? %>
+      <% @conversations.group_by(&:section).each do |section, group| %>
+        <div class="mb-2.5 flex items-center gap-2">
+          <p class="text-xs font-medium uppercase tracking-wider <%= section == :needs_you ? "text-ink-secondary" : "text-ink-faint" %>"><%= section_labels.fetch(section, section.to_s) %></p>
+          <span class="text-xs text-ink-faint"><%= group.size %></span>
+        </div>
+        <div class="mb-6 flex flex-col gap-2">
+          <% group.each do |conversation| %>
+            <%= render Messages::ConversationRow::ConversationRowComponent.new(conversation:, selected: conversation == @selected) %>
+          <% end %>
+        </div>
+      <% end %>
+    <% else %>
+      <%= render Shared::EmptyState::EmptyStateComponent.new(
+            title: "No requests yet", body: "When a client sends you a request, it lands here.", icon: "mail-01") %>
+    <% end %>
+  </div>
+
+  <%# the open request (shown on narrow screens only once one is opened) %>
+  <div class="min-w-0 flex-1 <%= "hidden lg:block" unless @thread_open %>">
+    <% if @selected %>
+      <a href="<%= messages_path %>" class="mb-5 inline-flex items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink lg:hidden">
+        <%= render Shared::Icon::IconComponent.new(name: "arrow-left-01") %>inbox
+      </a>
+      <%= render Messages::Thread::ThreadComponent.new(conversation: @selected) %>
+      <%# clicking the service title opens this right slide-over with the full listing detail %>
+      <%= render Shared::Drawer::DrawerComponent.new(
+            title: @selected.service, id: Messages::ServiceDetail::ServiceDetailComponent::DRAWER_ID) do %>
+        <%= render Messages::ServiceDetail::ServiceDetailComponent.new(conversation: @selected) %>
+      <% end %>
+    <% end %>
+  </div>
+</div>
