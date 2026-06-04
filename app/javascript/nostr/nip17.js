@@ -1,11 +1,61 @@
-import { verifyEvent } from "nostr-tools/pure"
+import { verifyEvent, finalizeEvent, generateSecretKey } from "nostr-tools/pure"
 import { eventId } from "nostr/canonical"
+import { conversationKey, encrypt } from "nostr/nip44"
 
 export const Kind = { SEAL: 13, CHAT: 14, FILE: 15, GIFT_WRAP: 1059 }
 const RUMOR_FIELDS = ["id", "pubkey", "created_at", "kind", "tags", "content"]
 const NUL = String.fromCharCode(0)
+const TWO_DAYS = 2 * 24 * 60 * 60
 
 export class UnwrapError extends Error {}
+
+const nowSeconds = () => Math.floor(Date.now() / 1000)
+
+// A unix timestamp randomized uniformly within the last two days, never in the future. Mirrors
+// Messages::Actions::RandomPastTimestamp; called once per layer so seal and wrap draw independently.
+function pastTimestamp() {
+  const span = crypto.getRandomValues(new Uint32Array(1))[0] % (TWO_DAYS + 1)
+  return nowSeconds() - span
+}
+
+// --- Send side -------------------------------------------------------------------------------------
+
+// Build an UNSIGNED NIP-17 rumor (kind 14 chat by default) carrying an id but no sig. created_at is
+// the real time; only seal and wrap are randomized. Mirrors Messages::BuildRumor. authorPubkey MUST
+// be the signer's own pubkey (the anti-impersonation anchor).
+export function buildRumor({ authorPubkey, content, recipients = [], replyTo = null, subject = null, kind = Kind.CHAT, createdAt = nowSeconds() }) {
+  const tags = recipients.map((pubkey) => ["p", pubkey])
+  if (replyTo) tags.push(["e", replyTo])
+  if (subject) tags.push(["subject", subject])
+  const rumor = { pubkey: authorPubkey, created_at: createdAt, kind, tags, content }
+  rumor.id = eventId(rumor)
+  return rumor
+}
+
+// NIP-59 seal (kind 13): the rumor JSON nip44-encrypted to the recipient under the AUTHOR's key, then
+// signed by the author's signer. Empty tags, past-randomized created_at. Mirrors Messages::Seal.
+export async function seal(rumor, signer, recipientPubkey, createdAt = pastTimestamp()) {
+  const content = await signer.nip44Encrypt(recipientPubkey, JSON.stringify(rumor))
+  return signer.signEvent({ kind: Kind.SEAL, tags: [], content, created_at: createdAt })
+}
+
+// NIP-59 gift wrap (kind 1059): the seal JSON nip44-encrypted under a FRESH single-use ephemeral key
+// and signed by it, p-tagged to the recipient, independently past-randomized. Mirrors Messages::GiftWrap.
+export function giftWrap(sealedEvent, recipientPubkey, createdAt = pastTimestamp()) {
+  const ephemeral = generateSecretKey()
+  const content = encrypt(JSON.stringify(sealedEvent), conversationKey(ephemeral, recipientPubkey))
+  return finalizeEvent({ kind: Kind.GIFT_WRAP, tags: [["p", recipientPubkey]], content, created_at: createdAt }, ephemeral)
+}
+
+// NIP-17 (line 97): wrap a message to the recipient AND back to the sender, so it appears in both
+// inboxes. Each pubkey gets its own seal (encrypted to it) and its own ephemeral wrap.
+export async function wrapMessage(rumor, signer, recipientPubkey) {
+  const toRecipient = giftWrap(await seal(rumor, signer, recipientPubkey), recipientPubkey)
+  const toSelf = giftWrap(await seal(rumor, signer, rumor.pubkey), rumor.pubkey)
+  return { toRecipient, toSelf }
+}
+
+// --- Receive side ----------------------------------------------------------------------------------
 
 // Reverse a NIP-59 gift wrap with the recipient's signer and return the validated rumor (the six
 // canonical fields only). Mirrors app/services/messages/unwrap.rb exactly, so a browser-decrypted
@@ -15,12 +65,12 @@ export class UnwrapError extends Error {}
 //   * the rumor is UNSIGNED -> validated directly (NIP-01 typing, a recomputed id, no sig, no NUL);
 //   * seal.pubkey === rumor.pubkey, or any sender could forge authorship (NIP-17 anti-impersonation).
 // Throws UnwrapError on any violation; the caller discards the wrap.
-export async function unwrap(giftWrap, signer) {
-  const wrap = verifySigned(giftWrap, Kind.GIFT_WRAP, "gift wrap")
-  const seal = verifySigned(await decryptLayer(signer, wrap.pubkey, wrap.content), Kind.SEAL, "seal")
-  if (!Array.isArray(seal.tags) || seal.tags.length !== 0) throw new UnwrapError("seal tags must be empty")
+export async function unwrap(giftWrapEvent, signer) {
+  const wrap = verifySigned(giftWrapEvent, Kind.GIFT_WRAP, "gift wrap")
+  const sealedEvent = verifySigned(await decryptLayer(signer, wrap.pubkey, wrap.content), Kind.SEAL, "seal")
+  if (!Array.isArray(sealedEvent.tags) || sealedEvent.tags.length !== 0) throw new UnwrapError("seal tags must be empty")
 
-  return validatedRumor(await decryptLayer(signer, seal.pubkey, seal.content), seal)
+  return validatedRumor(await decryptLayer(signer, sealedEvent.pubkey, sealedEvent.content), sealedEvent)
 }
 
 // A signed layer (wrap or seal): full NIP-01 verification, then the kind gate.
@@ -46,12 +96,12 @@ async function decryptLayer(signer, peerPubkey, ciphertext) {
   return parsed
 }
 
-function validatedRumor(rumor, seal) {
+function validatedRumor(rumor, sealedEvent) {
   assertTyped(rumor)
   if ("sig" in rumor) throw new UnwrapError("rumor must be unsigned")
   if (containsNullByte(rumor)) throw new UnwrapError("rumor contains null bytes")
   if (eventId(rumor) !== rumor.id) throw new UnwrapError("rumor id mismatch")
-  if (seal.pubkey !== rumor.pubkey) throw new UnwrapError("impersonation: seal.pubkey != rumor.pubkey")
+  if (sealedEvent.pubkey !== rumor.pubkey) throw new UnwrapError("impersonation: seal.pubkey != rumor.pubkey")
 
   return pick(rumor, RUMOR_FIELDS)
 }

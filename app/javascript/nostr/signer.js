@@ -1,4 +1,4 @@
-import { finalizeEvent, getPublicKey } from "nostr-tools/pure"
+import { finalizeEvent, getPublicKey, generateSecretKey } from "nostr-tools/pure"
 import { conversationKey, encrypt, decrypt } from "nostr/nip44"
 
 // A signer is the browser's bridge to a holder of a Nostr key. The key NEVER leaves its holder; a
@@ -22,6 +22,10 @@ export class NsecSigner {
 
   static fromHex(hex) {
     return new NsecSigner(hexToBytes(hex))
+  }
+
+  static generate() {
+    return new NsecSigner(generateSecretKey())
   }
 
   getPublicKey() {

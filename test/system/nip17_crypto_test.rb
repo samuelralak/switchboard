@@ -63,6 +63,51 @@ class Nip17CryptoTest < ApplicationSystemTestCase
 		assert_equal VECTOR["expected_rumor"]["id"], computed
 	end
 
+	test "round-trips a built message in the browser (seal/wrap then unwrap)" do
+		result = evaluate_async_script(<<~JS)
+    const done = arguments[arguments.length - 1]
+    const { NsecSigner, buildRumor, wrapMessage, unwrap } = window.NostrCryptoTest
+    ;(async () => {
+    	const sender = NsecSigner.generate()
+    	const recipient = NsecSigner.generate()
+    	const rumor = buildRumor({ authorPubkey: sender.getPublicKey(), content: "gm from the browser", recipients: [recipient.getPublicKey()] })
+    	const { toRecipient, toSelf } = await wrapMessage(rumor, sender, recipient.getPublicKey())
+    	const got = await unwrap(toRecipient, recipient)
+    	const mine = await unwrap(toSelf, sender)
+    	return JSON.stringify({ got, mine, senderPub: sender.getPublicKey(), rumorId: rumor.id })
+    })().then(done).catch((e) => done("ERR: " + (e && e.message)))
+		JS
+		assert_no_match(/\AERR:/, result, "round-trip failed: #{result}")
+
+		data = JSON.parse(result)
+		assert_equal "gm from the browser", data["got"]["content"]
+		assert_equal data["senderPub"], data["got"]["pubkey"]
+		assert_equal data["rumorId"], data["got"]["id"]
+		assert_equal "gm from the browser", data["mine"]["content"], "the sender's own self-copy decrypts too"
+	end
+
+	test "a browser-built wrap is readable by the Ruby Unwrap (JS -> Ruby interop)" do
+		recipient = Nostr::Keygen.new.generate_key_pair
+		built = evaluate_async_script(<<~JS, recipient.public_key.to_s)
+    const recipientPub = arguments[0]
+    const done = arguments[arguments.length - 1]
+    const { NsecSigner, buildRumor, wrapMessage } = window.NostrCryptoTest
+    ;(async () => {
+    	const sender = NsecSigner.generate()
+    	const rumor = buildRumor({ authorPubkey: sender.getPublicKey(), content: "sealed in the browser", recipients: [recipientPub] })
+    	const { toRecipient } = await wrapMessage(rumor, sender, recipientPub)
+    	return JSON.stringify({ wrap: toRecipient, senderPub: sender.getPublicKey(), rumorId: rumor.id })
+    })().then(done).catch((e) => done("ERR: " + (e && e.message)))
+		JS
+		assert_no_match(/\AERR:/, built, "browser build failed: #{built}")
+
+		data = JSON.parse(built)
+		rumor = Messages::Unwrap.call(gift_wrap: data["wrap"], recipient_private_key: recipient.private_key.to_s)
+		assert_equal "sealed in the browser", rumor["content"]
+		assert_equal data["senderPub"], rumor["pubkey"]
+		assert_equal data["rumorId"], rumor["id"]
+	end
+
 	private
 
 	# Inject the bridge, then poll (Ruby-side, no async-script timeout) for window.NostrCryptoTest.
