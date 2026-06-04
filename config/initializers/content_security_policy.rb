@@ -23,8 +23,13 @@ Rails.application.configure do
 	end
 
 	# Per-session nonce: javascript_importmap_tags stamps it on its inline scripts automatically,
-	# and csp_meta_tag exposes it so Turbo can re-nonce scripts it injects on navigation.
-	# Session-scoped (not per-request) so a restored Turbo page keeps a matching nonce.
-	config.content_security_policy_nonce_generator = ->(request) { request.session.id.to_s }
+	# and csp_meta_tag exposes it so Turbo can re-nonce scripts it injects on navigation. Stored in
+	# the session (NOT request.session.id, which is EMPTY for a visitor with no session yet -> an
+	# empty "nonce-" that blocks EVERY inline script, including the importmap and the JS entry point,
+	# leaving a fresh visitor with no client JS at all). SecureRandom keeps it non-empty; ||= keeps
+	# it stable across the session so a restored Turbo page still matches.
+	config.content_security_policy_nonce_generator = lambda do |request|
+		request.session[:csp_nonce] ||= SecureRandom.base64(16)
+	end
 	config.content_security_policy_nonce_directives = %w[script-src]
 end
