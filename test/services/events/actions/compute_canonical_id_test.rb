@@ -33,6 +33,15 @@ module Events
 				expected = Digest::SHA256.hexdigest(JSON.generate([ 0, nil, nil, nil, nil, nil ]))
 				assert_equal expected, Events::Actions::ComputeCanonicalId.call(event: {})
 			end
+
+			# R2 regression: a field that JSON.parse accepts but JSON.generate cannot serialize (an
+			# invalid-encoding string) must surface as a discardable InvalidEventError, never a raw
+			# JSON::GeneratorError that bypasses discard_on and retry-storms the ingest job.
+			test "raises InvalidEventError when a field cannot be canonicalized (invalid encoding)" do
+				bad = (+"\xFF").force_encoding("UTF-8")
+				event = { "pubkey" => "a" * 64, "created_at" => 1, "kind" => 1, "tags" => [], "content" => bad }
+				assert_raises(InvalidEventError) { Events::Actions::ComputeCanonicalId.call(event:) }
+			end
 		end
 	end
 end

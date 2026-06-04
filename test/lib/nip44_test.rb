@@ -30,6 +30,15 @@ class Nip44Test < ActiveSupport::TestCase
 		end
 	end
 
+	# R2 regression: NIP-44 step 7 (utf8_decode) requires the recovered plaintext be valid UTF-8.
+	# A MAC-valid payload whose plaintext is not valid UTF-8 must fail closed as a decrypt error.
+	test "decrypt rejects a plaintext that is not valid UTF-8" do
+		c = @valid["get_conversation_key"].first
+		ck = Nip44.conversation_key(c["sec1"], c["pub2"])
+		payload = Nip44.encrypt("\xFF\xFE".b, ck)
+		assert_raises(Nip44::Error) { Nip44.decrypt(payload, ck) }
+	end
+
 	test "message_keys split the HKDF-expand output 32/12/32" do
 		group = @valid["get_message_keys"]
 		ck = hex(group["conversation_key"])

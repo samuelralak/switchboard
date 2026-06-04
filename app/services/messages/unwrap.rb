@@ -45,8 +45,10 @@ module Messages
 			raise UnwrapError, "decrypted layer is not an object" unless parsed.is_a?(Hash)
 
 			parsed
-		rescue Nip44::Error, JSON::ParserError => e
-			raise UnwrapError, "decrypt failed: #{e.message}"
+		rescue Nip44::Error => e
+			raise UnwrapError, "decrypt failed: #{e.message}" # Nip44 messages are static, no plaintext
+		rescue JSON::ParserError
+			raise UnwrapError, "decrypted layer is not valid JSON" # never interpolate: e.message embeds plaintext
 		end
 
 		# The rumor is unsigned: validate it WITHOUT Events::Verify (which demands a sig). Type
@@ -55,13 +57,22 @@ module Messages
 		# result is sliced to the six fields the id covers (any extra key is unauthenticated).
 		def validated_rumor(rumor, seal)
 			assert_typed!(rumor)
-			id = Events::Actions::ComputeCanonicalId.call(event: rumor)
+			id = canonical_id(rumor)
 			raise UnwrapError, "rumor must be unsigned" if rumor.key?("sig")
 			raise UnwrapError, "rumor contains null bytes" if Shared::ContainsNullByte.call(value: rumor)
 			raise UnwrapError, "rumor id mismatch" unless id == rumor["id"]
 			raise UnwrapError, "impersonation: seal.pubkey != rumor.pubkey" unless seal["pubkey"] == rumor["pubkey"]
 
 			rumor.slice(*RUMOR_FIELDS)
+		end
+
+		# The rumor id. A rumor that cannot be canonicalized (e.g. a lone-surrogate \u escape that
+		# survives JSON.parse but breaks JSON.generate) maps to UnwrapError so it is discarded, not
+		# retried, like every other rumor violation.
+		def canonical_id(rumor)
+			Events::Actions::ComputeCanonicalId.call(event: rumor)
+		rescue InvalidEventError => e
+			raise UnwrapError, "rumor: #{e.message}"
 		end
 
 		# NIP-01 typing the signed layers get from Events::Verify but the unsigned rumor skips:

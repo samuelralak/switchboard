@@ -130,5 +130,18 @@ module Messages
 			fake = Events::Sign.call(private_key: secret_key, kind: 1060, tags: [ [ "p", pub(@recipient) ] ], content:)
 			assert_match(/gift wrap: expected kind 1059/, assert_raises(Messages::UnwrapError) { unwrap(fake) }.message)
 		end
+
+		# R1 regression: a MAC-valid inner layer that is not JSON must NOT leak its decrypted
+		# plaintext into the UnwrapError message (which the central handler writes to the log).
+		test "does not leak decrypted plaintext when an inner layer is not valid JSON" do
+			secret = "SUPERSECRET-not-json {{{"
+			content = Nip44.encrypt(secret, Nip44.conversation_key(priv(@author), pub(@recipient)))
+			seal = Events::Sign.call(private_key: priv(@author), kind: 13, tags: [], content:)
+			wrap = Messages::GiftWrap.call(seal:, recipient_pubkey: pub(@recipient))
+
+			error = assert_raises(Messages::UnwrapError) { unwrap(wrap) }
+			assert_match(/not valid JSON/, error.message)
+			assert_not_includes error.message, "SUPERSECRET"
+		end
 	end
 end

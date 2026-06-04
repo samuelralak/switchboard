@@ -17,6 +17,10 @@ module Events
 				data = event.transform_keys(&:to_s)
 				fields = data.values_at("pubkey", "created_at", "kind", "tags", "content")
 				Digest::SHA256.hexdigest(JSON.generate([ 0, *fields ]))
+			rescue JSON::GeneratorError
+				# A field that survives JSON.parse but not JSON.generate (e.g. an invalid-encoding
+				# string). Constant message: never interpolate the offending bytes into the error.
+				raise InvalidEventError, "event is not canonicalizable (invalid encoding)"
 			end
 		end
 	end

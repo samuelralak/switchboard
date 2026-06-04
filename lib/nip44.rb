@@ -122,7 +122,8 @@ module Nip44
 				raise Error, "invalid padding"
 			end
 
-			text.force_encoding("UTF-8")
+			# NIP-44 step 7 (utf8_decode): the recovered plaintext MUST be valid UTF-8.
+			text.force_encoding("UTF-8").tap { |t| raise Error, "invalid utf-8" unless t.valid_encoding? }
 		end
 
 		# NIP-44 padding buckets: 32 bytes up to 32, then power-of-two-aligned chunks.
