@@ -7,8 +7,37 @@ require "test_helper"
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 	driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ]
 
+	# Injects the keyless-crypto test bridge (app/javascript/nostr/test_support.js) as a real module
+	# script -- its imports resolve via the page import map, unlike an executeScript dynamic import --
+	# and records any in-page error for diagnostics.
+	NOSTR_BRIDGE_JS = <<~JS
+   if (!window.__nostrBridge) {
+   	window.__nostrBridge = true
+   	window.__nostrErr = null
+   	window.addEventListener("error", (e) => { window.__nostrErr = String((e && e.message) || (e && e.error)) })
+   	window.addEventListener("unhandledrejection", (e) => { window.__nostrErr = String(e.reason && (e.reason.message || e.reason)) })
+   	const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports
+   	const script = document.createElement("script")
+   	script.type = "module"
+   	script.src = imports["nostr/test_support"]
+   	script.addEventListener("error", () => { window.__nostrErr = "test_support failed to load: " + script.src })
+   	document.head.appendChild(script)
+   }
+	JS
+
 	# turbo-rails patches #visit to wait for every <turbo-cable-stream-source> to report [connected].
 	# Turbo Cable is not wired for system tests, so that wait errors on the catalog's live-update
 	# stream source. These tests exercise client-side crypto, not Turbo Cable, so skip the wait.
 	def connect_turbo_cable_stream_sources(*) = nil
+
+	# Inject the crypto bridge, then poll (Ruby-side, no async-script timeout) for window.NostrCryptoTest.
+	def load_nostr_bridge
+		execute_script(NOSTR_BRIDGE_JS)
+		20.times do
+			return if evaluate_script("typeof window.NostrCryptoTest") == "object"
+
+			sleep 0.5
+		end
+		flunk("crypto bridge did not load; in-page error: #{evaluate_script('window.__nostrErr')}")
+	end
 end

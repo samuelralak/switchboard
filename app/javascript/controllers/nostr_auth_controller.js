@@ -27,7 +27,9 @@ export default class extends Controller {
     await this.primeNonce()
   }
 
-  // NIP-07 browser extension.
+  // NIP-07 browser extension. Equivalent to the messaging-side Nip07Signer (nostr/signer.js), but kept
+  // inline: signEvent must run inside the click gesture, and importing the adapter would either await
+  // before signEvent (strict signers reject that) or eager-load nostr-tools on every page.
   signInWithExtension(event) {
     event.preventDefault()
     if (!window.nostr) {
@@ -108,13 +110,12 @@ export default class extends Controller {
     }
   }
 
+  // NIP-46 remote signer via the shared Nip46Signer adapter (nostr/signer.js), lazy-imported so a page
+  // that never signs in does not pull nostr-tools. Login connects-and-closes per use; the messaging
+  // client holds its own Nip46Signer open for the session.
   async bunkerSign(input, template) {
-    const { BunkerSigner, parseBunkerInput } = await import("nostr-tools/nip46")
-    const { generateSecretKey } = await import("nostr-tools/pure")
-    const pointer = await parseBunkerInput(input)
-    if (!pointer) throw new Error("invalid bunker URL")
-
-    const signer = BunkerSigner.fromBunker(generateSecretKey(), pointer, {
+    const { Nip46Signer } = await import("nostr/signer")
+    const signer = await Nip46Signer.connect(input, {
       onauth: (url) => {
         window.open(url, "_blank", "noopener")
         this.setStatus("Approve the connection in your signer…")
@@ -122,7 +123,6 @@ export default class extends Controller {
     })
     // close() covers connect() too, so a declined/failed connection tears the signer down.
     try {
-      await signer.connect()
       return await signer.signEvent(template)
     } finally {
       await signer.close?.()
@@ -143,11 +143,16 @@ export default class extends Controller {
     return this.finalize(data, template)
   }
 
+  // Sign with a locally-held key via the shared NsecSigner adapter, then dispose() to zero the key
+  // bytes (the login path is one-shot; the messaging client holds its NsecSigner for the session).
   async finalize(secretKey, template) {
-    const { finalizeEvent } = await import("nostr-tools/pure")
-    const signed = finalizeEvent(template, secretKey)
-    secretKey.fill(0) // drop the key bytes once the event is signed
-    return signed
+    const { NsecSigner } = await import("nostr/signer")
+    const signer = new NsecSigner(secretKey)
+    try {
+      return signer.signEvent(template)
+    } finally {
+      signer.dispose()
+    }
   }
 
   // The prefetched nonce, consumed once. Re-primes and returns null if it is missing.

@@ -47,6 +47,95 @@ export class NsecSigner {
   nip44Decrypt(peerPubkey, payload) {
     return decrypt(payload, conversationKey(this.secretKey, peerPubkey))
   }
+
+  // Zero the key bytes after a one-shot use (the pasted-nsec sign-in path discards the key).
+  dispose() {
+    this.secretKey.fill(0)
+  }
+}
+
+// A NIP-07 browser-extension signer (window.nostr). The key stays in the extension; every op
+// delegates to it. nip44 is OPTIONAL in NIP-07, so canEncrypt feature-detects it.
+export class Nip07Signer {
+  constructor(provider = (typeof window !== "undefined" ? window.nostr : null)) {
+    this.provider = provider
+  }
+
+  static available() {
+    return typeof window !== "undefined" && !!window.nostr
+  }
+
+  getPublicKey() {
+    return this.provider.getPublicKey()
+  }
+
+  signEvent(template) {
+    return this.provider.signEvent(template)
+  }
+
+  canEncrypt() {
+    return !!(this.provider && this.provider.nip44 && typeof this.provider.nip44.encrypt === "function")
+  }
+
+  nip44Encrypt(peerPubkey, plaintext) {
+    return this.provider.nip44.encrypt(peerPubkey, plaintext)
+  }
+
+  nip44Decrypt(peerPubkey, payload) {
+    return this.provider.nip44.decrypt(peerPubkey, payload)
+  }
+}
+
+// A NIP-46 remote-signer ("bunker") session. The key stays in the bunker; ops are relay round-trips,
+// so the connection is opened ONCE and held for the session (the one-shot sign-in path connects and
+// closes per use). nostr-tools is lazy-imported so a page that never messages does not pull it.
+export class Nip46Signer {
+  constructor(bunker) {
+    this.bunker = bunker
+  }
+
+  static async connect(input, { onauth } = {}) {
+    const { BunkerSigner, parseBunkerInput } = await import("nostr-tools/nip46")
+    const { generateSecretKey } = await import("nostr-tools/pure")
+    const pointer = await parseBunkerInput(input)
+    if (!pointer) throw new Error("invalid bunker URL")
+
+    const bunker = BunkerSigner.fromBunker(generateSecretKey(), pointer, { onauth })
+    try {
+      await bunker.connect()
+    } catch (error) {
+      await bunker.close?.() // don't leak the bunker session if the connection fails
+      throw error
+    }
+    return new Nip46Signer(bunker)
+  }
+
+  getPublicKey() {
+    return this.bunker.getPublicKey()
+  }
+
+  signEvent(template) {
+    return this.bunker.signEvent(template)
+  }
+
+  // The BunkerSigner exposes nip44 (verified API), so structurally this signer can encrypt; whether
+  // the REMOTE bunker GRANTS the nip44 permission is runtime-only, confirmed by a round-trip
+  // self-test before first use (Slice 2). A bunker that lacks the grant throws on the first encrypt.
+  canEncrypt() {
+    return true
+  }
+
+  nip44Encrypt(peerPubkey, plaintext) {
+    return this.bunker.nip44Encrypt(peerPubkey, plaintext)
+  }
+
+  nip44Decrypt(peerPubkey, payload) {
+    return this.bunker.nip44Decrypt(peerPubkey, payload)
+  }
+
+  close() {
+    return this.bunker.close?.()
+  }
 }
 
 function hexToBytes(hex) {

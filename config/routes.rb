@@ -30,6 +30,10 @@ Rails.application.routes.draw do
 	get "messages", to: "messages#index", as: :messages
 	get "messages/:id", to: "messages#index", as: :message
 
+	# Generic keyless-browser NIP-17 DM client (#32 proof): session-authenticated; the browser does all
+	# crypto + relay I/O. Distinct from the order-scoped messages#index above.
+	get "dms", to: "direct_messages#index", as: :direct_messages
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

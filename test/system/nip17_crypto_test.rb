@@ -3,38 +3,19 @@
 require "application_system_test_case"
 
 # Drives the real browser NIP-17 crypto against the SAME fixture the Ruby spine passes
-# (test/services/messages/unwrap_test.rb), proving the JS and Ruby implementations are byte-aligned:
-# the JS unwrap recovers the exact rumor the Ruby Unwrap does, and the JS canonical id matches.
-#
-# The crypto modules use importmap bare specifiers (nostr/*, nostr-tools/*) that only resolve in a
-# real module graph, so we load a test bridge via an injected <script type="module"> (see
-# app/javascript/nostr/test_support.js) and call it through window.NostrCryptoTest.
+# (test/services/messages/unwrap_test.rb), proving the JS and Ruby implementations are byte-aligned
+# in both directions, and that the signer adapter drives the flow. The crypto modules use importmap
+# bare specifiers that only resolve in a real module graph, so the test bridge is injected as a real
+# <script type="module"> (see ApplicationSystemTestCase#load_nostr_bridge) and called via window.NostrCryptoTest.
 class Nip17CryptoTest < ApplicationSystemTestCase
 	VECTOR = JSON.parse(Rails.root.join("test/fixtures/files/nip59.vector.json").read).freeze
 
-	# Injects the bridge as a real module script (its imports resolve via the page import map) and
-	# records any in-page error so a load/resolution failure is reported instead of a bare timeout.
-	INJECT_BRIDGE = <<~JS
-   if (!window.__nostrBridge) {
-   	window.__nostrBridge = true
-   	window.__nostrErr = null
-   	window.addEventListener("error", (e) => { window.__nostrErr = String((e && e.message) || (e && e.error)) })
-   	window.addEventListener("unhandledrejection", (e) => { window.__nostrErr = String(e.reason && (e.reason.message || e.reason)) })
-   	const imports = JSON.parse(document.querySelector('script[type="importmap"]').textContent).imports
-   	const script = document.createElement("script")
-   	script.type = "module"
-   	script.src = imports["nostr/test_support"]
-   	script.addEventListener("error", () => { window.__nostrErr = "test_support failed to load: " + script.src })
-   	document.head.appendChild(script)
-   }
-	JS
-
 	def setup
 		visit root_path
-		load_crypto_bridge
+		load_nostr_bridge
 	end
 
-	test "unwrap recovers the NIP-59 published rumor (JS <-> Ruby interop)" do
+	test "unwrap recovers the NIP-59 published rumor (Ruby -> JS interop)" do
 		result = evaluate_async_script(<<~JS, VECTOR["recipient_private_key"], VECTOR["gift_wrap"])
     const done = arguments[arguments.length - 1]
     const { NsecSigner, unwrap } = window.NostrCryptoTest
@@ -108,16 +89,31 @@ class Nip17CryptoTest < ApplicationSystemTestCase
 		assert_equal data["rumorId"], rumor["id"]
 	end
 
-	private
+	test "Nip07Signer drives the keyless crypto through window.nostr" do
+		result = evaluate_async_script(<<~JS)
+    const done = arguments[arguments.length - 1]
+    const { Nip07Signer, NsecSigner, buildRumor, wrapMessage, unwrap } = window.NostrCryptoTest
+    ;(async () => {
+    	const backing = NsecSigner.generate()
+    	window.nostr = {
+    		getPublicKey: () => backing.getPublicKey(),
+    		signEvent: (t) => backing.signEvent(t),
+    		nip44: { encrypt: (pk, pt) => backing.nip44Encrypt(pk, pt), decrypt: (pk, ct) => backing.nip44Decrypt(pk, ct) },
+    	}
+    	const sender = new Nip07Signer()
+    	const recipient = NsecSigner.generate()
+    	const senderPub = await sender.getPublicKey()
+    	const rumor = buildRumor({ authorPubkey: senderPub, content: "via the extension", recipients: [recipient.getPublicKey()] })
+    	const { toRecipient } = await wrapMessage(rumor, sender, recipient.getPublicKey())
+    	const got = await unwrap(toRecipient, recipient)
+    	return JSON.stringify({ content: got.content, pubkey: got.pubkey, senderPub, canEncrypt: sender.canEncrypt() })
+    })().then(done).catch((e) => done("ERR: " + (e && e.message)))
+		JS
+		assert_no_match(/\AERR:/, result, "Nip07Signer flow failed: #{result}")
 
-	# Inject the bridge, then poll (Ruby-side, no async-script timeout) for window.NostrCryptoTest.
-	def load_crypto_bridge
-		execute_script(INJECT_BRIDGE)
-		20.times do
-			return if evaluate_script("typeof window.NostrCryptoTest") == "object"
-
-			sleep 0.5
-		end
-		flunk("crypto bridge did not load; in-page error: #{evaluate_script('window.__nostrErr')}")
+		data = JSON.parse(result)
+		assert_equal "via the extension", data["content"]
+		assert_equal data["senderPub"], data["pubkey"]
+		assert data["canEncrypt"], "Nip07Signer.canEncrypt should feature-detect window.nostr.nip44"
 	end
 end

@@ -18,4 +18,14 @@ class CspNonceTest < ActionDispatch::IntegrationTest
 		assert_match(/<script type="importmap"[^>]*nonce="#{escaped}"/, response.body, "importmap missing nonce")
 		assert_match(/<script type="module"[^>]*nonce="#{escaped}"/, response.body, "entry missing nonce")
 	end
+
+	# Regression: connect-src must allow wss: or the browser NIP-17 client (#32) cannot open a relay
+	# socket at all -- every DM send/receive over wss:// would be blocked by the CSP.
+	test "connect-src allows wss: relay connections" do
+		get root_path
+		assert_response :success
+
+		connect_src = response.headers["Content-Security-Policy"].to_s[/connect-src[^;]*/]
+		assert_includes connect_src.to_s, "wss:", "connect-src must permit wss:// relays for the NIP-17 client"
+	end
 end

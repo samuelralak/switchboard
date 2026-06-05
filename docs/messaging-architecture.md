@@ -159,6 +159,14 @@ sees a key), per-event OK-correlation, and reconnection, with a thin hand-rolled
 auth-required re-send (NIP-42), kind-10050 resolution, and multi-relay fan-out. The substrate pulls
 only `@noble`, already used by the pinned `nostr-tools/pure`, so it needs no CSP change.
 
+This is implemented as `app/javascript/nostr/relay_set.js` (the manager) and `dm_client.js` (the DM
+engine), surfaced at `/dms` (`dm_client_controller`). It is **live-verified**: an env-gated test
+(`test/system/dm_live_e2e_test.rb`, `SWITCHBOARD_LIVE_E2E=1`) delivers a real gift wrap end to end
+through `wss://auth.nostr1.com`, real NIP-42 AUTH, publish with the auth-required re-publish, subscribe
+delivery, and unwrap to plaintext. CI coverage runs against an in-page mock relay; the live test never
+gates CI. (For the proof the messaging signer is the NIP-07 extension; an nsec/bunker session signer is
+a later refinement, and order-scoped threads come with the services domain.)
+
 ## Trust boundaries, honestly
 
 - The server can see **metadata** that reaches it (which pubkeys connect, when), but **not** message
