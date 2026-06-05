@@ -19,3 +19,6 @@ production:
   reap_expired_sessions:
     command: "Session.where(created_at: ..Session::MAX_AGE.ago).delete_all"
     schedule: at 4am every day
+  reap_expired_inbox_wraps:
+    command: "InboxWrap.prune_expired"
+    schedule: at 3am every day

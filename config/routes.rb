@@ -21,6 +21,11 @@ Rails.application.routes.draw do
 		get "identity", to: "identity#show"
 	end
 
+	# Opaque NIP-17 inbox cache: anonymous deposit (POST, like a relay accepting an EVENT) +
+	# session-authenticated recipient-only fetch (GET, the cookie proves the recipient's pubkey).
+	get "inbox", to: "inbox#index"
+	post "inbox", to: "inbox#create"
+
 	# Order-scoped messages inbox (NIP-17 DMs); :id selects the open thread.
 	get "messages", to: "messages#index", as: :messages
 	get "messages/:id", to: "messages#index", as: :message

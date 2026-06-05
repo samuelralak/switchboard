@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_03_142223) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_04_215147) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -42,6 +42,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_03_142223) do
     t.check_constraint "kind >= 0 AND kind <= 65535", name: "events_kind_range"
     t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "events_pubkey_hex"
     t.check_constraint "sig::text ~ '^[a-f0-9]{128}$'::text", name: "events_sig_hex"
+  end
+
+  create_table "inbox_wraps", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "nostr_created_at", null: false
+    t.string "recipient_pubkey", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.jsonb "wrap", default: {}, null: false
+    t.string "wrap_id", limit: 64, null: false
+    t.index ["expires_at"], name: "index_inbox_wraps_on_expires_at"
+    t.index ["recipient_pubkey", "created_at", "id"], name: "index_inbox_wraps_on_recipient_pubkey_and_created_at_and_id"
+    t.index ["wrap_id"], name: "index_inbox_wraps_on_wrap_id", unique: true
+    t.check_constraint "recipient_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "inbox_wraps_recipient_pubkey_hex"
+    t.check_constraint "wrap_id::text ~ '^[a-f0-9]{64}$'::text", name: "inbox_wraps_wrap_id_hex"
   end
 
   create_table "login_challenges", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

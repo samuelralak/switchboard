@@ -32,10 +32,9 @@ module ActiveSupport
 			)
 		end
 
-		# Builds and BIP-340-signs a NIP-98 (kind 27235) HTTP-auth event with a fresh
-		# keypair; returns the wire hash (string keys). Shared by the auth tests.
-		def sign_nip98(tags:, created_at: Time.now.to_i, kind: Events::Kinds::HTTP_AUTH, content: "")
-			keypair = Nostr::Keygen.new.generate_key_pair
+		# Builds and BIP-340-signs an arbitrary Nostr event; returns the wire hash (string keys).
+		# Pass a keypair to control the author (e.g. to assert on its pubkey).
+		def sign_event(kind:, tags: [], content: "", created_at: Time.now.to_i, keypair: Nostr::Keygen.new.generate_key_pair)
 			pubkey = keypair.public_key.to_s
 			id = ::Digest::SHA256.hexdigest(::JSON.generate([ 0, pubkey, created_at, kind, tags, content ]))
 			sig = Nostr::Crypto.new.sign_message(id, keypair.private_key).to_s
@@ -43,6 +42,11 @@ module ActiveSupport
 				"id" => id, "pubkey" => pubkey, "created_at" => created_at, "kind" => kind,
 				"tags" => tags, "content" => content, "sig" => sig
 			}
+		end
+
+		# A NIP-98 (kind 27235) HTTP-auth event with a fresh keypair. Shared by the auth tests.
+		def sign_nip98(tags:, created_at: Time.now.to_i, kind: Events::Kinds::HTTP_AUTH, content: "")
+			sign_event(kind:, tags:, content:, created_at:)
 		end
 
 		# NIP-98 u/method tags, plus an optional `challenge` (session path) or `payload` hash.
