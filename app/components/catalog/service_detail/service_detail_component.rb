@@ -16,6 +16,27 @@ module Catalog
 
 			def automated? = listing.fulfillment == "automated"
 
+			# The pricing-basis caption under the price (the PriceTag carries the amount + currency).
+			def price_basis_label = listing.per_hour? ? "per hour" : "per request"
+
+			# A manual service's turnaround, e.g. "delivers in 24h"; nil when none is declared.
+			def delivery_label
+				listing.delivery_window.presence && "delivers in #{listing.delivery_window}"
+			end
+
+			# The escrow-flow note under the CTA. A per-hour total is settled at order time (rate x hours),
+			# so it is not stated as a fixed amount.
+			def request_note
+				if listing.per_hour?
+					"Add your inputs, agree the hours, then lock the total in escrow. Escrow releases to the " \
+						"provider only when the work arrives."
+				elsif listing.price?
+					"Add your inputs, lock #{helpers.number_with_delimiter(listing.price_amount)} " \
+						"#{listing.price_currency} in escrow, then track delivery. Escrow releases to the " \
+						"provider only when the work arrives."
+				end
+			end
+
 			# Escrow framed as the buyer's guarantee; mode-specific when the listing declares one.
 			def escrow_explainer
 				case listing.fulfillment

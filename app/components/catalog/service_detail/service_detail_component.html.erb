@@ -6,34 +6,49 @@
          class="aspect-video w-full rounded-xl border border-border object-cover">
   <% end %>
 
-  <%# mode + description + provider identity %>
+  <%# mode + delivery + description + provider identity %>
   <div>
-    <% if listing.fulfillment.present? %>
-      <%= render Shared::Chip::ChipComponent.new(tone: automated? ? :copper : :muted, label: automated? ? "automated" : "human") %>
-    <% end %>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <% if listing.fulfillment.present? %>
+        <%= render Shared::Chip::ChipComponent.new(tone: automated? ? :copper : :muted, label: automated? ? "automated" : "human") %>
+      <% end %>
+      <% if delivery_label %>
+        <span class="text-xs text-ink-muted"><%= delivery_label %></span>
+      <% end %>
+    </div>
     <div class="markdown mt-3"><%= helpers.markdown(listing.description) %></div>
     <div class="mt-4">
       <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: listing.provider_npub) %>
     </div>
   </div>
 
-  <%# price + escrow (mirrors viewService) %>
-  <div class="grid gap-4 sm:grid-cols-2">
-    <% if listing.price? %>
-      <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
-        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">price</p>
-        <div class="mt-2"><%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, size: :lg, suffix: listing.price_suffix) %></div>
-        <p class="mt-1 text-xs text-ink-muted">per request</p>
+  <%# Transaction terms: price + delivery on top, the escrow guarantee below. The price leads (copper),
+      proportionate rather than a hero number. %>
+  <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <span class="flex items-baseline gap-2">
+        <% if listing.price? %>
+          <%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, suffix: listing.price_currency) %>
+          <span class="text-xs text-ink-muted"><%= price_basis_label %></span>
+        <% else %>
+          <span class="text-sm text-ink-muted">Price on request</span>
+        <% end %>
+      </span>
+      <% if delivery_label %>
+        <span class="text-xs text-ink-muted"><%= delivery_label %></span>
       <% end %>
-    <% end %>
-    <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
-      <div class="mb-2 flex items-center gap-2">
-        <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper") %>
+    </div>
+
+    <div class="my-4 h-px bg-border"></div>
+
+    <div class="flex items-start gap-2">
+      <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+      <div>
         <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow · every job</p>
+        <p class="mt-1 text-sm leading-relaxed text-ink-secondary"><%= escrow_explainer %></p>
       </div>
-      <p class="text-sm leading-relaxed text-ink-secondary"><%= escrow_explainer %></p>
-    <% end %>
-  </div>
+    </div>
+  <% end %>
 
   <%# inputs this service expects (only when the listing declares a schema) %>
   <% if listing.input_schema.any? %>
@@ -66,8 +81,8 @@
   <%# buyer action %>
   <div>
     <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "arrow-right-01") do %>Request this service<% end %>
-    <% if listing.price? %>
-      <p class="mt-3 text-xs leading-relaxed text-ink-muted">Add your inputs, lock <%= helpers.number_with_delimiter(listing.price_amount) %> <%= listing.price_currency %> in escrow, then track delivery. Escrow releases to the provider only when the work arrives.</p>
+    <% if request_note %>
+      <p class="mt-3 text-xs leading-relaxed text-ink-muted"><%= request_note %></p>
     <% end %>
   </div>
 </div>
