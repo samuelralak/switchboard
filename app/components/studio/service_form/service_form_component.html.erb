@@ -125,7 +125,7 @@
 
         <div data-image-upload-target="grid" class="grid grid-cols-3 gap-3 sm:grid-cols-5">
           <% existing_images.each_with_index do |image, index| %>
-            <%= render Studio::ServiceForm::ImageItemComponent.new(image: image, cover: index.zero?) %>
+            <%= render Shared::ImageItem::ImageItemComponent.new(image: image, cover: index.zero?) %>
           <% end %>
         </div>
 
@@ -133,7 +133,7 @@
           No images yet. A cover image makes your listing stand out.
         </p>
 
-        <template data-image-upload-target="template"><%= render Studio::ServiceForm::ImageItemComponent.new %></template>
+        <template data-image-upload-target="template"><%= render Shared::ImageItem::ImageItemComponent.new %></template>
       <% end %>
     </div>
   </section>
