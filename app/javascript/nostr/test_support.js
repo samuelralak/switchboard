@@ -4,6 +4,8 @@ import { eventId } from "nostr/canonical"
 import { RelaySet } from "nostr/relay_set"
 import { DmClient, canMessage } from "nostr/dm_client"
 import { installMockRelays } from "nostr/mock_relay"
+import { buildEvents, broadcastListing, setListingStatus } from "nostr/listing_publish"
+import { saveNsec, nsecFor, savedNsecEntry } from "nostr/signer_store"
 
 // Test-only bridge. System tests drive the keyless crypto from an executeScript context, where a
 // bare-specifier dynamic import does NOT consult the page import map. Loading THIS module via a real
@@ -14,4 +16,6 @@ window.NostrCryptoTest = {
   NsecSigner, Nip07Signer, Nip46Signer,
   unwrap, UnwrapError, Kind, eventId, buildRumor, seal, giftWrap, wrapMessage,
   RelaySet, DmClient, canMessage, installMockRelays,
+  buildEvents, broadcastListing, setListingStatus,
+  saveNsec, nsecFor, savedNsecEntry,
 }

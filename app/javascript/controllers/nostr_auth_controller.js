@@ -1,8 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
+import { saveNsec, savedNsecEntry, forgetSavedNsec } from "nostr/signer_store"
 
-// NIP-49 ncryptsec (the nsec encrypted with the user's passphrase). localStorage is never
-// sent to the server, and only the ciphertext is stored -- the raw key never persists.
-const STORED_KEY = "switchboard.nsec"
+// Saved keys are NIP-49 ncryptsec (the nsec encrypted with the user's passphrase), pubkey-scoped in
+// localStorage by the store. localStorage is never sent to the server, and only the ciphertext is
+// stored -- the raw key never persists. This pre-sign-in dialog has no account context yet, so it
+// offers the most-recently-saved key (savedNsecEntry); the post-sign-in unlock dialog is account-scoped.
 
 // Sign in with Nostr (NIP-98, kind 27235): the browser signs a server-issued single-use
 // nonce and POSTs it to establish the Rails session. The nonce is prefetched on dialog open
@@ -36,33 +38,75 @@ export default class extends Controller {
       this.setStatus("No Nostr extension found. Install Alby or nos2x, or use a remote signer below.")
       return
     }
-    this.signAndSubmit("Approve the signature in your extension…", (template) => window.nostr.signEvent(template))
+    // signEvent stays inline (no await before it) so it runs inside the click gesture; the live
+    // Nip07Signer is registered after submit, where a lazy import is fine.
+    this.signAndSubmit("Approve the signature in your extension…",
+      (template) => window.nostr.signEvent(template), () => this.register("nip07"))
   }
 
-  // NIP-46 remote signer (bunker): a relay round-trip with remote approval, fully async.
-  signInWithBunker(event) {
+  // NIP-46 remote signer (bunker): pair (relay round-trip + remote approval), keep the connection open
+  // for the tab, and persist its reconnect descriptor so later sessions resume without re-approval.
+  async signInWithBunker(event) {
     event.preventDefault()
     const input = this.bunkerUrlTarget.value.trim()
     if (!input) {
       this.setStatus("Paste your bunker:// URL or a name@domain address.")
       return
     }
-    this.signAndSubmit("Connecting to your signer…", (template) => this.bunkerSign(input, template))
+    this.setStatus("Connecting to your signer…")
+    let signer
+    try {
+      const { Nip46Signer } = await import("nostr/signer")
+      signer = await Nip46Signer.pair(input, {
+        onauth: (url) => {
+          window.open(url, "_blank", "noopener")
+          this.setStatus("Approve the connection in your signer…")
+        },
+      })
+    } catch (error) {
+      this.fail(error)
+      return
+    }
+    this.signAndSubmit("Signing in…", (template) => signer.signEvent(template), () => this.register("bunker", signer))
   }
 
-  // Pasted nsec: signs the login locally, optionally saving the key NIP-49-encrypted.
-  signInWithNsec(event) {
+  // Pasted nsec: decode, optionally save it NIP-49-encrypted, sign, and HOLD the signer for the tab
+  // (unlock-once-per-tab) so messaging + publishing reuse it without re-prompting.
+  async signInWithNsec(event) {
     event.preventDefault()
     const nsec = this.nsecTarget.value.trim()
     if (!nsec.startsWith("nsec1")) {
       this.setStatus("Paste your nsec (it starts with “nsec1”).")
       return
     }
-    this.signAndSubmit("Signing in…", (template) => this.pasteSign(nsec, template))
+    let secretKey
+    try {
+      const { decode } = await import("nostr-tools/nip19")
+      const { type, data } = decode(nsec)
+      if (type !== "nsec" || data.length !== 32) throw new Error("not a valid nsec")
+      secretKey = data
+    } catch {
+      this.setStatus("That doesn't look like a valid nsec.")
+      return
+    }
+
+    const passphrase = this.hasSavePassphraseTarget ? this.savePassphraseTarget.value : ""
+    if (passphrase) {
+      const { encrypt } = await import("nostr-tools/nip49")
+      const { getPublicKey } = await import("nostr-tools/pure")
+      // Scope the saved ciphertext to its account pubkey so a second account never clobbers the first. A
+      // storage failure (private browsing / quota) must not block sign-in; the tab still gets a live
+      // in-memory signer, it just can't re-hydrate after a hard reload.
+      try { saveNsec(getPublicKey(secretKey), encrypt(secretKey, passphrase)) } catch { /* in-memory only */ }
+    }
+
+    const { NsecSigner } = await import("nostr/signer")
+    const signer = new NsecSigner(secretKey)
+    this.signAndSubmit("Signing in…", (template) => signer.signEvent(template), () => this.register("nsec", signer))
   }
 
-  // Unlock the key saved on this device and sign with it. A bad passphrase fails the
-  // NIP-49 decrypt (its Poly1305 tag), surfaced before the sign attempt.
+  // Unlock the key saved on this device, sign, and hold the signer for the tab. A bad passphrase fails
+  // the NIP-49 decrypt (its Poly1305 tag), surfaced before the sign attempt.
   async unlockSavedKey(event) {
     event.preventDefault()
     const passphrase = this.unlockPassphraseTarget.value
@@ -78,22 +122,24 @@ export default class extends Controller {
       this.setStatus("Incorrect passphrase.")
       return
     }
-    this.signAndSubmit("Signing in…", (template) => this.finalize(secretKey, template))
+    const { NsecSigner } = await import("nostr/signer")
+    const signer = new NsecSigner(secretKey)
+    this.signAndSubmit("Signing in…", (template) => signer.signEvent(template), () => this.register("nsec", signer))
   }
 
-  // Remove the saved key and return to the paste form.
+  // Remove the offered saved key and return to the paste form.
   forgetKey(event) {
     event.preventDefault()
-    localStorage.removeItem(STORED_KEY)
+    forgetSavedNsec()
     this.reflectSavedKey()
     this.setStatus("Saved key removed.")
   }
 
-  // Consume the nonce, sign the templated event, and submit it. `sign` runs before the first
-  // await so the extension's signEvent stays in the click gesture; the catch covers both a
-  // synchronous throw and a rejected promise. The in-flight guard ignores a double-click, and
-  // secrets are cleared whatever the outcome.
-  async signAndSubmit(status, sign) {
+  // Consume the nonce, sign the templated event, submit it, then register the live signer for the tab.
+  // `sign` runs before the first await so the extension's signEvent stays in the click gesture; the
+  // catch covers both a synchronous throw and a rejected promise. The in-flight guard ignores a
+  // double-click, and secrets are cleared whatever the outcome.
+  async signAndSubmit(status, sign, register) {
     if (this.signing) return
     const nonce = this.takeNonce()
     if (!nonce) return
@@ -102,6 +148,7 @@ export default class extends Controller {
     try {
       const signed = await sign(this.template(nonce))
       await this.submit(signed)
+      if (register) await register()
     } catch (error) {
       this.fail(error)
     } finally {
@@ -110,48 +157,19 @@ export default class extends Controller {
     }
   }
 
-  // NIP-46 remote signer via the shared Nip46Signer adapter (nostr/signer.js), lazy-imported so a page
-  // that never signs in does not pull nostr-tools. Login connects-and-closes per use; the messaging
-  // client holds its own Nip46Signer open for the session.
-  async bunkerSign(input, template) {
-    const { Nip46Signer } = await import("nostr/signer")
-    const signer = await Nip46Signer.connect(input, {
-      onauth: (url) => {
-        window.open(url, "_blank", "noopener")
-        this.setStatus("Approve the connection in your signer…")
-      },
-    })
-    // close() covers connect() too, so a declined/failed connection tears the signer down.
-    try {
-      return await signer.signEvent(template)
-    } finally {
-      await signer.close?.()
-    }
-  }
-
-  // Decode a pasted nsec, optionally save it NIP-49-encrypted, and sign.
-  async pasteSign(nsec, template) {
-    const { decode } = await import("nostr-tools/nip19")
-    const { type, data } = decode(nsec)
-    if (type !== "nsec" || data.length !== 32) throw new Error("not a valid nsec")
-
-    const passphrase = this.hasSavePassphraseTarget ? this.savePassphraseTarget.value : ""
-    if (passphrase) {
-      const { encrypt } = await import("nostr-tools/nip49")
-      localStorage.setItem(STORED_KEY, encrypt(data, passphrase))
-    }
-    return this.finalize(data, template)
-  }
-
-  // Sign with a locally-held key via the shared NsecSigner adapter, then dispose() to zero the key
-  // bytes (the login path is one-shot; the messaging client holds its NsecSigner for the session).
-  async finalize(secretKey, template) {
-    const { NsecSigner } = await import("nostr/signer")
-    const signer = new NsecSigner(secretKey)
-    try {
-      return signer.signEvent(template)
-    } finally {
-      signer.dispose()
+  // Hold the live signer in the tab-scoped registry so the studio + messaging can sign across Turbo
+  // navigations without re-prompting. NIP-07 re-acquires window.nostr (no secret to keep); bunker also
+  // persists its non-secret reconnect descriptor for silent reconnect after a hard reload.
+  async register(method, signer) {
+    const store = await import("nostr/signer_store")
+    if (method === "nip07") {
+      const { Nip07Signer } = await import("nostr/signer")
+      store.setSigner(new Nip07Signer(), "nip07")
+    } else if (method === "bunker") {
+      store.setBunkerDescriptor(signer.descriptor)
+      store.setSigner(signer, "bunker")
+    } else {
+      store.setSigner(signer, method)
     }
   }
 
@@ -203,7 +221,7 @@ export default class extends Controller {
   }
 
   get savedKey() {
-    return localStorage.getItem(STORED_KEY)
+    return savedNsecEntry()?.ciphertext ?? null
   }
 
   template(nonce) {

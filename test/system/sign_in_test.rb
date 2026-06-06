@@ -22,6 +22,6 @@ class SignInTest < ApplicationSystemTestCase
 		click_button "Sign in"           # opens the dialog + prefetches the challenge nonce (prepare)
 		click_button "Browser extension" # signInWithExtension -> window.nostr.signEvent -> POST /session
 
-		assert_text "signed in"          # the identity menu reflects the established session after reload
+		assert_text "Provider studio"    # the signed-in header CTA appears once the session is established
 	end
 end

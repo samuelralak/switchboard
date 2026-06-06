@@ -12,13 +12,22 @@ module Layout
 				assert_text "Browser extension"
 			end
 
-			def test_signed_in_shows_the_truncated_npub_and_account_menu
+			def test_signed_in_shows_an_avatar_dropdown_with_account_actions
 				user = User.new(pubkey: "a" * 64)
 				render_inline(IdentityMenuComponent.new(user:))
 
+				assert_selector "img" # identicon fallback (no kind-0 picture)
 				assert_text user.npub[0, 8]
 				assert_selector "a", text: "Your profile"
+				assert_selector "a", text: "Settings"
 				assert_text "Disconnect signer"
+			end
+
+			def test_signed_in_with_a_picture_uses_it_as_the_avatar
+				user = User.new(pubkey: "a" * 64, picture: "https://example.com/avatar.png")
+				render_inline(IdentityMenuComponent.new(user:))
+
+				assert_selector "img[src='https://example.com/avatar.png']"
 			end
 		end
 	end
