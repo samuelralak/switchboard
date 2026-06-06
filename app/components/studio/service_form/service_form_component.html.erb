@@ -13,7 +13,7 @@
   <%# Validation problems surface here, at the top, so they are visible wherever the rail's Publish is clicked. %>
   <div data-studio-target="errors" hidden class="rounded-xl border border-lamp-fault/40 bg-lamp-fault/5 px-4 py-3 text-sm text-ink-secondary"></div>
 
-  <%# ── Details (required) ───────────────────────────────────── %>
+  <%# Details %>
   <section id="section-details" data-studio-target="section" data-section="details" class="scroll-mt-28">
     <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
       <div class="mb-5">
@@ -67,7 +67,39 @@
     <% end %>
   </section>
 
-  <%# ── Images (optional) ────────────────────────────────────── %>
+  <%# Buyer inputs %>
+  <section id="section-inputs" data-studio-target="section" data-section="inputs" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-display text-base font-semibold tracking-tight text-ink">Buyer inputs</h2>
+            <%= optional_tag %>
+          </div>
+          <p class="mt-0.5 text-xs text-ink-faint">What buyers provide with each request.</p>
+        </div>
+        <button type="button" data-action="studio#addField"
+                class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink <%= FOCUS %>">
+          <%= render Shared::Icon::IconComponent.new(name: "add-01", size: :sm) %>
+          Add field
+        </button>
+      </div>
+
+      <div data-studio-target="rows" class="flex flex-col gap-2.5">
+        <% listing.input_schema.each do |field| %>
+          <%= render Studio::ServiceForm::RowComponent.new(field: field) %>
+        <% end %>
+      </div>
+
+      <p data-studio-target="rowsEmpty"<%= " hidden" unless listing.input_schema.empty? %> class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-ink-faint">
+        No fields yet. Add the inputs a buyer must supply to order this service.
+      </p>
+
+      <template data-studio-target="rowTemplate"><%= render Studio::ServiceForm::RowComponent.new %></template>
+    <% end %>
+  </section>
+
+  <%# Images %>
   <section id="section-images" data-studio-target="section" data-section="images" class="scroll-mt-28">
     <div data-controller="image-upload" data-image-upload-pubkey-value="<%= pubkey %>">
       <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
@@ -106,7 +138,7 @@
     </div>
   </section>
 
-  <%# ── Delivery & fulfillment (required) ─────────────────────── %>
+  <%# Delivery %>
   <section id="section-delivery" data-studio-target="section" data-section="delivery" class="scroll-mt-28">
     <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
       <div class="mb-5">
@@ -169,35 +201,4 @@
     <% end %>
   </section>
 
-  <%# ── Buyer inputs / input schema (optional) ───────────────── %>
-  <section id="section-inputs" data-studio-target="section" data-section="inputs" class="scroll-mt-28">
-    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
-      <div class="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div class="flex items-center gap-2">
-            <h2 class="font-display text-base font-semibold tracking-tight text-ink">Buyer inputs</h2>
-            <%= optional_tag %>
-          </div>
-          <p class="mt-0.5 text-xs text-ink-faint">What buyers provide with each request.</p>
-        </div>
-        <button type="button" data-action="studio#addField"
-                class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink <%= FOCUS %>">
-          <%= render Shared::Icon::IconComponent.new(name: "add-01", size: :sm) %>
-          Add field
-        </button>
-      </div>
-
-      <div data-studio-target="rows" class="flex flex-col gap-2.5">
-        <% listing.input_schema.each do |field| %>
-          <%= render Studio::ServiceForm::RowComponent.new(field: field) %>
-        <% end %>
-      </div>
-
-      <p data-studio-target="rowsEmpty"<%= " hidden" unless listing.input_schema.empty? %> class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-ink-faint">
-        No fields yet. Add the inputs a buyer must supply to order this service.
-      </p>
-
-      <template data-studio-target="rowTemplate"><%= render Studio::ServiceForm::RowComponent.new %></template>
-    <% end %>
-  </section>
 <% end %>

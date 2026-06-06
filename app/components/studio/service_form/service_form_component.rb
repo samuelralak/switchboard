@@ -27,9 +27,9 @@ module Studio
 			# progress dot.
 			SECTIONS = [
 				{ id: "details", title: "Details", required: true },
+				{ id: "inputs", title: "Buyer inputs", required: false },
 				{ id: "images", title: "Images", required: false },
-				{ id: "delivery", title: "Delivery", required: true },
-				{ id: "inputs", title: "Buyer inputs", required: false }
+				{ id: "delivery", title: "Delivery", required: true }
 			].freeze
 
 			attr_reader :listing, :pubkey, :d_tag
