@@ -87,6 +87,16 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to studio_path
 	end
 
+	test "edit redirects when the coordinate now holds an open request, not a listing" do
+		sign_in
+		# Requests share kind 30402; one could supersede a listing at the same d. The studio must not edit it.
+		request_event(pubkey: @session_pubkey, d_tag: "shared")
+
+		get edit_studio_listing_url(d: "shared")
+
+		assert_redirected_to studio_path
+	end
+
 	private
 
 	def sign_in
@@ -104,6 +114,16 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 		Event.create!(
 			event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64),
 			kind: Events::Kinds::CLASSIFIED, content: title, tags:,
+			nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }
+		)
+	end
+
+	# A kind-30402 carrying the REQUEST marker at the given coordinate (an open request, not a listing).
+	def request_event(pubkey:, d_tag:)
+		Event.create!(
+			event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64),
+			kind: Events::Kinds::CLASSIFIED, content: "need",
+			tags: [ [ "d", d_tag ], %w[title Need], [ "t", Requests::OpenRequest.marker ] ],
 			nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }
 		)
 	end

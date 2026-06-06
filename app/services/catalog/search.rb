@@ -20,8 +20,12 @@ module Catalog
 		# Active (NIP-40 not-expired) classified listings the author has NOT unpublished (status=inactive),
 		# filtered in SQL so the `limit` applies to visible rows (not starved by a backlog of unpublished
 		# ones). jsonb @> uses the tags GIN index. Note: Event.active is NIP-40 expiry, distinct from this.
+		# Open requests share kind 30402 and are excluded by their marker, so the demand board never leaks
+		# into the supply catalog (Requests::Search applies the symmetric include).
 		def catalog_scope
-			Event.classified.active.where("NOT (tags @> ?)", [ %w[status inactive] ].to_json)
+			Event.classified.active
+					 .where("NOT (tags @> ?)", [ %w[status inactive] ].to_json)
+					 .where("NOT (tags @> ?)", [ [ "t", Requests::OpenRequest.marker ] ].to_json)
 		end
 	end
 end

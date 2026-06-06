@@ -9,7 +9,16 @@ module Catalog
 		option :pubkey, type: Types::Strict::String
 
 		def call
-			Event.classified.where(pubkey:).recent.map { |event| Listing.new(event) }.select(&:conforms?)
+			own_listings.recent.map { |event| Listing.new(event) }.select(&:conforms?)
+		end
+
+		private
+
+		# The provider's own classified events, with open requests (same kind 30402, request marker) excluded
+		# at the SQL layer so the demand board never bleeds into My-listings; conforms? is the authoritative filter.
+		def own_listings
+			Event.classified.where(pubkey:)
+					 .where("NOT (tags @> ?)", [ [ "t", Requests::OpenRequest.marker ] ].to_json)
 		end
 	end
 end

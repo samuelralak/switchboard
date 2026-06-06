@@ -19,7 +19,7 @@ module Events
 				event = Event.create!(attributes)
 
 				txn.after_commit do
-					Catalog::Ui::Update.call(event:) if event.kind == Kinds::CLASSIFIED
+					broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
 					Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
 				end
 
@@ -40,6 +40,17 @@ module Events
 		end
 
 		private
+
+		# Route a kind-30402 event to the right live surface by its marker: an open request to the demand
+		# board, everything else to the supply catalog. Requests and listings share the kind, so the marker
+		# is the only discriminator (mirrors the Catalog::Search / Requests::Search scope split).
+		def broadcast_classified(event)
+			if event.tag_values("t").include?(Requests::OpenRequest.marker)
+				Requests::Ui::Update.call(event:)
+			else
+				Catalog::Ui::Update.call(event:)
+			end
+		end
 
 		# Destroys the stored event at this coordinate; rolls back the transaction
 		# when the incoming event does not supersede it.

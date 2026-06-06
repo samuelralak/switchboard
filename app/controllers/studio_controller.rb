@@ -32,9 +32,11 @@ class StudioController < ApplicationController
 	# the same d-tag, superseding the current version.
 	def edit
 		event = Event.classified.find_by(pubkey: current_user.pubkey, d_tag: params[:d].to_s)
-		return redirect_to(studio_path) unless event # gone, superseded, or not the provider's own
+		@draft = event && Catalog::Listing.new(event)
+		# Gone, superseded, not the provider's own, or the coordinate now holds an open request (requests
+		# share kind 30402 and could supersede a listing at the same d): only a conforming listing edits here.
+		return redirect_to(studio_path) unless @draft&.conforms?
 
-		@draft = Catalog::Listing.new(event)
 		@d_tag = @draft.identifier
 	end
 

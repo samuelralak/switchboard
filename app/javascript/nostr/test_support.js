@@ -5,6 +5,7 @@ import { RelaySet } from "nostr/relay_set"
 import { DmClient, canMessage } from "nostr/dm_client"
 import { installMockRelays } from "nostr/mock_relay"
 import { buildEvents, broadcastListing, setListingStatus } from "nostr/listing_publish"
+import { buildRequestEvent, broadcastRequest } from "nostr/request_publish"
 import { saveNsec, nsecFor, savedNsecEntry } from "nostr/signer_store"
 
 // Test-only bridge. System tests drive the keyless crypto from an executeScript context, where a
@@ -17,5 +18,6 @@ window.NostrCryptoTest = {
   unwrap, UnwrapError, Kind, eventId, buildRumor, seal, giftWrap, wrapMessage,
   RelaySet, DmClient, canMessage, installMockRelays,
   buildEvents, broadcastListing, setListingStatus,
+  buildRequestEvent, broadcastRequest,
   saveNsec, nsecFor, savedNsecEntry,
 }

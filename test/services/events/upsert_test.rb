@@ -123,6 +123,19 @@ module Events
 			assert_empty ids
 		end
 
+		test "routes a classified open request to the demand board, not the catalog" do
+			request = stored(kind: Events::Kinds::CLASSIFIED)
+			request["tags"] << [ "t", Requests::OpenRequest.marker ]
+
+			catalog_ids = []
+			board_ids = recording(Requests::Ui::Update) do
+				catalog_ids = recording(Catalog::Ui::Update) { Events::Upsert.call(event_data: request) }
+			end
+
+			assert_equal [ request["id"] ], board_ids
+			assert_empty catalog_ids
+		end
+
 		test "commits the row before broadcasting, so a broadcast failure cannot lose it" do
 			event = stored(kind: Events::Kinds::CLASSIFIED)
 
@@ -170,10 +183,11 @@ module Events
 
 		private
 
-		# Temporarily replace Catalog::Ui::Update.call with a recorder, then restore it.
-		def recording_broadcasts
+		# Temporarily replace target.call with a recorder of broadcast event_ids, then restore it. Two
+		# different targets nest cleanly (each aliases on its own singleton).
+		def recording(target)
 			recorded = []
-			singleton = Catalog::Ui::Update.singleton_class
+			singleton = target.singleton_class
 			singleton.send(:alias_method, :__orig_call, :call)
 			singleton.send(:define_method, :call) { |event:| recorded << event.event_id }
 			yield
@@ -182,6 +196,8 @@ module Events
 			singleton.send(:alias_method, :call, :__orig_call)
 			singleton.send(:remove_method, :__orig_call)
 		end
+
+		def recording_broadcasts(&) = recording(Catalog::Ui::Update, &)
 
 		# Replace Catalog::Ui::Update.call with one that raises, then restore it.
 		def raising_broadcast
