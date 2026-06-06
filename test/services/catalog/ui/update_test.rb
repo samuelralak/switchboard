@@ -5,12 +5,21 @@ require "test_helper"
 module Catalog
 	module Ui
 		class UpdateTest < ActiveSupport::TestCase
-			test "broadcasts a remove then a prepend to the catalog stream" do
+			test "an active listing broadcasts remove (card + drawer) then re-adds the card and its drawer" do
 				event = build_event(title: "Logo design", d: "logo")
 
 				actions = recording_turbo_actions { Catalog::Ui::Update.call(event:) }
 
-				assert_equal [ [ :broadcast_remove_to, "catalog" ], [ :broadcast_prepend_to, "catalog" ] ], actions
+				assert_equal %i[broadcast_remove_to broadcast_remove_to broadcast_prepend_to broadcast_append_to],
+										actions.map(&:first)
+			end
+
+			test "an unpublished (inactive) listing is remove-only: card + drawer removed, nothing re-added" do
+				event = build_event(title: "Unpublished", d: "off", extra_tags: [ %w[status inactive] ])
+
+				actions = recording_turbo_actions { Catalog::Ui::Update.call(event:) }
+
+				assert_equal %i[broadcast_remove_to broadcast_remove_to], actions.map(&:first)
 			end
 
 			private
@@ -19,14 +28,14 @@ module Catalog
 			def recording_turbo_actions
 				actions = []
 				channel = Turbo::StreamsChannel.singleton_class
-				%i[broadcast_remove_to broadcast_prepend_to].each do |name|
+				%i[broadcast_remove_to broadcast_prepend_to broadcast_append_to].each do |name|
 					channel.send(:alias_method, "__orig_#{name}", name)
 					channel.send(:define_method, name) { |stream, **| actions << [ name, stream ] }
 				end
 				yield
 				actions
 			ensure
-				%i[broadcast_remove_to broadcast_prepend_to].each do |name|
+				%i[broadcast_remove_to broadcast_prepend_to broadcast_append_to].each do |name|
 					channel.send(:alias_method, name, "__orig_#{name}")
 					channel.send(:remove_method, "__orig_#{name}")
 				end

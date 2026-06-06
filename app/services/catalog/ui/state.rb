@@ -5,19 +5,26 @@ module Catalog
 		# Render state for the catalog, shared by the page render and the live broadcast
 		# so both use the same stream, grid target, and partial.
 		class State
-			STREAM      = "catalog"
-			GRID_TARGET = "catalog_listings"
-			PARTIAL     = "catalog/listing"
+			STREAM         = "catalog"
+			GRID_TARGET    = "catalog_listings"
+			PARTIAL        = "catalog/listing"
+			# The container the live broadcast appends a card's drawer into.
+			DRAWER_TARGET  = "service-drawers"
+			DRAWER_PARTIAL = "catalog/drawer"
 
-			# One listing card, broadcast by Catalog::Ui::Update.
+			# One listing card (+ its drawer), broadcast by Catalog::Ui::Update.
 			Card = Data.define(:listing, :stream, :grid_target, :partial) do
 				def card_id = listing.dom_id
+				# The removable drawer wrapper id (see catalog/_drawer.html.erb).
+				def drawer_id = "service-drawer-#{listing.dom_id}-wrap"
+				def drawer_target = DRAWER_TARGET
+				def drawer_partial = DRAWER_PARTIAL
 				def locals = { listing: }
 			end
 
 			# The catalog grid for the page render.
 			Grid = Data.define(:listings, :query, :stream, :grid_target, :partial) do
-				def size = listings.size
+				delegate :size, to: :listings
 				def never_ingested? = listings.empty? && query.blank?
 				def no_matches? = listings.empty? && query.present?
 			end

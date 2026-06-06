@@ -7,8 +7,8 @@ module Messages
 		# the kind-30402 conformance line. Mirrors the prototype's viewService, reframed for a
 		# provider viewing their own listing (no buyer CTA, no self-referential track record).
 		class ServiceDetailComponent < ApplicationComponent
-			# The service-listing microstandard marker (brief §7.1). Placeholder namespace.
-			MARKER = "switchboard-service"
+			# The service-listing microstandard marker (brief §7.1), env-scoped; one source of truth.
+			MARKER = Catalog::Listing.marker
 
 			# The dialog id the trigger button and the drawer share (one service shows at a time).
 			DRAWER_ID = "service-drawer"

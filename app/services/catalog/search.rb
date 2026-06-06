@@ -9,9 +9,19 @@ module Catalog
 		option :shown, type: Types::Coercible::Integer, default: -> { 60 }
 
 		def call
-			listings = Event.classified.active.recent.limit(limit).map { |event| Listing.new(event) }
+			listings = catalog_scope.recent.limit(limit).map { |event| Listing.new(event) }
+			listings = listings.select(&:active?) # also drops other non-"active" statuses (e.g. NIP-99 "sold")
 			listings = listings.select { |listing| listing.matches?(query) } if query.present?
 			listings.first(shown)
+		end
+
+		private
+
+		# Active (NIP-40 not-expired) classified listings the author has NOT unpublished (status=inactive),
+		# filtered in SQL so the `limit` applies to visible rows (not starved by a backlog of unpublished
+		# ones). jsonb @> uses the tags GIN index. Note: Event.active is NIP-40 expiry, distinct from this.
+		def catalog_scope
+			Event.classified.active.where("NOT (tags @> ?)", [ %w[status inactive] ].to_json)
 		end
 	end
 end

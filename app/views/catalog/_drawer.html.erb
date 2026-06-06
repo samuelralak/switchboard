@@ -1,0 +1,8 @@
+<%# A catalog service-detail drawer, opened by its card via commandfor. Wrapped so a live update can
+    remove + re-append it cleanly: the <dialog> keeps the commandfor id, the wrapper is the removable
+    unit. Shared by the page render (pages/home) and the Catalog::Ui::Update broadcast. %>
+<div id="service-drawer-<%= listing.dom_id %>-wrap">
+  <%= render Shared::Drawer::DrawerComponent.new(title: listing.title, id: "service-drawer-#{listing.dom_id}") do %>
+    <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: listing) %>
+  <% end %>
+</div>

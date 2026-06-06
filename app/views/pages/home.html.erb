@@ -73,10 +73,11 @@
           title: "The catalog is empty", body: "Run the relay client (bin/rails relay:boot) to ingest NIP-99 listings from relays.", icon: "store-01") %>
   <% end %>
 
-  <%# Service-detail drawers (one per listing), opened by the card buttons via commandfor. %>
-  <% @catalog.listings.each do |listing| %>
-    <%= render Shared::Drawer::DrawerComponent.new(title: listing.title, id: "service-drawer-#{listing.dom_id}") do %>
-      <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: listing) %>
+  <%# Service-detail drawers (one per listing), opened by the card buttons via commandfor. A live
+      broadcast appends a newly-ingested listing's drawer here so its prepended card is not a dead button. %>
+  <div id="<%= Catalog::Ui::State::DRAWER_TARGET %>">
+    <% @catalog.listings.each do |listing| %>
+      <%= render "catalog/drawer", listing: listing %>
     <% end %>
-  <% end %>
+  </div>
 </section>

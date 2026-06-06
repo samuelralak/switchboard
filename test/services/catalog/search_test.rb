@@ -11,7 +11,7 @@ module Catalog
 			results = Catalog::Search.call
 
 			assert results.all?(Catalog::Listing)
-			assert_equal [ newer.event_id, older.event_id ], results.map { |listing| listing.event.event_id }
+			assert_equal([ newer.event_id, older.event_id ], results.map { |listing| listing.event.event_id })
 		end
 
 		test "narrows to listings matching the free-text query" do
@@ -49,6 +49,21 @@ module Catalog
 			build_event(title: "Other", d: "o")
 
 			assert_equal [ "Wordpress Migration" ], Catalog::Search.call(query: "migration service").map(&:title)
+		end
+
+		test "excludes unpublished listings whose status tag is not active" do
+			build_event(title: "Active service", d: "act")
+			build_event(title: "Unpublished service", d: "off", extra_tags: [ %w[status inactive] ])
+
+			assert_equal [ "Active service" ], Catalog::Search.call.map(&:title)
+		end
+
+		test "the limit applies to visible listings, not starved by newer unpublished ones" do
+			build_event(title: "Active", d: "act", created_at: 2.hours.ago)
+			build_event(title: "Unpublished newer", d: "off", created_at: 1.hour.ago, extra_tags: [ %w[status inactive] ])
+
+			# limit fetches one row; without the SQL status filter the newer unpublished one would consume it.
+			assert_equal [ "Active" ], Catalog::Search.call(limit: 1).map(&:title)
 		end
 	end
 end
