@@ -2,25 +2,23 @@
 
 module Layout
 	module Sidebar
-		# The application sidebar: brand, primary navigation, and relay status.
+		# The application sidebar: brand, primary navigation, a relay group (capped, with a manage modal),
+		# and a settings link pinned to the bottom. Provider studio is reached from the top-bar CTA, not here.
 		class SidebarComponent < ApplicationComponent
+			include RelaysHelper
+
 			def nav_items
 				[
 					{ label: "Catalog", href: helpers.root_path, icon: "hgi-store-01", active: on_catalog? },
 					{ label: "Messages", href: helpers.messages_path, icon: "hgi-mail-01", active: on_messages? },
-					{ label: "My requests", href: "#", icon: "hgi-package", active: false },
-					{ label: "Provider studio", href: "#", icon: "hgi-store-add-01", active: false }
+					{ label: "My requests", href: "#", icon: "hgi-package", active: false }
 				]
 			end
 
-			def relays
-				[
-					{ host: "relay.damus.io",   status: :settled },
-					{ host: "nos.lol",          status: :settled },
-					{ host: "relay.primal.net", status: :settled },
-					{ host: "nostr.band",       status: :live }
-				]
-			end
+			# The first few relays shown inline; the rest are reachable through the manage modal.
+			def sidebar_relays = display_relays.first(SIDEBAR_RELAY_CAP)
+
+			def more_relays_count = [ display_relays.length - SIDEBAR_RELAY_CAP, 0 ].max
 
 			private
 
