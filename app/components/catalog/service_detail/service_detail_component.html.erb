@@ -1,4 +1,11 @@
 <div class="flex flex-col gap-6">
+  <%# cover image (first listing image), when present %>
+  <% if listing.image.present? %>
+    <img src="<%= listing.image %>" alt="<%= listing.title %>" loading="lazy"
+         data-controller="image-fallback" data-action="error->image-fallback#failed"
+         class="aspect-video w-full rounded-xl border border-border object-cover">
+  <% end %>
+
   <%# mode + description + provider identity %>
   <div>
     <% if listing.fulfillment.present? %>
@@ -15,7 +22,7 @@
     <% if listing.price? %>
       <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
         <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">price</p>
-        <div class="mt-2"><%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, size: :lg, suffix: listing.price_currency) %></div>
+        <div class="mt-2"><%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, size: :lg, suffix: listing.price_suffix) %></div>
         <p class="mt-1 text-xs text-ink-muted">per request</p>
       <% end %>
     <% end %>
@@ -50,7 +57,7 @@
   <% if listing.conforms? %>
     <p class="text-xs leading-relaxed text-ink-faint">
       conforms to the service-listing convention ·
-      <span class="font-mono text-ink-muted">t:<%= Catalog::Listing::MARKER %></span>
+      <span class="font-mono text-ink-muted">t:<%= Catalog::Listing.marker %></span>
       <% if listing.capability.present? %>· <span class="font-mono text-ink-muted">svc:<%= listing.capability %></span> <% end %>·
       <span class="font-mono text-ink-muted">kind 30402</span>
     </p>

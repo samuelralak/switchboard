@@ -12,7 +12,7 @@ module Catalog
 			end
 
 			delegate :title, :description, :summary, :status, :price?, :price_amount,
-							:price_currency, :fulfillment, :provider_npub, :dom_id,
+							:price_currency, :price_suffix, :fulfillment, :provider_npub, :dom_id, :image,
 							:search_text, :filter_mode, to: :listing
 
 			def blurb = description.presence || summary
