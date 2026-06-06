@@ -1,0 +1,203 @@
+<%= form_with url: helpers.studio_preview_path, method: :post, id: "service-form",
+      data: { studio_target: "form", action: "input->studio#formChanged change->studio#formChanged", turbo_frame: "studio-preview" },
+      html: { class: "flex flex-col gap-5", novalidate: true } do %>
+
+  <%# Empty on new (the publisher mints a fresh id); the existing coordinate on edit (re-publish supersedes). %>
+  <input type="hidden" name="d_tag" value="<%= d_tag %>">
+  <%# Carried through an edit so re-publishing preserves visibility + the original publish date and can
+      supersede with a monotonic created_at; defaults for a new listing. Visibility is the My-listings toggle. %>
+  <input type="hidden" name="status" value="<%= listing.status %>">
+  <input type="hidden" name="published_at" value="<%= listing.published_at %>">
+  <input type="hidden" name="created_at" value="<%= listing.event.nostr_created_at&.to_i %>">
+
+  <%# Validation problems surface here, at the top, so they are visible wherever the rail's Publish is clicked. %>
+  <div data-studio-target="errors" hidden class="rounded-xl border border-lamp-fault/40 bg-lamp-fault/5 px-4 py-3 text-sm text-ink-secondary"></div>
+
+  <%# ── Details (required) ───────────────────────────────────── %>
+  <section id="section-details" data-studio-target="section" data-section="details" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Details</h2>
+          <%= required_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">The essentials a buyer sees first.</p>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <div>
+          <label for="p-title" class="<%= LABEL %>">Service name <%= req %></label>
+          <input type="text" id="p-title" name="title" value="<%= listing.title unless listing.title == "Untitled service" %>"
+                 placeholder="Summarize a Nostr thread" autocomplete="off" class="<%= input_class %>">
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <%# min-h-9 matches the price label row (which holds the basis toggle) so the inputs align. %>
+            <div class="mb-2 flex min-h-9 items-center">
+              <label for="p-cap" class="<%= LABEL %> mb-0">Capability <%= req %></label>
+            </div>
+            <input type="text" id="p-cap" name="capability" value="<%= listing.capability %>" placeholder="summarize"
+                   autocomplete="off" class="<%= input_class(data: true) %>">
+            <p class="mt-1.5 text-xs text-ink-faint">A short machine tag buyers and clients match on.</p>
+          </div>
+          <div>
+            <div class="mb-2 flex min-h-9 items-center justify-between gap-2">
+              <label for="p-price" class="<%= LABEL %> mb-0">Price <span class="text-ink-faint" data-studio-target="priceUnit"><%= per_hour? ? "(sat / hr)" : "(sat)" %></span> <%= req %></label>
+              <%# Per request = a one-time price; Per hour = a NIP-99 recurring "hour" rate. %>
+              <div role="group" aria-label="Pricing basis" class="inline-flex shrink-0 gap-0.5 rounded-lg border border-border bg-inset p-0.5">
+                <button type="button" data-studio-target="priceBasisButton" data-basis="request" data-action="studio#setPriceBasis"
+                        aria-pressed="<%= !per_hour? %>" class="<%= PRICE_BASIS %>">Per request</button>
+                <button type="button" data-studio-target="priceBasisButton" data-basis="hour" data-action="studio#setPriceBasis"
+                        aria-pressed="<%= per_hour? %>" class="<%= PRICE_BASIS %>">Per hour</button>
+              </div>
+            </div>
+            <input type="number" id="p-price" name="price" value="<%= listing.price_amount %>" min="0" step="1"
+                   placeholder="120" inputmode="numeric" class="<%= input_class(data: true) %>">
+            <input type="hidden" name="price_frequency" value="<%= price_frequency %>" data-studio-target="priceFrequency">
+            <%# Filled live by the studio controller from the cached BTC/USD rate; hidden when no rate. %>
+            <p data-studio-target="priceHint" class="mt-1.5 font-mono text-xs text-ink-faint"></p>
+          </div>
+        </div>
+        <div>
+          <label for="p-desc" class="<%= LABEL %>">Description <span class="text-ink-faint">(optional)</span></label>
+          <textarea id="p-desc" name="description" rows="3" placeholder="What you deliver, and how. Markdown is supported."
+                    class="<%= input_class %> resize-y leading-relaxed"><%= listing.description %></textarea>
+        </div>
+      </div>
+    <% end %>
+  </section>
+
+  <%# ── Images (optional) ────────────────────────────────────── %>
+  <section id="section-images" data-studio-target="section" data-section="images" class="scroll-mt-28">
+    <div data-controller="image-upload" data-image-upload-pubkey-value="<%= pubkey %>">
+      <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-display text-base font-semibold tracking-tight text-ink">Images</h2>
+              <%= optional_tag %>
+            </div>
+            <p class="mt-0.5 text-xs text-ink-faint">Up to 5. The first is the cover buyers see. PNG, JPEG, WebP, or GIF, max 20 MiB.</p>
+          </div>
+          <button type="button" data-image-upload-target="add" data-action="image-upload#open"
+                  class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:pointer-events-none <%= FOCUS %>">
+            <%= render Shared::Icon::IconComponent.new(name: "image-add-01", size: :sm) %>
+            Add images
+          </button>
+        </div>
+
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden
+               data-image-upload-target="input" data-action="change->image-upload#selected">
+
+        <div data-image-upload-target="error" hidden class="mb-3 rounded-lg border border-lamp-fault/40 bg-lamp-fault/5 px-3 py-2 text-xs text-ink-secondary"></div>
+
+        <div data-image-upload-target="grid" class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          <% existing_images.each_with_index do |image, index| %>
+            <%= render Studio::ServiceForm::ImageItemComponent.new(image: image, cover: index.zero?) %>
+          <% end %>
+        </div>
+
+        <p data-image-upload-target="empty"<%= " hidden" if existing_images.any? %> class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-ink-faint">
+          No images yet. A cover image makes your listing stand out.
+        </p>
+
+        <template data-image-upload-target="template"><%= render Studio::ServiceForm::ImageItemComponent.new %></template>
+      <% end %>
+    </div>
+  </section>
+
+  <%# ── Delivery & fulfillment (required) ─────────────────────── %>
+  <section id="section-delivery" data-studio-target="section" data-section="delivery" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Delivery</h2>
+          <%= required_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">How you fulfill each paid order. Escrow follows the mode.</p>
+      </div>
+
+      <input type="hidden" name="fulfillment" value="<%= mode %>" data-studio-target="modeInput">
+
+      <div class="mb-5 grid grid-cols-2 gap-2.5">
+        <%# Manual: the shippable mode, selected by default. %>
+        <button type="button" data-studio-target="modeButton" data-mode="manual" data-action="studio#setMode"
+                aria-pressed="<%= mode == "manual" %>"
+                class="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-inset py-4 text-ink-secondary transition-colors hover:border-border-strong aria-pressed:border-copper-dim aria-pressed:bg-copper/10 aria-pressed:text-copper <%= FOCUS %>">
+          <%= render Shared::Icon::IconComponent.new(name: "user-multiple", size: :lg) %>
+          <span class="text-sm font-medium">Manual</span>
+          <span class="text-xs text-ink-muted">you fulfill by hand</span>
+        </button>
+
+        <%# Automated: coming soon. Shown disabled so the roadmap reads, but not selectable yet. %>
+        <div aria-disabled="true"
+             class="relative flex cursor-not-allowed flex-col items-center gap-1.5 rounded-xl border border-dashed border-border bg-inset/50 py-4 text-ink-faint">
+          <span class="absolute right-2 top-2 rounded-full bg-surface-2 px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider text-ink-muted">Coming soon</span>
+          <%= render Shared::Icon::IconComponent.new(name: "flash", size: :lg) %>
+          <span class="text-sm font-medium">Automated</span>
+          <span class="text-xs">runs on an endpoint</span>
+        </div>
+      </div>
+
+      <p class="mb-5 text-xs leading-relaxed text-ink-faint">
+        <span class="font-medium text-ink-muted">Automated</span> will fulfill paid requests programmatically: the runtime forwards each order to your API endpoint and relays the response, with no manual work per order. We are still building it.
+      </p>
+
+      <div data-studio-target="modeManual"<%= " hidden" if automated? %>>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="p-window" class="<%= LABEL %>">Delivery window <%= req %></label>
+            <input type="number" id="p-window" name="delivery_value" value="<%= delivery_value %>" min="1" step="1"
+                   placeholder="24" inputmode="numeric" class="<%= input_class(data: true) %>">
+          </div>
+          <div>
+            <label for="p-unit" class="<%= LABEL %>">Unit</label>
+            <select id="p-unit" name="delivery_unit" class="<%= input_class %>">
+              <option value="hours"<%= " selected" if delivery_unit == "hours" %>>hours</option>
+              <option value="days"<%= " selected" if delivery_unit == "days" %>>days</option>
+            </select>
+          </div>
+        </div>
+        <p class="mt-2.5 text-xs leading-relaxed text-ink-muted">You are notified by NIP-17 DM, accept to start the clock, then post the result. Escrow locks as key-locked Cashu with a timelock refund.</p>
+      </div>
+
+      <div class="mt-5">
+        <%= render Shared::Alert::AlertComponent.new(tone: :note, title: "Escrow is automatic, on every job") do %>
+          You don't set a payment policy. The platform escrows every transaction; the mechanism follows the fulfillment mode. This is the buyer guarantee a hand-rolled listing can't offer.
+        <% end %>
+      </div>
+    <% end %>
+  </section>
+
+  <%# ── Buyer inputs / input schema (optional) ───────────────── %>
+  <section id="section-inputs" data-studio-target="section" data-section="inputs" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="font-display text-base font-semibold tracking-tight text-ink">Buyer inputs</h2>
+            <%= optional_tag %>
+          </div>
+          <p class="mt-0.5 text-xs text-ink-faint">What buyers provide with each request.</p>
+        </div>
+        <button type="button" data-action="studio#addField"
+                class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink <%= FOCUS %>">
+          <%= render Shared::Icon::IconComponent.new(name: "add-01", size: :sm) %>
+          Add field
+        </button>
+      </div>
+
+      <div data-studio-target="rows" class="flex flex-col gap-2.5">
+        <% listing.input_schema.each do |field| %>
+          <%= render Studio::ServiceForm::RowComponent.new(field: field) %>
+        <% end %>
+      </div>
+
+      <p data-studio-target="rowsEmpty"<%= " hidden" unless listing.input_schema.empty? %> class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-ink-faint">
+        No fields yet. Add the inputs a buyer must supply to order this service.
+      </p>
+
+      <template data-studio-target="rowTemplate"><%= render Studio::ServiceForm::RowComponent.new %></template>
+    <% end %>
+  </section>
+<% end %>

@@ -1,0 +1,5 @@
+<% content_for :title, "Provider studio" %>
+
+<%= render "studio/form_page", draft: @draft, pubkey: @pubkey, publish_relays: @publish_relays, d_tag: nil, btc_usd: @btc_usd,
+      heading: "Publish a service",
+      subtitle: "A service is a listing plus a fulfillment mode. No code runs on Switchboard; publishing emits a conforming listing, signed with your key." %>

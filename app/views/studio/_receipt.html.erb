@@ -1,0 +1,19 @@
+<%# Shown by studio_controller after a successful publish; replaces the form. %>
+<div data-studio-target="receipt" hidden class="rounded-2xl border border-lamp-settled/40 bg-lamp-settled/5 p-6">
+  <div class="flex items-center gap-2.5">
+    <%= render Shared::Icon::IconComponent.new(name: "checkmark-circle-02", size: :lg, color: "text-lamp-settled") %>
+    <h3 class="font-display text-lg font-semibold tracking-tight text-ink">Listing published</h3>
+  </div>
+
+  <p data-studio-target="receiptDetail" class="mt-2 text-sm leading-relaxed text-ink-secondary"></p>
+
+  <div class="mt-3">
+    <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">coordinate</p>
+    <p data-studio-target="receiptCoordinate" class="mt-1 break-all font-mono text-xs text-ink-faint"></p>
+  </div>
+
+  <div class="mt-5 flex flex-wrap gap-2.5">
+    <%= render Shared::Button::ButtonComponent.new(tag: :a, href: root_path, variant: :primary, icon: "store-01") do %>View the catalog<% end %>
+    <%= render Shared::Button::ButtonComponent.new(variant: :ghost, icon: "add-01", data: { action: "studio#publishAnother" }) do %>Publish another<% end %>
+  </div>
+</div>

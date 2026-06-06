@@ -34,6 +34,19 @@ Rails.application.routes.draw do
 	# crypto + relay I/O. Distinct from the order-scoped messages#index above.
 	get "dms", to: "direct_messages#index", as: :direct_messages
 
+	# Account settings (relays, profile, signer); reached from the sidebar + the avatar menu.
+	get "settings", to: "settings#show", as: :settings
+
+	# Provider studio: author + publish your own kind-30402 service listings. Session-authenticated.
+	# The listing is signed + broadcast IN THE BROWSER with the provider's key (non-custodial, §6.3),
+	# so there is no create POST: index lists, new authors, preview re-renders the on-demand buyer view.
+	get "studio", to: "studio#index", as: :studio
+	get "studio/new", to: "studio#new", as: :new_studio_listing
+	post "studio/preview", to: "studio#preview", as: :studio_preview
+	# Edit re-publishes under the same d-tag (supersede). Keyed on the stable d-tag (?d=) rather than the
+	# DB row id, which is regenerated when a re-publish supersedes the coordinate.
+	get "studio/edit", to: "studio#edit", as: :edit_studio_listing
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

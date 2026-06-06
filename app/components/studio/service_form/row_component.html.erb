@@ -1,0 +1,33 @@
+<div data-studio-target="row" class="rounded-xl border border-border bg-inset p-3">
+  <%# Top: the human label (sans) and the machine name (mono, auto-slugged from the label). %>
+  <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+    <div>
+      <span class="mb-1 block text-[0.625rem] font-medium uppercase tracking-wider text-ink-faint">Label</span>
+      <input type="text" name="schema[][label]" value="<%= label %>" placeholder="Source text" autocomplete="off"
+             data-studio-target="rowLabel" data-action="input->studio#slugName" class="<%= input_class %>">
+    </div>
+    <div>
+      <span class="mb-1 block text-[0.625rem] font-medium uppercase tracking-wider text-ink-faint">Name</span>
+      <input type="text" name="schema[][name]" value="<%= name %>" placeholder="source_text" autocomplete="off"
+             data-studio-target="rowName" data-action="input->studio#nameEdited" class="<%= input_class %> font-mono">
+    </div>
+  </div>
+
+  <%# Bottom: the field type, a required toggle, and remove. %>
+  <div class="mt-2.5 flex items-center gap-3">
+    <select name="schema[][type]" aria-label="Field type" class="<%= input_class %> flex-1">
+      <% field_types.each do |t| %>
+        <option value="<%= t %>"<%= " selected" if t == type %>><%= t %></option>
+      <% end %>
+    </select>
+    <label class="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink-muted">
+      <input type="checkbox" name="schema[][required]" value="true"<%= " checked" if required? %>
+             class="size-3.5 rounded border-border-strong bg-inset accent-copper">
+      required
+    </label>
+    <button type="button" data-action="studio#removeField" aria-label="Remove field"
+            class="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-ink-muted transition-colors hover:border-border-strong hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+      <%= render Shared::Icon::IconComponent.new(name: "delete-02", size: :sm) %>
+    </button>
+  </div>
+</div>

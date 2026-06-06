@@ -1,0 +1,35 @@
+<div data-image-upload-target="item" data-state="<%= state %>"
+     class="group relative aspect-square overflow-hidden rounded-xl border border-border bg-inset">
+  <img data-role="img" src="<%= image[:url] %>" alt="" class="h-full w-full object-cover">
+
+  <span data-role="cover"<%= " hidden" unless cover? %>
+        class="absolute left-1.5 top-1.5 rounded-md bg-copper px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wider text-canvas">cover</span>
+
+  <%# hover controls %>
+  <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-canvas/90 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+    <button type="button" data-action="image-upload#makeCover"<%= " hidden" if cover? %>
+            class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Set cover</button>
+    <button type="button" data-action="image-upload#remove" aria-label="Remove image"
+            class="ml-auto grid size-7 place-items-center rounded-md bg-surface/90 text-ink-muted hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+      <%= render Shared::Icon::IconComponent.new(name: "delete-02", size: :sm) %>
+    </button>
+  </div>
+
+  <%# upload / error overlay (hidden once done). On error it also offers Retry + Remove, since the overlay %>
+  <%# covers the hover controls. The action row is revealed only in the error state by the controller. %>
+  <div data-role="status"<%= " hidden" if uploaded? %>
+       class="absolute inset-0 grid place-items-center gap-2 bg-canvas/70 px-2 text-center">
+    <span data-role="status-text" class="text-xs text-ink-secondary">Uploading…</span>
+    <div data-role="status-actions"<%= " hidden" unless errored? %> class="flex items-center gap-1.5">
+      <button type="button" data-action="image-upload#retry"
+              class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Retry</button>
+      <button type="button" data-action="image-upload#remove"
+              class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-muted hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Remove</button>
+    </div>
+  </div>
+
+  <input type="hidden" name="images[][url]" data-field="url" value="<%= image[:url] %>">
+  <input type="hidden" name="images[][m]"   data-field="m"   value="<%= image[:m] %>">
+  <input type="hidden" name="images[][x]"   data-field="x"   value="<%= image[:x] %>">
+  <input type="hidden" name="images[][dim]" data-field="dim" value="<%= image[:dim] %>">
+</div>
