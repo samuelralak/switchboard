@@ -15,6 +15,19 @@ module Catalog
 				assert_selector "button", text: /Request this service/
 			end
 
+			def test_renders_per_hour_pricing_delivery_window_and_an_honest_escrow_note
+				event = build_event(title: "Translate", d: "ph",
+													extra_tags: [ %w[price 500 sat hour], %w[fulfillment manual], %w[delivery_window 24h] ])
+
+				render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event)))
+
+				assert_text "per hour"        # the price-basis caption, not "per request"
+				assert_no_text "per request"
+				assert_text "delivers in 24h" # the delivery window is surfaced
+				assert_text "agree the hours" # the escrow note avoids a fixed total for a per-hour rate
+				assert_no_text "lock 500"
+			end
+
 			def test_renders_the_markdown_description_as_html
 				event = build_event(title: "T", d: "t3", content: "## Scope\n\nA **summary** line.")
 
