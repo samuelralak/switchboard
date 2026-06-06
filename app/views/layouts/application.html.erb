@@ -74,23 +74,30 @@
             <%# Wayfinding: breadcrumb trail, held visible by the sticky bar as the page scrolls. %>
             <%= render Layout::Breadcrumb::BreadcrumbComponent.new(crumbs: [ { label: content_for(:title) } ]) %>
 
-            <div class="ml-auto flex items-center gap-x-4 lg:gap-x-6">
-              <button type="button" class="-m-2.5 p-2.5 text-ink-faint hover:text-ink">
-                <span class="sr-only">View notifications</span>
-                <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
-              </button>
+            <div class="ml-auto flex items-center gap-x-3 lg:gap-x-5">
+              <% if signed_in? %>
+                <%# Provider studio: the "switch to selling" CTA, the one primary action up here. %>
+                <%= render Shared::Button::ButtonComponent.new(variant: :primary, size: :sm, tag: :a, href: studio_path, icon: "store-add-01") do %>
+                  <span class="hidden sm:inline">Provider studio</span>
+                <% end %>
 
-              <%# Separator %>
-              <div aria-hidden="true" class="hidden lg:block lg:h-6 lg:w-px lg:bg-border"></div>
+                <button type="button" class="-m-2.5 p-2.5 text-ink-faint hover:text-ink">
+                  <span class="sr-only">View notifications</span>
+                  <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
+                </button>
 
-              <%# Identity / signer menu %>
+                <%# Separator %>
+                <div aria-hidden="true" class="hidden lg:block lg:h-6 lg:w-px lg:bg-border"></div>
+              <% end %>
+
+              <%# Identity: avatar + dropdown when signed in, Sign in button when signed out. %>
               <%= render Layout::IdentityMenu::IdentityMenuComponent.new(user: current_user) %>
             </div>
           </div>
         </div>
       </div>
 
-      <main class="py-10">
+      <main class="pt-6 pb-12">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <% if flash.any? %>
             <div class="mb-8 space-y-3">
@@ -103,5 +110,13 @@
         </div>
       </main>
     </div>
+
+    <%# Single instance of the manage-relays modal, triggered from the sidebar relays group + settings. %>
+    <%= render Settings::RelaysDialog::RelaysDialogComponent.new %>
+
+    <%# Re-hydrates a saved nsec signer after a hard reload; opened on demand by the signer store. %>
+    <% if signed_in? %>
+      <%= render Sessions::UnlockDialog::UnlockDialogComponent.new(user: current_user) %>
+    <% end %>
   </body>
 </html>

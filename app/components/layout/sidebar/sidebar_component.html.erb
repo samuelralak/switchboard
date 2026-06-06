@@ -23,17 +23,38 @@
       </ul>
     </li>
 
-    <li class="mt-auto">
-      <p class="mb-2.5 px-2 font-mono text-xs uppercase tracking-widest text-ink-faint">relays</p>
-      <ul role="list" class="flex flex-col gap-2.5 px-2 font-mono text-xs text-ink-muted">
-        <% relays.each do |relay| %>
-          <li class="flex items-center gap-2.5">
-            <span class="size-1.5 shrink-0 rounded-full <%= relay[:status] == :live ? "bg-lamp-live" : "bg-lamp-settled" %>"></span>
-            <%= relay[:host] %>
+    <li>
+      <div class="flex items-center justify-between px-2">
+        <p class="font-mono text-xs uppercase tracking-widest text-ink-faint">relays</p>
+        <button type="button" command="show-modal" commandfor="<%= Settings::RelaysDialog::RelaysDialogComponent::DIALOG_ID %>" class="text-xs font-medium text-copper hover:text-copper-bright">Manage</button>
+      </div>
+      <ul role="list" class="-mx-2 mt-2 space-y-1">
+        <% sidebar_relays.each do |relay| %>
+          <li>
+            <span class="flex items-center gap-x-3 rounded-md p-2 text-ink-muted">
+              <span class="grid size-6 shrink-0 place-items-center rounded-lg border border-border bg-surface">
+                <span class="size-1.5 rounded-full <%= relay_status_class(relay[:status]) %>"></span>
+              </span>
+              <span class="truncate font-mono text-xs"><%= relay[:host] %></span>
+            </span>
+          </li>
+        <% end %>
+        <% if more_relays_count.positive? %>
+          <li>
+            <button type="button" command="show-modal" commandfor="<%= Settings::RelaysDialog::RelaysDialogComponent::DIALOG_ID %>" class="group flex w-full items-center gap-x-3 rounded-md p-2 text-ink-faint hover:bg-surface hover:text-ink">
+              <span class="grid size-6 shrink-0 place-items-center rounded-lg border border-dashed border-border font-mono text-[0.625rem]">+<%= more_relays_count %></span>
+              <span class="text-sm/6">More relays</span>
+            </button>
           </li>
         <% end %>
       </ul>
-      <p class="mt-5 px-2 font-mono text-xs text-ink-faint">prototype shell · mock data</p>
+    </li>
+
+    <li class="mt-auto -mx-2">
+      <a href="<%= helpers.settings_path %>" class="group flex items-center gap-x-3 rounded-md p-2 text-sm/6 font-semibold text-ink-muted hover:bg-surface hover:text-ink">
+        <i class="hgi-stroke hgi-settings-02 shrink-0 text-lg text-ink-faint group-hover:text-ink" aria-hidden="true"></i>
+        Settings
+      </a>
     </li>
   </ul>
 </nav>

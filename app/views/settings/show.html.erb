@@ -1,0 +1,33 @@
+<% content_for(:title, "Settings") %>
+
+<div class="mx-auto max-w-3xl">
+  <header class="mb-8">
+    <h1 class="text-xl font-semibold text-ink">Settings</h1>
+    <p class="mt-1 text-sm text-ink-muted">Manage your relays and account preferences.</p>
+  </header>
+
+  <section class="overflow-hidden rounded-2xl border border-border bg-surface-2">
+    <div class="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+      <div>
+        <h2 class="text-sm font-semibold text-ink">Relays</h2>
+        <p class="mt-0.5 text-xs text-ink-muted">Where your messages and listings are published and read.</p>
+      </div>
+      <button type="button" command="show-modal" commandfor="<%= Settings::RelaysDialog::RelaysDialogComponent::DIALOG_ID %>"
+              class="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary hover:border-border-strong hover:bg-surface hover:text-ink">
+        <i class="hgi-stroke hgi-share-08" aria-hidden="true"></i>
+        Manage
+      </button>
+    </div>
+    <ul role="list" class="divide-y divide-border">
+      <% display_relays.each do |relay| %>
+        <li class="flex items-center gap-3 px-5 py-3">
+          <span class="size-1.5 shrink-0 rounded-full <%= relay_status_class(relay[:status]) %>"></span>
+          <span class="font-mono text-xs text-ink-secondary"><%= relay[:host] %></span>
+          <span class="ml-auto font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint"><%= relay[:status] %></span>
+        </li>
+      <% end %>
+    </ul>
+  </section>
+
+  <p class="mt-6 text-xs text-ink-faint">More settings (profile, signer) are coming.</p>
+</div>
