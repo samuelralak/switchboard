@@ -6,8 +6,8 @@ import { Controller } from "@hotwired/stimulus"
 // keeps applying as new listings stream in. (The LLM intent router is future
 // work; this is an honest text filter over what's in the catalog.)
 export default class extends Controller {
-  static targets = ["query", "card", "count", "empty", "modeButton", "clear", "results"]
-  static values = { mode: { type: String, default: "all" } }
+  static targets = ["query", "card", "count", "empty", "modeButton", "clear", "results", "list", "sortLabel"]
+  static values = { mode: { type: String, default: "all" }, sort: { type: String, default: "newest" } }
 
   connect() {
     this.autogrow()
@@ -21,6 +21,11 @@ export default class extends Controller {
 
   setMode(event) {
     this.modeValue = event.currentTarget.dataset.mode
+  }
+
+  setSort(event) {
+    this.sortValue = event.currentTarget.dataset.sort
+    if (this.hasSortLabelTarget) this.sortLabelTarget.textContent = event.currentTarget.textContent.trim()
   }
 
   // Clear the query and re-focus, returning the catalog to its full set.
@@ -64,15 +69,40 @@ export default class extends Controller {
     this.queryTarget.select()
   }
 
-  // Re-apply the current filter to a card added live via Turbo Stream.
+  // Re-apply the current filter (and re-sort) to a card added live via Turbo Stream.
   cardTargetConnected(card) {
     this.applyToCard(card)
     this.updateCount()
+    this.scheduleSort()
   }
 
   modeValueChanged() {
     this.updateModeButtons()
     this.apply()
+  }
+
+  sortValueChanged() {
+    this.applySort()
+  }
+
+  // Reorder the rows in place by the active sort. Newest = the server order (and live prepends already
+  // arrive newest-first), so a price sort is the only one that reorders the DOM.
+  applySort() {
+    if (!this.hasListTarget) return
+    const key = (card, attr) => Number(card.dataset[attr] || 0)
+    const cmp = {
+      "price-asc": (a, b) => key(a, "price") - key(b, "price"),
+      "price-desc": (a, b) => key(b, "price") - key(a, "price"),
+      newest: (a, b) => key(b, "created") - key(a, "created"),
+    }[this.sortValue] || (() => 0)
+    ;[...this.cardTargets].sort(cmp).forEach((card) => this.listTarget.appendChild(card))
+  }
+
+  // Coalesce a flood of live-prepend re-sorts into one frame; skip when newest (already ordered).
+  scheduleSort() {
+    if (this.sortValue === "newest") return
+    cancelAnimationFrame(this.sortFrame)
+    this.sortFrame = requestAnimationFrame(() => this.applySort())
   }
 
   apply() {

@@ -34,7 +34,7 @@
   </div>
 
   <%# The defining guarantee %>
-  <div class="mx-auto mb-24 flex max-w-3xl items-start gap-3 rounded-xl border border-copper-dim/40 bg-copper/5 px-4 py-3">
+  <div class="mx-auto mb-12 flex max-w-3xl items-start gap-3 rounded-xl border border-copper-dim/40 bg-copper/5 px-4 py-3">
     <%= render Shared::Icon::IconComponent.new(name: "shield-01", color: "text-copper", extra: "mt-0.5 shrink-0") %>
     <p class="text-sm leading-relaxed text-ink-secondary">
       <span class="font-medium text-ink">Every transaction is escrowed.</span>
@@ -43,35 +43,51 @@
     </p>
   </div>
 
-  <%# Catalog header + mode filter %>
-  <div data-catalog-target="results" class="mb-5 flex scroll-mt-24 items-center justify-between gap-3">
-    <h2 class="font-display text-lg font-semibold tracking-tight text-ink">
-      Catalog <span class="ml-1 font-mono text-sm font-normal text-ink-faint" data-catalog-target="count"><%= @catalog.size %></span>
-    </h2>
-    <div class="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5">
-      <% [["all", "All"], ["automated", "Automated"], ["manual", "Human"]].each do |value, label| %>
-        <button type="button" data-catalog-target="modeButton" data-mode="<%= value %>" data-action="catalog#setMode"
-                class="h-8 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= value == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>"><%= label %></button>
-      <% end %>
+  <%# Catalog: toolbar + list, constrained to align with the hero composer above. %>
+  <div class="mx-auto max-w-3xl">
+    <div data-catalog-target="results" class="mb-5 flex flex-wrap scroll-mt-24 items-center justify-between gap-3">
+      <h2 class="font-display text-lg font-semibold tracking-tight text-ink">
+        Catalog <span class="ml-1 font-mono text-sm font-normal text-ink-faint" data-catalog-target="count"><%= @catalog.size %></span>
+      </h2>
+      <div class="flex items-center gap-2">
+        <el-dropdown class="relative">
+          <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+            Sort: <span data-catalog-target="sortLabel" class="text-ink">Newest</span>
+            <i class="hgi-stroke hgi-arrow-down-01 text-xs text-ink-faint" aria-hidden="true"></i>
+          </button>
+          <el-menu anchor="bottom end" popover class="w-44 origin-top-right rounded-xl border border-border bg-surface-2 py-1.5 shadow-panel transition transition-discrete [--anchor-gap:--spacing(2)] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in">
+            <% [["newest", "Newest"], ["price-asc", "Lowest price"], ["price-desc", "Highest price"]].each do |value, label| %>
+              <button type="button" data-action="catalog#setSort" data-sort="<%= value %>"
+                      class="block w-full px-3 py-1.5 text-left text-sm text-ink-secondary transition-colors hover:bg-surface hover:text-ink"><%= label %></button>
+            <% end %>
+          </el-menu>
+        </el-dropdown>
+        <div class="inline-flex h-9 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+          <% [["all", "All"], ["automated", "Automated"], ["manual", "Human"]].each do |value, label| %>
+            <button type="button" data-catalog-target="modeButton" data-mode="<%= value %>" data-action="catalog#setMode"
+                    class="h-7 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= value == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>"><%= label %></button>
+          <% end %>
+        </div>
+      </div>
     </div>
-  </div>
 
-  <%# Live, filterable grid %>
-  <div id="<%= @catalog.grid_target %>" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    <%= render partial: @catalog.partial, collection: @catalog.listings, as: :listing %>
-  </div>
+    <%# Live, filterable, sortable list %>
+    <div id="<%= @catalog.grid_target %>" data-catalog-target="list" class="flex flex-col gap-3">
+      <%= render partial: @catalog.partial, collection: @catalog.listings, as: :listing %>
+    </div>
 
-  <%# Shown by the catalog controller when a search/filter matches nothing %>
-  <div data-catalog-target="empty"<%= " hidden" unless @catalog.no_matches? %> class="mt-2">
-    <%= render Shared::EmptyState::EmptyStateComponent.new(
-          title: "No services match", body: "Try a different search, or switch the filter back to All.", icon: "search-01") %>
-  </div>
+    <%# Shown by the catalog controller when a search/filter matches nothing %>
+    <div data-catalog-target="empty"<%= " hidden" unless @catalog.no_matches? %> class="mt-2">
+      <%= render Shared::EmptyState::EmptyStateComponent.new(
+            title: "No services match", body: "Try a different search, or switch the filter back to All.", icon: "search-01") %>
+    </div>
 
-  <%# Nothing ingested yet %>
-  <% if @catalog.never_ingested? %>
-    <%= render Shared::EmptyState::EmptyStateComponent.new(
-          title: "The catalog is empty", body: "Run the relay client (bin/rails relay:boot) to ingest NIP-99 listings from relays.", icon: "store-01") %>
-  <% end %>
+    <%# Nothing ingested yet %>
+    <% if @catalog.never_ingested? %>
+      <%= render Shared::EmptyState::EmptyStateComponent.new(
+            title: "The catalog is empty", body: "Run the relay client (bin/rails relay:boot) to ingest NIP-99 listings from relays.", icon: "store-01") %>
+    <% end %>
+  </div>
 
   <%# Service-detail drawers (one per listing), opened by the card buttons via commandfor. A live
       broadcast appends a newly-ingested listing's drawer here so its prepended card is not a dead button. %>

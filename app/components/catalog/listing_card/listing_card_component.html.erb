@@ -1,32 +1,43 @@
-<%# the whole card is the trigger; its drawer is mounted once on the page (see pages/home) %>
+<%# A list card: a constant 64px thumbnail slot (cover or a placeholder) keeps rows aligned whether or %>
+<%# not a listing has an image; the whole row is the trigger for its drawer (mounted once, see pages/home). %>
 <button type="button"
         id="<%= dom_id %>"
         command="show-modal" commandfor="service-drawer-<%= dom_id %>"
         data-catalog-target="card"
         data-search="<%= search_text %>"
         data-mode="<%= filter_mode %>"
-        class="group flex h-full w-full flex-col gap-3.5 overflow-hidden rounded-2xl border border-border bg-surface p-5 text-left transition-colors hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+        data-price="<%= price_value %>"
+        data-created="<%= created_at %>"
+        class="group flex w-full items-start gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
   <% if image.present? %>
     <img src="<%= image %>" alt="" loading="lazy"
          data-controller="image-fallback" data-action="error->image-fallback#failed"
-         class="-mx-5 -mt-5 aspect-[16/9] w-[calc(100%+2.5rem)] object-cover">
+         class="size-16 shrink-0 rounded-lg border border-border object-cover">
   <% end %>
+  <%# revealed in place of a broken (or absent) cover image %>
+  <div data-image-fallback-placeholder class="<%= "hidden " if image.present? %>grid size-16 shrink-0 place-items-center rounded-lg border border-border bg-inset">
+    <%= render Shared::Icon::IconComponent.new(name: "package", color: "text-ink-faint") %>
+  </div>
 
-  <div class="flex items-start justify-between gap-3">
-    <h3 class="font-display font-medium leading-snug tracking-tight transition-colors group-hover:text-copper"><%= title %></h3>
-    <% if price? %>
-      <%= render Shared::PriceTag::PriceTagComponent.new(amount: price_amount, suffix: price_suffix) %>
+  <div class="min-w-0 flex-1">
+    <div class="flex items-center gap-2.5">
+      <h3 class="truncate font-display font-medium leading-snug tracking-tight text-ink transition-colors group-hover:text-copper"><%= title %></h3>
+      <% if fulfillment.present? %>
+        <span class="shrink-0"><%= render Shared::Chip::ChipComponent.new(tone: fulfillment_tone, label: fulfillment_label) %></span>
+      <% end %>
+    </div>
+    <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
+      <% if capability.present? %><span class="font-mono text-ink-faint"><%= capability %></span><% end %>
+      <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: provider_npub, size: 16) %>
+    </div>
+    <% if blurb.present? %>
+      <p class="mt-1.5 line-clamp-1 text-sm leading-relaxed text-ink-muted"><%= helpers.markdown_to_text(blurb) %></p>
     <% end %>
   </div>
 
-  <% if fulfillment.present? %>
-    <div><%= render Shared::Chip::ChipComponent.new(tone: fulfillment_tone, label: fulfillment_label) %></div>
+  <% if price? %>
+    <div class="shrink-0 pt-0.5">
+      <%= render Shared::PriceTag::PriceTagComponent.new(amount: price_amount, suffix: price_suffix) %>
+    </div>
   <% end %>
-
-  <p class="line-clamp-2 flex-1 text-sm leading-relaxed text-ink-muted"><%= helpers.markdown_to_text(blurb) %></p>
-
-  <div class="flex items-center justify-between gap-3 border-t border-border pt-3.5">
-    <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: provider_npub, size: 18) %>
-    <span class="shrink-0 font-mono text-xs text-ink-faint"><%= status %></span>
-  </div>
 </button>
