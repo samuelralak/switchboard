@@ -1,0 +1,31 @@
+<% content_for :title, "Provider studio" %>
+
+<div data-controller="my-listings"
+     data-my-listings-pubkey-value="<%= current_user.pubkey %>"
+     data-my-listings-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+     data-my-listings-marker-value="<%= Catalog::Listing.marker %>"
+     data-my-listings-capability-namespace-value="<%= Catalog::Listing::CAPABILITY_NAMESPACE %>"
+     data-my-listings-origin-value="<%= Rails.application.config.x.canonical_origin %>"
+     class="mx-auto max-w-4xl">
+  <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="mb-2.5 font-mono text-xs uppercase tracking-widest text-copper">Provider studio</p>
+      <h1 class="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Your listings</h1>
+      <p class="mt-2 max-w-2xl leading-relaxed text-ink-muted">Services you've published to Nostr. Edit re-publishes under the same coordinate; unpublish takes it out of the catalog (you can re-publish it later).</p>
+    </div>
+    <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_studio_listing_path, variant: :primary, icon: "add-01", extra: "shrink-0") do %>Publish a service<% end %>
+  </header>
+
+  <% if @listings.empty? %>
+    <%= render Shared::EmptyState::EmptyStateComponent.new(
+          title: "No listings yet", body: "Publish your first service and it appears here, live in the catalog.", icon: "store-add-01") do %>
+      <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_studio_listing_path, variant: :primary, icon: "add-01") do %>Publish a service<% end %>
+    <% end %>
+  <% else %>
+    <div class="space-y-3">
+      <% @listings.each do |listing| %>
+        <%= render Studio::MyListing::MyListingComponent.new(listing: listing) %>
+      <% end %>
+    </div>
+  <% end %>
+</div>

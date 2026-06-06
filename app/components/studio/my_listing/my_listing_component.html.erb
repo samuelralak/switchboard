@@ -1,0 +1,43 @@
+<div data-my-listings-card class="rounded-2xl border border-border bg-surface p-4">
+  <div class="flex items-center gap-4">
+  <% if image.present? %>
+    <img src="<%= image %>" alt="" loading="lazy"
+         data-controller="image-fallback" data-action="error->image-fallback#failed"
+         class="size-16 shrink-0 rounded-lg border border-border object-cover">
+  <% end %>
+  <%# revealed in place of a broken (or absent) image %>
+  <div data-image-fallback-placeholder class="<%= "hidden " if image.present? %>grid size-16 shrink-0 place-items-center rounded-lg border border-border bg-inset">
+    <%= render Shared::Icon::IconComponent.new(name: "image-01", color: "text-ink-faint") %>
+  </div>
+
+  <div class="min-w-0 flex-1">
+    <div class="flex items-center gap-2.5">
+      <h3 class="truncate font-medium text-ink"><%= title %></h3>
+      <span data-role="status" class="shrink-0 font-mono text-[0.625rem] uppercase tracking-widest <%= status_tone %>"><%= status %></span>
+    </div>
+    <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-muted">
+      <% if price? %>
+        <span><%= render Shared::PriceTag::PriceTagComponent.new(amount: price_amount, suffix: price_suffix, size: :inline) %></span>
+      <% end %>
+      <% if fulfillment.present? %><span><%= fulfillment_label %></span><% end %>
+      <% if capability.present? %><span class="font-mono text-ink-faint"><%= capability %></span><% end %>
+    </div>
+  </div>
+
+  <div class="flex shrink-0 items-center gap-2">
+    <%= render Shared::Button::ButtonComponent.new(tag: :a, href: helpers.edit_studio_listing_path(d: identifier), variant: :ghost, size: :sm, icon: "pencil-edit-02") do %>Edit<% end %>
+    <button type="button" data-action="my-listings#toggleStatus"
+            data-my-listings-status-param="<%= next_status %>"
+            data-my-listings-payload-param="<%= payload %>"
+            class="inline-flex h-8 items-center rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+      <%= toggle_label %>
+    </button>
+  </div>
+  </div>
+
+  <%# Per-card failure slot: a toggle error surfaces on its own listing, not a detached top-level banner. %>
+  <p data-my-listings-card-error hidden class="mt-3 rounded-lg border border-lamp-fault/40 bg-lamp-fault/5 px-3 py-2 text-xs text-ink-secondary"></p>
+
+  <%# Quiet success note: honest that the public catalog lags relay propagation. Prose, so sans (no font-mono). %>
+  <p data-my-listings-card-note hidden class="mt-3 rounded-lg border border-border bg-surface-2 px-3 py-2 text-xs text-ink-secondary">Updated. The public catalog may take a moment to reflect this.</p>
+</div>

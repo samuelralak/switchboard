@@ -1,0 +1,5 @@
+<% content_for :title, "Provider studio" %>
+
+<%= render "studio/form_page", draft: @draft, pubkey: @pubkey, publish_relays: @publish_relays, d_tag: @d_tag, btc_usd: @btc_usd,
+      heading: "Edit listing",
+      subtitle: "Update and re-publish. The new version supersedes the current one under the same coordinate." %>

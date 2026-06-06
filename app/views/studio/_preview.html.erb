@@ -1,0 +1,17 @@
+<%# The on-demand buyer-preview frame inside the preview drawer: the exact component the catalog renders, %>
+<%# so what the provider sees is what a buyer sees. "Preview as buyer" submits the form into this frame. %>
+<%# On a failed render (session-expired redirect -> frame-missing, or a dropped connection) the controller %>
+<%# dims the stale frame and reveals the note; a good render clears both. %>
+<%= turbo_frame_tag "studio-preview", data: {
+      studio_target: "previewFrame",
+      action: "turbo:frame-missing->studio#previewFailed turbo:fetch-request-error->studio#previewFailed turbo:frame-render->studio#previewLoaded"
+    } do %>
+  <h3 class="mb-5 font-display text-lg font-semibold tracking-tight text-ink"><%= listing.title %></h3>
+  <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: listing) %>
+<% end %>
+
+<%# Lives OUTSIDE the frame (in the persistent page DOM) so a failed/redirected render can't blank it. %>
+<p data-studio-target="previewPaused" hidden
+   class="mt-3 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-ink-faint">
+  Couldn't load the preview. Close this and try again.
+</p>
