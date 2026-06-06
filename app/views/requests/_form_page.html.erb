@@ -1,0 +1,58 @@
+<%# Open-request authoring page (single-column form + a section rail). %>
+<%# locals: draft, pubkey, publish_relays, d_tag (nil = new, mint a fresh id), heading, subtitle, btc_usd %>
+<div data-controller="request-form" data-request-form-pubkey-value="<%= pubkey %>"
+     data-request-form-marker-value="<%= Requests::OpenRequest.marker %>"
+     data-request-form-capability-namespace-value="<%= Catalog::Listing::CAPABILITY_NAMESPACE %>"
+     data-request-form-relays-value="<%= publish_relays.to_json %>"
+     data-request-form-btc-usd-value="<%= btc_usd || 0 %>">
+  <%= render Shared::PageHeader::PageHeaderComponent.new(title: heading, subtitle: subtitle) %>
+
+  <%# DOM order is form-then-rail so mobile stacks the actions BELOW the form; grid column placement puts %>
+  <%# the rail on the left on desktop. The whole grid hides on a successful publish (the receipt replaces it). %>
+  <div data-request-form-target="composer" class="grid gap-6 lg:grid-cols-12 lg:gap-8">
+    <div class="lg:col-span-8 lg:col-start-5 lg:row-start-1">
+      <%= render Requests::RequestForm::RequestFormComponent.new(request: draft, pubkey: pubkey, d_tag: d_tag) %>
+    </div>
+
+    <aside class="lg:col-span-4 lg:col-start-1 lg:row-start-1">
+      <div class="flex flex-col gap-4 lg:sticky lg:top-24">
+        <%# Section nav (desktop): jump to a section; the dot fills as each required section is satisfied. %>
+        <nav class="hidden flex-col gap-0.5 lg:flex" aria-label="Form sections">
+          <% Requests::RequestForm::RequestFormComponent::SECTIONS.each do |section| %>
+            <a href="#section-<%= section[:id] %>" data-request-form-target="navItem" data-section="<%= section[:id] %>"
+               data-required="<%= section[:required] %>" data-action="request-form#navClick"
+               class="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-ink-secondary transition-colors hover:bg-surface hover:text-ink aria-[current=true]:bg-surface aria-[current=true]:text-ink">
+              <span data-role="dot" class="size-1.5 shrink-0 rounded-full <%= section[:required] ? "border border-border-strong" : "bg-border" %>"></span>
+              <span class="flex-1"><%= section[:title] %></span>
+              <% if section[:required] %>
+                <span class="text-[0.625rem] font-medium uppercase tracking-wider text-copper">Required</span>
+              <% else %>
+                <span class="text-[0.625rem] font-medium uppercase tracking-wider text-ink-faint">Optional</span>
+              <% end %>
+            </a>
+          <% end %>
+        </nav>
+
+        <div class="flex flex-col gap-2.5">
+          <button type="button" command="show-modal" commandfor="request-preview-drawer" data-action="request-form#previewAsBuyer"
+                  class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+            <%= render Shared::Icon::IconComponent.new(name: "view", size: :sm) %>
+            Preview request
+          </button>
+          <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "sent",
+                data: { action: "request-form#publish", request_form_target: "publish" }) do %>Sign &amp; post request<% end %>
+          <p class="px-0.5 text-xs leading-relaxed text-ink-faint">
+            Signs a conforming <span class="font-mono text-ink-muted">NIP-99</span> request with your key. Switchboard never holds it.
+          </p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <%= render "requests/receipt" %>
+
+  <%# On-demand preview: the exact board drawer, populated by request-form#previewAsBuyer (form -> frame). %>
+  <%= render Shared::Drawer::DrawerComponent.new(title: "Request preview", id: "request-preview-drawer") do %>
+    <%= render "requests/preview", request: draft %>
+  <% end %>
+</div>

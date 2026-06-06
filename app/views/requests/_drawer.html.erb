@@ -1,0 +1,8 @@
+<%# An open-request detail drawer, opened by its card via commandfor. Wrapped so a live update can remove
+    + re-append it cleanly: the <dialog> keeps the commandfor id, the wrapper is the removable unit. Shared
+    by the page render (requests/index) and the Requests::Ui::Update broadcast. %>
+<div id="request-drawer-<%= request.dom_id %>-wrap">
+  <%= render Shared::Drawer::DrawerComponent.new(title: request.title, id: "request-drawer-#{request.dom_id}") do %>
+    <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request) %>
+  <% end %>
+</div>

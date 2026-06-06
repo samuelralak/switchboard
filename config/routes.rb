@@ -37,6 +37,13 @@ Rails.application.routes.draw do
 	# Account settings (relays, profile, signer); reached from the sidebar + the avatar menu.
 	get "settings", to: "settings#show", as: :settings
 
+	# Open requests (funded bounties): the public board (index), and authoring your own (new + preview).
+	# Like the studio, posting is signed + broadcast IN THE BROWSER with the consumer's key (non-custodial,
+	# §6.3), so there is no create POST: new authors, preview re-renders the on-demand request view.
+	get "requests", to: "requests#index", as: :requests
+	get "requests/new", to: "requests#new", as: :new_request
+	post "requests/preview", to: "requests#preview", as: :request_preview
+
 	# Provider studio: author + publish your own kind-30402 service listings. Session-authenticated.
 	# The listing is signed + broadcast IN THE BROWSER with the provider's key (non-custodial, §6.3),
 	# so there is no create POST: index lists, new authors, preview re-renders the on-demand buyer view.

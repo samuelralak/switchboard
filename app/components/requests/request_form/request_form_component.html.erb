@@ -1,0 +1,185 @@
+<%= form_with url: helpers.request_preview_path, method: :post, id: "request-form",
+      data: { request_form_target: "form", action: "input->request-form#formChanged change->request-form#formChanged", turbo_frame: "request-preview" },
+      html: { class: "flex flex-col gap-5", novalidate: true } do %>
+
+  <%# Empty on new (the publisher mints a fresh id); the existing coordinate on edit (re-publish supersedes). %>
+  <input type="hidden" name="d_tag" value="<%= d_tag %>">
+  <%# Carried through an edit so re-publishing preserves the post date and can supersede with a monotonic
+      created_at; defaults for a new request. %>
+  <input type="hidden" name="status" value="<%= request.status %>">
+  <input type="hidden" name="published_at" value="<%= request.published_at %>">
+  <input type="hidden" name="created_at" value="<%= request.event.nostr_created_at&.to_i %>">
+
+  <%# Validation problems surface here, at the top, so they are visible wherever the rail's Post is clicked. %>
+  <div data-request-form-target="errors" hidden class="rounded-xl border border-lamp-fault/40 bg-lamp-fault/5 px-4 py-3 text-sm text-ink-secondary"></div>
+
+  <%# Details %>
+  <section id="section-details" data-request-form-target="section" data-section="details" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Details</h2>
+          <%= required_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">Describe the job and what "done" looks like.</p>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <div>
+          <label for="r-title" class="<%= LABEL %>">Title <%= req %></label>
+          <input type="text" id="r-title" name="title" value="<%= title_value %>"
+                 placeholder="Diagnose a stalling engine from a video" autocomplete="off" class="<%= input_class %>">
+        </div>
+        <div>
+          <label for="r-cap" class="<%= LABEL %>">Capability <%= req %></label>
+          <input type="text" id="r-cap" name="capability" value="<%= request.capability %>" placeholder="diagnosis"
+                 autocomplete="off" class="<%= input_class(data: true) %>">
+          <p class="mt-1.5 text-xs text-ink-faint">A short machine tag providers match on, shared with the catalog.</p>
+        </div>
+        <div>
+          <label for="r-desc" class="<%= LABEL %>">Brief <span class="text-ink-faint">(optional)</span></label>
+          <textarea id="r-desc" name="description" rows="4" placeholder="What you need, what you'll provide, and what 'done' looks like. Markdown is supported."
+                    class="<%= input_class %> resize-y leading-relaxed"><%= request.description %></textarea>
+        </div>
+      </div>
+    <% end %>
+  </section>
+
+  <%# Images %>
+  <section id="section-images" data-request-form-target="section" data-section="images" class="scroll-mt-28">
+    <div data-controller="image-upload" data-image-upload-pubkey-value="<%= pubkey %>">
+      <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-display text-base font-semibold tracking-tight text-ink">Images</h2>
+              <%= optional_tag %>
+            </div>
+            <p class="mt-0.5 text-xs text-ink-faint">Up to 5. The first is the cover providers see. PNG, JPEG, WebP, or GIF, max 20 MiB.</p>
+          </div>
+          <button type="button" data-image-upload-target="add" data-action="image-upload#open"
+                  class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface-2 hover:text-ink disabled:opacity-40 disabled:pointer-events-none <%= FOCUS %>">
+            <%= render Shared::Icon::IconComponent.new(name: "image-add-01", size: :sm) %>
+            Add images
+          </button>
+        </div>
+
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden
+               data-image-upload-target="input" data-action="change->image-upload#selected">
+
+        <div data-image-upload-target="error" hidden class="mb-3 rounded-lg border border-lamp-fault/40 bg-lamp-fault/5 px-3 py-2 text-xs text-ink-secondary"></div>
+
+        <div data-image-upload-target="grid" class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          <% existing_images.each_with_index do |image, index| %>
+            <%= render Shared::ImageItem::ImageItemComponent.new(image: image, cover: index.zero?) %>
+          <% end %>
+        </div>
+
+        <p data-image-upload-target="empty"<%= " hidden" if existing_images.any? %> class="rounded-lg border border-dashed border-border px-4 py-6 text-center text-xs text-ink-faint">
+          No images yet. A cover image helps your request stand out.
+        </p>
+
+        <template data-image-upload-target="template"><%= render Shared::ImageItem::ImageItemComponent.new %></template>
+      <% end %>
+    </div>
+  </section>
+
+  <%# Budget %>
+  <section id="section-budget" data-request-form-target="section" data-section="budget" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Budget</h2>
+          <%= required_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">One fixed amount a provider claims at. No bidding.</p>
+      </div>
+
+      <div class="sm:max-w-xs">
+        <label for="r-budget" class="<%= LABEL %>">Budget <span class="text-ink-faint">(sat)</span> <%= req %></label>
+        <input type="number" id="r-budget" name="budget" value="<%= request.budget_amount %>" min="0" step="1"
+               placeholder="5000" inputmode="numeric" class="<%= input_class(data: true) %>">
+        <%# Filled live by the controller from the cached BTC/USD rate; hidden when no rate. %>
+        <p data-request-form-target="priceHint" class="mt-1.5 font-mono text-xs text-ink-faint"></p>
+      </div>
+    <% end %>
+  </section>
+
+  <%# Timing %>
+  <section id="section-timing" data-request-form-target="section" data-section="timing" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Timing</h2>
+          <%= required_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">How long to claim, then how long to deliver after claiming.</p>
+      </div>
+
+      <div class="flex flex-col gap-5">
+        <div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="r-claim" class="<%= LABEL %>">Claim window <%= req %></label>
+              <input type="number" id="r-claim" name="claim_value" value="<%= claim_value %>" min="1" step="1"
+                     placeholder="3" inputmode="numeric" class="<%= input_class(data: true) %>">
+            </div>
+            <div>
+              <label for="r-claim-unit" class="<%= LABEL %>">Unit</label>
+              <select id="r-claim-unit" name="claim_unit" class="<%= input_class %>">
+                <option value="days"<%= " selected" if claim_unit == "days" %>>days</option>
+                <option value="hours"<%= " selected" if claim_unit == "hours" %>>hours</option>
+              </select>
+            </div>
+          </div>
+          <p class="mt-1.5 text-xs text-ink-faint">How long providers have to claim. If unclaimed, your budget refunds and the fee is kept.</p>
+        </div>
+
+        <div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="r-window" class="<%= LABEL %>">Delivery window <%= req %></label>
+              <input type="number" id="r-window" name="delivery_value" value="<%= delivery_value %>" min="1" step="1"
+                     placeholder="24" inputmode="numeric" class="<%= input_class(data: true) %>">
+            </div>
+            <div>
+              <label for="r-window-unit" class="<%= LABEL %>">Unit</label>
+              <select id="r-window-unit" name="delivery_unit" class="<%= input_class %>">
+                <option value="hours"<%= " selected" if delivery_unit == "hours" %>>hours</option>
+                <option value="days"<%= " selected" if delivery_unit == "days" %>>days</option>
+              </select>
+            </div>
+          </div>
+          <p class="mt-1.5 text-xs text-ink-faint">The claiming provider's time to deliver after they accept.</p>
+        </div>
+      </div>
+    <% end %>
+  </section>
+
+  <%# Funding %>
+  <section id="section-funding" data-request-form-target="section" data-section="funding" class="scroll-mt-28">
+    <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+      <div class="mb-5">
+        <div class="flex items-center gap-2">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">Funding</h2>
+          <%= optional_tag %>
+        </div>
+        <p class="mt-0.5 text-xs text-ink-faint">How an open request gets funded. Escrow follows automatically.</p>
+      </div>
+
+      <%# Coming-soon: the funded-bounty mechanics (escrow deposit + posting fee) land with payments. Shown
+          as a non-interactive panel so the model reads, but nothing is collected yet. %>
+      <div class="relative rounded-xl border border-dashed border-border bg-inset/50 p-4">
+        <span class="absolute right-3 top-3 rounded-full bg-surface-2 px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider text-ink-muted">Coming soon</span>
+        <div class="flex items-start gap-2.5">
+          <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+          <div class="text-sm leading-relaxed text-ink-secondary">
+            <p>When you post, your <span class="font-medium text-ink">budget is deposited into escrow up front</span> (locked to your keys, with a timelock refund), so a claiming provider sees committed sats. It releases on delivery, or refunds if the request goes unclaimed or undelivered.</p>
+            <p class="mt-2">Posting also charges a <span class="font-medium text-ink">small non-refundable fee</span> paid directly to the platform. Escrow and the fee arrive with payments; for now, posting publishes the request.</p>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </section>
+
+<% end %>

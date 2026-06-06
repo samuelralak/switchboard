@@ -1,0 +1,5 @@
+<% content_for :title, "Post a request" %>
+
+<%= render "requests/form_page", draft: @draft, pubkey: @pubkey, publish_relays: @publish_relays, d_tag: nil, btc_usd: @btc_usd,
+      heading: "Post an open request",
+      subtitle: "Need something the catalog doesn't cover? Describe it and set a budget. Any provider can claim it, and escrow runs on it just like a listing." %>

@@ -2,7 +2,9 @@
 
 class PagesController < ApplicationController
 	def home
+		# Two lenses over one search: services (supply) and open requests (demand), browsed via tabs.
 		@catalog = Catalog::Ui::State.grid(query: search_query)
+		@board = Requests::Ui::State.grid(query: search_query)
 	end
 
 	private

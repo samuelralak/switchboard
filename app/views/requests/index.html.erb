@@ -1,0 +1,37 @@
+<% content_for :title, "My requests" %>
+
+<%# Your own posted requests. The catalog Stimulus controller is reused at its request lens (single view,
+    no tabs) so the cards render and a future sort/search drops in; no live stream (these are yours only). %>
+<section data-controller="catalog" data-catalog-view-value="request">
+  <div class="mx-auto max-w-4xl">
+    <header class="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="mb-2.5 font-mono text-xs uppercase tracking-widest text-copper">your bounties</p>
+        <h1 class="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">My requests</h1>
+        <p class="mt-2 max-w-xl leading-relaxed text-ink-muted">
+          Open requests you've posted. Catalog orders join here once escrow ships.
+        </p>
+      </div>
+      <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :primary, icon: "add-01", extra: "shrink-0") do %>Post a request<% end %>
+    </header>
+
+    <div id="<%= @board.grid_target %>" data-catalog-target="list" class="flex flex-col gap-3">
+      <%= render partial: @board.partial, collection: @board.requests, as: :request %>
+    </div>
+
+    <%# Shown when you have no open requests (the controller keeps it in sync as cards render). %>
+    <div data-catalog-target="empty" data-view="request"<%= " hidden" unless @board.size.zero? %> class="mt-2">
+      <%= render Shared::EmptyState::EmptyStateComponent.new(
+            title: "No requests yet", body: "Post a request the catalog doesn't cover, and track it here.", icon: "sent") do %>
+        <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :primary, icon: "add-01") do %>Post a request<% end %>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Request-detail drawers (one per request), opened by the card buttons via commandfor. %>
+  <div id="<%= Requests::Ui::State::DRAWER_TARGET %>">
+    <% @board.requests.each do |request| %>
+      <%= render "requests/drawer", request: request %>
+    <% end %>
+  </div>
+</section>

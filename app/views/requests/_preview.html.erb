@@ -1,0 +1,17 @@
+<%# The on-demand preview frame inside the preview drawer: the exact component the board renders, so what %>
+<%# the poster sees is what a provider sees. "Preview request" submits the form into this frame. On a failed %>
+<%# render (session-expired redirect -> frame-missing, or a dropped connection) the controller dims the stale %>
+<%# frame and reveals the note; a good render clears both. %>
+<%= turbo_frame_tag "request-preview", data: {
+      request_form_target: "previewFrame",
+      action: "turbo:frame-missing->request-form#previewFailed turbo:fetch-request-error->request-form#previewFailed turbo:frame-render->request-form#previewLoaded"
+    } do %>
+  <h3 class="mb-5 font-display text-lg font-semibold tracking-tight text-ink"><%= request.title %></h3>
+  <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request) %>
+<% end %>
+
+<%# Lives OUTSIDE the frame (in the persistent page DOM) so a failed/redirected render can't blank it. %>
+<p data-request-form-target="previewPaused" hidden
+   class="mt-3 rounded-lg border border-dashed border-border px-4 py-3 text-center text-xs text-ink-faint">
+  Couldn't load the preview. Close this and try again.
+</p>
