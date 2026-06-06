@@ -37,7 +37,7 @@ export default class extends Controller {
     this.refreshProgress()
   }
 
-  // ── Schema rows ──────────────────────────────────────────────
+  // Schema rows
   addField() {
     const row = this.rowTemplateTarget.content.firstElementChild.cloneNode(true)
     this.rowsTarget.appendChild(row)
@@ -75,7 +75,7 @@ export default class extends Controller {
     return text.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "field"
   }
 
-  // ── Fulfillment mode ─────────────────────────────────────────
+  // Fulfillment mode
   // Manual is the only selectable mode for now (automated is coming-soon, rendered as a disabled card).
   setMode(event) {
     const mode = event.currentTarget.dataset.mode
@@ -85,7 +85,7 @@ export default class extends Controller {
     this.refreshProgress()
   }
 
-  // ── Pricing basis (per request / per hour) ──────────────────
+  // Pricing basis
   setPriceBasis(event) {
     const hour = event.currentTarget.dataset.basis === "hour"
     if (this.hasPriceFrequencyTarget) this.priceFrequencyTarget.value = hour ? "hour" : "" // NIP-99 frequency
@@ -94,7 +94,7 @@ export default class extends Controller {
     this.renderFiatHint()
   }
 
-  // ── Fiat hint ────────────────────────────────────────────────
+  // Fiat hint
   renderFiatHint() {
     if (!this.hasPriceHintTarget) return
     const rate = this.btcUsdValue
@@ -113,7 +113,7 @@ export default class extends Controller {
     return `$${usd.toFixed(4)}`
   }
 
-  // ── Section rail (scroll-spy + progress) ─────────────────────
+  // Section rail
   setupScrollSpy() {
     if (!this.hasSectionTarget || typeof IntersectionObserver === "undefined") return
     // The active section is the topmost one crossing a band near the top of the viewport.
@@ -159,7 +159,7 @@ export default class extends Controller {
     return true
   }
 
-  // ── Preview (on-demand) ──────────────────────────────────────
+  // Preview
   // The drawer opens natively (command="show-modal"); we just submit the form into its frame.
   previewAsBuyer() {
     if (this.hasFormTarget) this.formTarget.requestSubmit()
@@ -178,7 +178,7 @@ export default class extends Controller {
     if (this.hasPreviewFrameTarget) this.previewFrameTarget.classList.remove("opacity-40")
   }
 
-  // ── Publish ──────────────────────────────────────────────────
+  // Publish
   // Strict gate before the non-custodial sign + broadcast. The publisher overrides publishListing().
   publish(event) {
     event.preventDefault()
