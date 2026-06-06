@@ -16,6 +16,17 @@
   <ul data-dm-client-target="thread"
       class="mb-6 min-h-24 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-800"></ul>
 
+  <%# Quiet locked-state affordance: shown when the signer is locked/absent, instead of auto-popping unlock. %>
+  <div data-dm-client-target="locked" hidden
+       class="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-6 text-center">
+    <p class="text-sm font-medium text-gray-900">Unlock to load your messages</p>
+    <p data-dm-client-target="lockedNote" class="mt-1 text-sm text-gray-500">
+      Your messages are decrypted in this browser. Unlock your key for this tab to read them.
+    </p>
+    <button type="button" data-dm-client-target="unlockButton" data-action="dm-client#unlock"
+            class="mt-4 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700">Unlock</button>
+  </div>
+
   <form data-dm-client-target="form" data-action="dm-client#send" class="space-y-3">
     <input data-dm-client-target="peer" type="text" inputmode="latin" autocomplete="off"
            placeholder="recipient pubkey (64-hex)"

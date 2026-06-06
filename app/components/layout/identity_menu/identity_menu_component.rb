@@ -2,14 +2,27 @@
 
 module Layout
 	module IdentityMenu
-		# Top-bar identity menu: a "Sign in" button when signed out, or the connected npub
-		# with a dropdown of account actions when signed in.
+		# Top-bar identity: a "Sign in" button when signed out, or a compact avatar (kind-0 picture, or a
+		# pubkey identicon fallback) with a dropdown of account actions when signed in.
 		class IdentityMenuComponent < ApplicationComponent
+			include IdenticonHelper
+
 			def initialize(user: nil)
 				@user = user
 			end
 
 			def signed_in? = @user.present?
+
+			def picture = @user.picture.presence
+
+			delegate :pubkey, to: :@user
+
+			# A human label for the dropdown header: display name, then name, then the short npub.
+			def display_label
+				@user.display_name.presence || @user.name.presence || display_npub
+			end
+
+			def nip05 = @user.nip05.presence
 
 			# The connected npub, truncated to a prefix and suffix for display.
 			def display_npub
@@ -19,8 +32,8 @@ module Layout
 
 			def menu_items
 				[
-					{ label: "Your profile",  href: "#" },
-					{ label: "Your listings", href: "#" }
+					{ label: "Your profile", href: "#" },
+					{ label: "Settings", href: helpers.settings_path }
 				]
 			end
 		end

@@ -1,0 +1,52 @@
+<div data-controller="signer-unlock" data-action="keydown@window->signer-unlock#keydown"
+     data-signer-unlock-account-pubkey-value="<%= pubkey %>">
+  <%# Self-contained overlay (no el-dialog) so it can be opened programmatically by the signer store. %>
+  <div data-signer-unlock-target="overlay" id="<%= DIALOG_ID %>" hidden class="fixed inset-0 z-50 grid place-items-center p-4">
+    <div class="absolute inset-0 bg-canvas/75 backdrop-blur-sm" data-action="click->signer-unlock#cancel"></div>
+
+    <div role="dialog" aria-modal="true" aria-label="Unlock your key"
+         class="relative w-full max-w-md overflow-hidden rounded-2xl border border-border-strong bg-surface-2 shadow-panel">
+      <div class="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
+        <i class="hgi-stroke hgi-square-lock-02 text-copper" aria-hidden="true"></i>
+        <span class="font-mono text-xs uppercase tracking-widest text-ink-secondary">Unlock your key</span>
+        <button type="button" data-action="signer-unlock#cancel" class="-m-1.5 ml-auto p-1.5 text-ink-faint hover:text-ink">
+          <span class="sr-only">Close</span>
+          <i class="hgi-stroke hgi-cancel-01" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="p-5">
+        <%# Which account this unlocks: avatar (identicon fallback), display name (sans), npub (mono, data). %>
+        <div class="mb-4 flex items-center gap-3 rounded-xl border border-border bg-surface px-3 py-2.5">
+          <% if picture %>
+            <img src="<%= picture %>" alt=""
+                 data-controller="image-fallback" data-action="error->image-fallback#failed"
+                 class="size-8 rounded-lg object-cover ring-1 ring-border" />
+            <span data-image-fallback-placeholder class="hidden"><%= identicon_tag(pubkey, size: 32, html_class: "size-8 rounded-lg bg-surface-2 ring-1 ring-border") %></span>
+          <% else %>
+            <%= identicon_tag(pubkey, size: 32, html_class: "size-8 rounded-lg bg-surface-2 ring-1 ring-border") %>
+          <% end %>
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-ink"><%= display_label %></p>
+            <p class="font-mono text-xs text-ink-faint"><%= display_npub %></p>
+          </div>
+        </div>
+
+        <%= render Shared::Alert::AlertComponent.new(tone: :note) do %>
+          Your key is encrypted on this device. Enter your passphrase to unlock it for this tab. It is never sent to the server.
+        <% end %>
+
+        <%= helpers.simple_form_for :unlock, url: "#",
+              html: { class: "mt-4", data: { turbo: false, action: "submit->signer-unlock#submit" } } do |form| %>
+          <%= form.input :passphrase, as: :password, label: false,
+                placeholder: "Passphrase",
+                input_html: { autocomplete: "off", "aria-label": "Passphrase",
+                              data: { "signer-unlock-target": "passphrase" } } %>
+          <%= render Shared::Button::ButtonComponent.new(full: true, type: "submit") do %>Unlock<% end %>
+        <% end %>
+
+        <p data-signer-unlock-target="status" role="status" aria-live="polite" class="mt-3 min-h-5 text-center text-sm text-ink-muted"></p>
+      </div>
+    </div>
+  </div>
+</div>
