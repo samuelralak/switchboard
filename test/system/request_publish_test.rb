@@ -64,7 +64,8 @@ class RequestBuildEventsTest < ApplicationSystemTestCase
 		assert_no_match(/\AERR:/, json, "buildRequestEvent/sign failed: #{json}")
 		event = event_from(json)
 
-		assert_nil Requests::OpenRequest.new(event).send(:budget_tag)[3], "a bounty budget has no recurring frequency"
+		budget = event.tags.find { |t| t[0] == "price" }
+		assert_equal 3, budget.size, "a bounty budget has no recurring frequency (price tag stays 3 elements)"
 		assert_not_predicate Catalog::Listing.new(event), :conforms?, "a request lacks the service marker"
 	end
 
