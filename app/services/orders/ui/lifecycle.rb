@@ -52,14 +52,20 @@ module Orders
 
 			attr_reader :order
 
-			# In-progress: the current node is delivered (if a delivery exists), else funded, else awaiting.
+			# In-progress: the current node is released (consumer revealed, awaiting the provider's redemption),
+			# else delivered (a delivery exists), else funded, else awaiting. current_state is still funded in
+			# all of these; the released node only SETTLES once the mint confirms the spend (released_chain).
 			def active_chain
 				cut = CHAIN.index(current_node)
 
 				CHAIN.each_with_index.map { |key, i| node(key, status_at(i, cut)) }
 			end
 
+			# A release advances the chain only once a delivery is recorded: a release presupposes the work was
+			# received, so without a delivery the chain would mark "delivered" done for a step that never
+			# happened. Until both exist, the chain stops at delivered (or funded).
 			def current_node
+				return S::RELEASED if order.release.present? && order.delivery.present?
 				return DELIVERED if order.delivery.present?
 
 				order.current_state == S::FUNDED ? S::FUNDED : S::AWAITING_FUNDING
@@ -85,16 +91,41 @@ module Orders
 			end
 
 			def node(key, status)
-				Node.new(key:, label: LABELS.fetch(key), status:, at: timestamp(key, status),
-					note: NOTES[key], countdown: countdown(key))
+				Node.new(key:, label: label_for(key, status), status:, at: timestamp(key, status),
+					note: note_for(key, status), countdown: countdown(key))
+			end
+
+			# The released node reads as authorized-but-pending while it is the current (not yet settled) node:
+			# the consumer revealed, the provider has not redeemed yet.
+			def label_for(key, status)
+				return "Released, awaiting redemption" if key == S::RELEASED && status == "current"
+
+				LABELS.fetch(key)
+			end
+
+			def note_for(key, status)
+				if key == S::RELEASED && status == "current"
+					return "You approved the release and revealed the secret to the provider. " \
+						"The order settles to released once they redeem."
+				end
+
+				NOTES[key]
 			end
 
 			def timestamp(key, status)
 				return if status == "future"
-				return order.created_at if key == S::AWAITING_FUNDING
-				return order.delivery&.delivered_at if key == DELIVERED
 
-				transitions[key]&.created_at
+				assertion_time(key, status) || transitions[key]&.created_at
+			end
+
+			# Nodes timed by an observable assertion rather than a state transition: funding opens the order,
+			# delivery + the current (not-yet-settled) release each carry their own timestamp.
+			def assertion_time(key, status)
+				case key
+				when S::AWAITING_FUNDING then order.created_at
+				when DELIVERED then order.delivery&.delivered_at
+				when S::RELEASED then order.release&.released_at if status == "current"
+				end
 			end
 
 			# The live deadline a node owns, if any: the funding window on awaiting_funding, the refund timelock

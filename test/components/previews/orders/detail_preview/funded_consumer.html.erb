@@ -1,0 +1,15 @@
+<div class="bg-surface-2 p-6">
+	<div class="mx-auto max-w-2xl">
+		<%= render Orders::Lifecycle::LifecycleComponent.new(order: order) %>
+
+		<div class="mt-4">
+			<%= render Shared::Card::CardComponent.new(padding: :p5) do %>
+				<%= render Orders::Details::DetailsComponent.new(order: order) %>
+				<%= render Orders::Request::RequestComponent.new(order: order, viewer: viewer) %>
+				<%= render Orders::Actions::ActionsComponent.new(order: order, viewer: viewer) %>
+			<% end %>
+
+			<%= render Orders::Result::ResultComponent.new(order: order, viewer: viewer) %>
+		</div>
+	</div>
+</div>

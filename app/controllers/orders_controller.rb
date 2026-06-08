@@ -35,6 +35,16 @@ class OrdersController < ApplicationController
 		head :created
 	end
 
+	# The consumer records the observable release assertion after revealing the preimage to the provider over
+	# NIP-17 (settlement controller). Off the money path; the preimage never reaches the server, and
+	# current_state stays funded until the mint confirms the provider's redemption.
+	def release
+		order = Order.as_consumer(current_user.pubkey).find(params.expect(:id)) # only the consumer releases
+		Orders::MarkReleased.call(order:, **release_params)
+
+		head :created
+	end
+
 	# Either party asks Rails to re-derive the order's state from the mint right after a spend (the provider
 	# redeemed, or the consumer refunded), so settlement registers immediately instead of waiting for the
 	# sweep. The mint is the sole authority; Reconcile is idempotent and a no-op until the proofs move.
@@ -60,5 +70,9 @@ class OrdersController < ApplicationController
 
 	def delivery_params
 		params.expect(delivery: %i[delivery_event_id delivered_at content_hash]).to_h.symbolize_keys
+	end
+
+	def release_params
+		params.expect(release: %i[reveal_event_id released_at]).to_h.symbolize_keys
 	end
 end

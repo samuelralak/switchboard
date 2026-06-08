@@ -134,6 +134,54 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_nil order.reload.delivery
 	end
 
+	test "the consumer records a release on a funded order" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
+		with_unspent_checkstate { Orders::Funding.call(order:, **funding_payload) }
+
+		post order_release_url(order), params: release_payload, as: :json
+
+		assert_response :created
+		assert order.reload.release.present?
+		assert_equal Orders::States::FUNDED, order.current_state, "release does not advance the state machine"
+	end
+
+	test "a non-consumer cannot record a release" do
+		sign_in
+		order = build_order(provider_pubkey: @session_pubkey, consumer_pubkey: SecureRandom.hex(32))
+		with_unspent_checkstate { Orders::Funding.call(order:, **funding_payload) }
+
+		post order_release_url(order), params: release_payload, as: :json
+
+		assert_redirected_to root_path
+		assert_nil order.reload.release
+	end
+
+	test "a delivered + released funded order shows the awaiting-redemption state to the consumer" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
+		with_unspent_checkstate { Orders::Funding.call(order:, **funding_payload) }
+		Orders::MarkDelivered.call(order:, **delivery_payload[:delivery]) # a release reflects only after delivery
+		Orders::MarkReleased.call(order:, reveal_event_id: SecureRandom.hex(32), released_at: Time.current.to_i)
+
+		get order_path(order)
+
+		assert_response :success
+		assert_includes response.body, "Released, awaiting redemption"
+		assert_not_includes response.body, "Release escrow", "the release button is gone once released"
+	end
+
+	test "release on a non-funded order is rejected with a flash redirect, recording nothing" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32)) # awaiting_funding
+
+		post order_release_url(order), params: release_payload, as: :json
+
+		assert_redirected_to root_path
+		assert flash[:alert].present?
+		assert_nil order.reload.release
+	end
+
 	test "settle re-derives a funded order to released once the mint shows the redeemed proof" do
 		sign_in
 		preimage = SecureRandom.hex(32)
@@ -166,6 +214,10 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 	def delivery_payload
 		hex = SecureRandom.hex(32)
 		{ delivery: { delivery_event_id: hex, delivered_at: Time.current.to_i, content_hash: hex } }
+	end
+
+	def release_payload
+		{ release: { reveal_event_id: SecureRandom.hex(32), released_at: Time.current.to_i } }
 	end
 
 	def funding_payload(preimage: SecureRandom.hex(32), amount: 1_000)

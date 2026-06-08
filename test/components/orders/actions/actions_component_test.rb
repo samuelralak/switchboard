@@ -26,6 +26,19 @@ module Orders
 				assert_text "Refund"
 			end
 
+			test "a delivered + released funded order shows the consumer awaiting redemption, no release button" do
+				order = funded(build_order)
+				Orders::MarkDelivered.call(order:, delivery_event_id: SecureRandom.hex(32),
+					delivered_at: Time.current.to_i, content_hash: SecureRandom.hex(32))
+				Orders::MarkReleased.call(order:, reveal_event_id: SecureRandom.hex(32), released_at: Time.current.to_i)
+
+				render_inline(ActionsComponent.new(order:, viewer: viewer(order.consumer_pubkey)))
+
+				assert_text "released the escrow"
+				assert_text "Refund"
+				assert_no_text "Release escrow"
+			end
+
 			test "a funded order offers the provider verify + redeem" do
 				order = funded(build_order)
 

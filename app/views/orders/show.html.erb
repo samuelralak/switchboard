@@ -3,13 +3,6 @@
 <div class="mx-auto max-w-2xl">
 	<%= turbo_frame_tag order_detail_frame(@order.id) do %>
 		<%= turbo_stream_from Orders::Ui::State.strip(order: @order).stream %>
-		<div class="mb-6">
-			<p class="font-mono text-xs uppercase tracking-widest text-copper">Escrow order</p>
-			<h1 class="mt-1 font-display text-2xl font-semibold tracking-tight text-ink">
-				<%= render Shared::PriceTag::PriceTagComponent.new(amount: @order.amount_sats, size: :lg) %>
-			</h1>
-		</div>
-
 		<%= render Orders::Lifecycle::LifecycleComponent.new(order: @order) %>
 
 		<div class="mt-4">

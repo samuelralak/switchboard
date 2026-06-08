@@ -59,6 +59,7 @@ Rails.application.routes.draw do
 	resources :orders, only: %i[create show]
 	post "orders/:id/funding", to: "orders#fund", as: :order_funding
 	post "orders/:id/delivery", to: "orders#deliver", as: :order_delivery # provider records the delivery assertion
+	post "orders/:id/release", to: "orders#release", as: :order_release # consumer records the release assertion
 	post "orders/:id/settle", to: "orders#settle", as: :settle_order # re-derive state from the mint after a spend
 
 	# Defines the root path route ("/")

@@ -9,6 +9,16 @@ module Orders
 			def funded = render(LifecycleComponent.new(order: order(Orders::States::FUNDED)))
 			def released = render(LifecycleComponent.new(order: order(Orders::States::RELEASED)))
 
+			# Funded, delivered, and the consumer's release recorded: the released node reads as awaiting
+			# redemption (the release reflects only once a delivery exists).
+			def released_awaiting_redemption
+				order = order(Orders::States::FUNDED)
+				order.delivery = OrderDelivery.new(delivery_event_id: "b" * 64, delivered_at: 1.hour.ago,
+					content_hash: "c" * 64)
+				order.release = OrderRelease.new(reveal_event_id: "a" * 64, released_at: 30.minutes.ago)
+				render(LifecycleComponent.new(order:))
+			end
+
 			private
 
 			def order(state)

@@ -43,18 +43,35 @@ module Orders
 			def strip(status) = STRIP.fetch(status, STRIP["future"])
 			def label_tone(status) = LABEL_TONE.fetch(status, "text-ink")
 
-			# The money-in / data-out rail: the escrow's headline, framed from the consumer's side.
-			def escrow_label
-				case order.current_state
-				when Orders::States::RELEASED then "released to the provider"
-				when Orders::States::REFUNDED, Orders::States::EXPIRED then "refunded to you"
-				when Orders::States::FUNDED then "#{number_with_delimiter(order.amount_sats)} sat locked"
-				else "awaiting funding"
-				end
+			# The headline state chip (tone + label), from the consumer's side. One glance answers "where's
+			# my money": awaiting -> live, in escrow -> copper, released -> settled, refund/expiry -> fault.
+			CHIP = {
+				Orders::States::AWAITING_FUNDING => { tone: :live, label: "awaiting funding" },
+				Orders::States::FUNDED => { tone: :copper, label: "in escrow" },
+				Orders::States::RELEASED => { tone: :settled, label: "released" },
+				Orders::States::REFUNDED => { tone: :fault, label: "refunded" },
+				Orders::States::EXPIRED => { tone: :fault, label: "expired" }
+			}.freeze
+
+			def chip_tone = chip[:tone]
+			def chip_label = chip[:label]
+
+			# Funded but the consumer has revealed the preimage: the headline reads "releasing" to match the
+			# timeline's released-awaiting-redemption node, while current_state is still funded.
+			def chip
+				return { tone: :copper, label: "releasing" } if releasing?
+
+				CHIP.fetch(order.current_state, { tone: :neutral, label: order.current_state })
 			end
 
-			# The funded node owns the timelock; while funded, the escrow is genuinely locked.
-			def locked? = order.current_state == Orders::States::FUNDED
+			# Matches Orders::Ui::Lifecycle#current_node: a release reflects only once a delivery is recorded.
+			def releasing?
+				order.current_state == Orders::States::FUNDED && order.release.present? && order.delivery.present?
+			end
+
+			# Notes earn their space only on the active step and the terminal/fault outcome; a finished step's
+			# instructions are noise.
+			def note?(node) = node.note && %w[current settled fault].include?(node.status)
 		end
 	end
 end

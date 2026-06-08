@@ -18,6 +18,9 @@ module Orders
 
 			def fund? = awaiting? && consumer?
 			def release? = funded? && consumer?
+			# The consumer revealed the preimage AND a delivery is recorded: show the awaiting-redemption state,
+			# keep only Refund. Gated on delivery to match the lifecycle (a release reflects after delivery).
+			def released? = order.release.present? && order.delivery.present?
 			# Provider can deliver the result AND verify/redeem once funded (both live in the settle? branch).
 			def settle? = funded? && provider?
 

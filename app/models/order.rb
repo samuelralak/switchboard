@@ -8,6 +8,9 @@ class Order < ApplicationRecord
 	has_one :lock, class_name: "OrderLock", dependent: :destroy, inverse_of: :order
 	# The provider's observable delivery assertion (off the money path; current_state stays funded).
 	has_one :delivery, class_name: "OrderDelivery", dependent: :destroy, inverse_of: :order
+	# The consumer's observable release assertion (preimage revealed; current_state stays funded until the
+	# mint confirms the spend).
+	has_one :release, class_name: "OrderRelease", dependent: :destroy, inverse_of: :order
 
 	validates :entry_point, inclusion: { in: Orders::EntryPoints::ALL }
 	validates :tier, inclusion: { in: Orders::Tiers::ALL }

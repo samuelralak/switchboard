@@ -4,7 +4,7 @@
 	data-order-result-own-value="<%= order.consumer_pubkey %>"
 	data-order-result-provider-value="<%= order.provider_pubkey %>"
 	data-order-result-relays-value="<%= relays_json %>">
-	<%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+	<%= render Shared::Card::CardComponent.new(padding: :p5) do %>
 		<div class="flex items-center gap-2">
 			<%= render Shared::Icon::IconComponent.new(name: "download-01", size: :sm, color: "text-ink-muted") %>
 			<p class="text-xs font-medium uppercase tracking-wider text-ink-muted">data out · delivered result</p>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_07_212726) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_08_192203) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -127,6 +127,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_212726) do
     t.check_constraint "proof_y::text ~ '^0[23][0-9a-f]{64}$'::text", name: "order_proofs_y_point"
   end
 
+  create_table "order_releases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "order_id", null: false
+    t.datetime "released_at", null: false
+    t.string "reveal_event_id", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_releases_on_order_id", unique: true
+    t.check_constraint "reveal_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "order_releases_event_id_hex"
+  end
+
   create_table "order_transitions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "from_state", limit: 32, null: false
@@ -212,6 +222,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_07_212726) do
   add_foreign_key "order_effects", "orders"
   add_foreign_key "order_locks", "orders"
   add_foreign_key "order_proofs", "orders"
+  add_foreign_key "order_releases", "orders"
   add_foreign_key "order_transitions", "orders"
   add_foreign_key "sessions", "users"
 end

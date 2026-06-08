@@ -11,8 +11,7 @@
 			<div class="flex items-start gap-2">
 				<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
 				<p class="text-sm leading-relaxed text-ink-secondary">
-					Lock <%= number_with_delimiter(order.amount_sats) %> sat at the mint over Lightning to start the escrow.
-					Funds release to the provider only on delivery, with a refund if the work never arrives.
+					Lock <%= number_with_delimiter(order.amount_sats) %> sat over Lightning to fund the escrow.
 				</p>
 			</div>
 
@@ -50,18 +49,28 @@
 			data-settlement-own-value="<%= order.consumer_pubkey %>"
 			data-settlement-peer-value="<%= order.provider_pubkey %>"
 			data-settlement-settle-url-value="<%= settle_order_path(order) %>"
+			data-settlement-release-url-value="<%= order_release_path(order) %>"
 			data-settlement-locktime-value="<%= order.lock&.locktime&.to_i %>">
-			<p class="text-sm leading-relaxed text-ink-secondary">
-				Review the delivered result below, then release the escrow to the provider when you're satisfied.
-				Releasing validates the result's shape, not its quality, that judgment is yours. If the work never
-				arrives, you can refund after the lock expires.
-			</p>
-			<div class="mt-4 flex flex-wrap gap-2">
-				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "square-lock-02",
-					data: { settlement_target: "release", action: "settlement#release" }) do %>Release escrow<% end %>
-				<%= render Shared::Button::ButtonComponent.new(variant: :ghost,
-					data: { settlement_target: "refund", action: "settlement#refund" }) do %>Refund<% end %>
-			</div>
+			<% if released? %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					You released the escrow. The provider can now redeem; the order settles once they do. You can
+					still refund if the lock expires before they redeem.
+				</p>
+				<div class="mt-4">
+					<%= render Shared::Button::ButtonComponent.new(variant: :ghost,
+						data: { settlement_target: "refund", action: "settlement#refund" }) do %>Refund<% end %>
+				</div>
+			<% else %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					Release the escrow once the delivered result satisfies you, or refund after the lock expires if it never arrives.
+				</p>
+				<div class="mt-4 flex flex-wrap gap-2">
+					<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "square-lock-02",
+						data: { settlement_target: "release", action: "settlement#release" }) do %>Release escrow<% end %>
+					<%= render Shared::Button::ButtonComponent.new(variant: :ghost,
+						data: { settlement_target: "refund", action: "settlement#refund" }) do %>Refund<% end %>
+				</div>
+			<% end %>
 			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
 			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
 		</div>
@@ -77,8 +86,7 @@
 			<div class="mb-4 flex items-start gap-2">
 				<%= render Shared::Icon::IconComponent.new(name: "sent", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
 				<p class="text-sm leading-relaxed text-ink-secondary">
-					Deliver the finished work to the client. It's sealed to them end to end, so the runtime never sees
-					it. They review it, then release the escrow to you.
+					Deliver the finished work, sealed to the client end to end. They review it, then release the escrow to you.
 				</p>
 			</div>
 			<%= helpers.simple_form_for :delivery, url: "#",

@@ -1,13 +1,20 @@
-<div id="<%= dom_id %>" class="rounded-2xl border border-border bg-surface p-5">
-	<%# money-in / data-out rail: the escrow headline %>
-	<div class="flex items-center gap-2">
-		<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper") %>
-		<p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow</p>
-		<span class="ml-auto text-sm text-ink-secondary"><%= escrow_label %></span>
+<div id="<%= dom_id %>" class="rounded-2xl border border-border bg-surface p-6">
+	<%# the escrow headline: amount + the one-glance state %>
+	<div class="flex items-start justify-between gap-3">
+		<div class="min-w-0">
+			<div class="flex items-center gap-1.5 text-copper">
+				<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm) %>
+				<p class="text-xs font-medium uppercase tracking-wider">escrow</p>
+			</div>
+			<div class="mt-2">
+				<%= render Shared::PriceTag::PriceTagComponent.new(amount: order.amount_sats, size: :lg, tone: :ink) %>
+			</div>
+		</div>
+		<%= render Shared::Chip::ChipComponent.new(tone: chip_tone, label: chip_label, bordered: true) %>
 	</div>
 
 	<%# segmented progress strip %>
-	<div class="mt-4 flex gap-1.5">
+	<div class="mt-6 flex gap-1.5">
 		<% nodes.each do |node| %>
 			<span class="h-1 flex-1 rounded-full <%= strip(node.status) %>"></span>
 		<% end %>
@@ -33,7 +40,7 @@
 							<span class="ml-auto shrink-0 font-mono text-xs tabular-nums text-ink-faint"><%= node.at.strftime("%-d %b, %H:%M") %></span>
 						<% end %>
 					</div>
-					<% if node.status != "future" && node.note %>
+					<% if note?(node) %>
 						<p class="mt-1.5 max-w-xl text-sm leading-relaxed text-ink-muted"><%= node.note %></p>
 					<% end %>
 					<% if node.countdown %>
