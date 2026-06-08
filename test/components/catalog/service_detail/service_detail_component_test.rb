@@ -5,14 +5,17 @@ require "test_helper"
 module Catalog
 	module ServiceDetail
 		class ServiceDetailComponentTest < ViewComponent::TestCase
-			def test_renders_price_escrow_and_the_request_cta
+			def test_renders_price_escrow_and_an_order_cta_for_a_whole_sat_listing
 				event = build_event(title: "Translate", d: "t1", extra_tags: [ %w[price 1500 sat], %w[fulfillment manual] ])
 
 				render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event)))
 
 				assert_text "per request"
 				assert_text "escrow · every job"
-				assert_selector "button", text: /Request this service/
+				assert_selector "form[action='#{Rails.application.routes.url_helpers.orders_path}'][method='post']"
+				assert_selector "input[name='order[coordinate]'][value='#{Events::Kinds::CLASSIFIED}:#{event.pubkey}:t1']",
+					visible: :all
+				assert_selector "button", text: /Order this service/
 			end
 
 			def test_renders_per_hour_pricing_delivery_window_and_an_honest_escrow_note
@@ -26,6 +29,8 @@ module Catalog
 				assert_text "delivers in 24h" # the delivery window is surfaced
 				assert_text "agree the hours" # the escrow note avoids a fixed total for a per-hour rate
 				assert_no_text "lock 500"
+				assert_selector "button", text: /Request this service/ # per-hour is not directly orderable: inert CTA
+				assert_no_selector "form[action='#{Rails.application.routes.url_helpers.orders_path}']"
 			end
 
 			def test_renders_the_markdown_description_as_html

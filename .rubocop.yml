@@ -38,8 +38,12 @@ Style/Documentation:
 Metrics/MethodLength:
   Max: 15
 
+# Class-size cap targets production classes (the thin model/controller rule); an integration test class
+# legitimately groups many test methods, so the cap does not apply to the suite.
 Metrics/ClassLength:
   Max: 100
+  Exclude:
+    - "test/**/*"
 
 Layout/LineLength:
   Max: 120

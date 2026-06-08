@@ -206,9 +206,23 @@ export default class extends Controller {
       const { broadcastListing } = await import("nostr/listing_publish")
       const result = await broadcastListing(this.collectData(), this.config(), signer, this.relaysValue)
       if (result.reached === 0) return this.failPublish([ "Couldn't reach any relay. Check your connection and try again." ])
-      this.showReceipt(result)
+      this.showReceipt(result, await this.enableEscrowReceiving(signer))
     } catch (error) {
       this.failPublish([ `Couldn't publish: ${error.message}` ])
+    }
+  }
+
+  // Publish the provider's NIP-61 kind:10019 so consumers can discover the P2PK key to lock escrow to.
+  // The listing publishes regardless; this returns whether the escrow key reached a relay so the receipt
+  // can warn the provider (else buyers cannot fund). ensureEscrowIdentity is idempotent on a re-publish.
+  async enableEscrowReceiving(signer) {
+    try {
+      const { ensureEscrowIdentity } = await import("nostr/escrow_identity")
+      await ensureEscrowIdentity({ accountPubkey: this.pubkeyValue, signer, relays: this.relaysValue, mints: [] })
+      return true
+    } catch (error) {
+      console.warn("escrow receiving not enabled:", error?.message)
+      return false
     }
   }
 
@@ -257,11 +271,12 @@ export default class extends Controller {
     })
   }
 
-  showReceipt(result) {
+  showReceipt(result, escrowEnabled = true) {
     if (this.hasComposerTarget) this.composerTarget.hidden = true
     if (this.hasReceiptDetailTarget) {
-      this.receiptDetailTarget.textContent =
-        `Broadcast to ${result.reached} of ${result.listingResults.length} relays. It appears in the catalog once a relay serves it back.`
+      const reach = `Broadcast to ${result.reached} of ${result.listingResults.length} relays. It appears in the catalog once a relay serves it back.`
+      this.receiptDetailTarget.textContent = escrowEnabled ? reach
+        : `${reach} Escrow payments couldn't be enabled (a relay was unreachable) — re-publish to enable them, or buyers can't fund orders.`
     }
     if (this.hasReceiptCoordinateTarget) this.receiptCoordinateTarget.textContent = result.coordinate
     if (this.hasReceiptTarget) {

@@ -8,13 +8,25 @@ module Catalog
 		# service" CTA), rendering from Catalog::Listing and gracefully omitting fields a real
 		# kind-30402 event does not carry (schema, capability, mode).
 		class ServiceDetailComponent < ApplicationComponent
-			attr_reader :listing
+			attr_reader :listing, :show_cta
 
-			def initialize(listing:)
+			# show_cta: false drops the buyer action (the provider reuses this same detail in the messages
+			# drawer, where ordering their own service makes no sense).
+			def initialize(listing:, show_cta: true)
 				@listing = listing
+				@show_cta = show_cta
 			end
 
 			def automated? = listing.fulfillment == "automated"
+
+			# The addressable coordinate the order is placed against (kind:pubkey:d).
+			def order_coordinate = "#{Events::Kinds::CLASSIFIED}:#{listing.event.pubkey}:#{listing.identifier}"
+
+			def default_mint = Orders::Policy.mint_allowlist.first
+
+			# Escrow locks whole sats, so only a fixed whole-sat listing (with a vetted mint available) is
+			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
+			def orderable? = default_mint.present? && !listing.per_hour? && listing.whole_sat_price?
 
 			# The pricing-basis caption under the price (the PriceTag carries the amount + currency).
 			def price_basis_label = listing.per_hour? ? "per hour" : "per request"

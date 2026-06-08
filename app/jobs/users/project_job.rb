@@ -9,7 +9,7 @@ module Users
 		queue_as :ingest
 
 		def perform(pubkey)
-			event = Event.of_kind(Events::Kinds::METADATA).where(pubkey:).first
+			event = Event.of_kind(Events::Kinds::METADATA).by_author(pubkey).first
 			Upsert.call(event_data: event.raw_event) if event
 		end
 	end

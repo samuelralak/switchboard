@@ -78,11 +78,23 @@
     </p>
   <% end %>
 
-  <%# buyer action %>
+  <%# buyer action (hidden when the provider views their own service in the messages drawer) %>
+  <% if show_cta %>
   <div>
-    <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "arrow-right-01") do %>Request this service<% end %>
+    <% if orderable? %>
+      <form action="<%= helpers.orders_path %>" method="post" class="block">
+        <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
+        <input type="hidden" name="order[coordinate]" value="<%= order_coordinate %>">
+        <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">
+        <input type="hidden" name="order[dedupe_key]" value="<%= SecureRandom.uuid %>">
+        <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, type: "submit", icon: "arrow-right-01") do %>Order this service<% end %>
+      </form>
+    <% else %>
+      <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "arrow-right-01") do %>Request this service<% end %>
+    <% end %>
     <% if request_note %>
       <p class="mt-3 text-xs leading-relaxed text-ink-muted"><%= request_note %></p>
     <% end %>
   </div>
+  <% end %>
 </div>

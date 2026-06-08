@@ -63,6 +63,10 @@ module Catalog
 		def price_currency = price_tag[2].presence || "sat"
 		def price? = price_amount.present?
 
+		# Escrow locks whole sats, so only a fixed positive whole-sat price is orderable. One source of truth
+		# for the UI order gate (Catalog::ServiceDetail) and the server enforcement (Orders::Place).
+		def whole_sat_price? = price_currency == "sat" && price_amount.is_a?(Integer) && price_amount.positive?
+
 		# NIP-99 optional recurring frequency (the 4th price element): "hour", "day", etc. We author only
 		# "hour" (per-hour) vs none (per-request), but display whatever a listing carries.
 		def price_frequency = price_tag[3].presence

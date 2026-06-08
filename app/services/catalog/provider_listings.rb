@@ -17,8 +17,7 @@ module Catalog
 		# The provider's own classified events, with open requests (same kind 30402, request marker) excluded
 		# at the SQL layer so the demand board never bleeds into My-listings; conforms? is the authoritative filter.
 		def own_listings
-			Event.classified.where(pubkey:)
-					 .where("NOT (tags @> ?)", [ [ "t", Requests::OpenRequest.marker ] ].to_json)
+			Event.classified.by_author(pubkey).without_tag("t", Requests::OpenRequest.marker)
 		end
 	end
 end

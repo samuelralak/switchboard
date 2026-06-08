@@ -8,6 +8,7 @@ module Shared
 				completed: { tone: :settled, label: "completed" },
 				settling: { tone: :settled, label: "settling" },
 				verifying_delivery: { tone: :copper, label: "verifying" },
+				delivered: { tone: :copper, label: "delivered" },
 				awaiting_fulfillment: { tone: :live, label: "awaiting" },
 				accepted: { tone: :live, label: "accepted" },
 				open: { tone: :live, label: "open" },

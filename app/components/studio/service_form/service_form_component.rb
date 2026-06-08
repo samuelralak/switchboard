@@ -8,15 +8,7 @@ module Studio
 		# row repeat, the fiat hint, section scroll-spy + progress, the on-demand buyer preview, strict
 		# client validation, and the non-custodial sign + broadcast on publish.
 		class ServiceFormComponent < ApplicationComponent
-			FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright " \
-							"focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-
-			INPUT = "w-full rounded-lg border border-border bg-inset px-3.5 py-2.5 text-sm text-ink " \
-							"placeholder:text-ink-faint transition-colors hover:border-border-strong " \
-							"focus-visible:border-copper-dim #{FOCUS}".freeze
-
-			# Eyebrow-style field label: sans (font-mono is reserved for data values, never labels).
-			LABEL = "block text-xs font-medium uppercase tracking-wider text-ink-muted mb-2"
+			include Forms::Fields # FOCUS/INPUT/LABEL + input_class/req/required_tag/optional_tag
 
 			# A pricing-basis toggle segment ("Per request" / "Per hour"), selected via aria-pressed.
 			PRICE_BASIS = "inline-flex items-center h-7 px-2.5 rounded-md text-xs font-medium text-ink-muted " \
@@ -45,9 +37,6 @@ module Studio
 				listing.images.map { |url| listing.image_meta(url).merge(url:) }
 			end
 
-			# Data inputs (capability, price, endpoint, machine names) get mono; prose inputs stay sans.
-			def input_class(data: false) = data ? "#{INPUT} font-mono" : INPUT
-
 			# Manual is the only shippable mode for now; automated is shown as coming-soon (see the form).
 			def mode = listing.fulfillment.presence || "manual"
 			def automated? = mode == "automated"
@@ -60,19 +49,6 @@ module Studio
 			# Manual delivery window split back into value + unit for prefill ("24h" -> 24, "hours").
 			def delivery_value = listing.delivery_window.to_s[/\A(\d+)/, 1]
 			def delivery_unit = listing.delivery_window.to_s.end_with?("d") ? "days" : "hours"
-
-			# A copper asterisk marking a required field (decorative; the label text carries the meaning).
-			def req = tag.span("*", class: "text-copper", aria: { hidden: "true" })
-
-			def required_tag = section_tag("Required", "bg-copper/10 text-copper")
-			def optional_tag = section_tag("Optional", "border border-border text-ink-faint")
-
-			private
-
-			def section_tag(text, tone)
-				classes = "shrink-0 rounded-full px-2 py-0.5 text-[0.625rem] font-medium uppercase tracking-wider #{tone}"
-				tag.span(text, class: classes)
-			end
 		end
 	end
 end

@@ -24,7 +24,7 @@ class User < ApplicationRecord
 	def display = display_name.presence || name.presence || npub
 
 	# This identity's catalog events, joined by pubkey (Event belongs_to :author).
-	def events = Event.where(pubkey:)
+	def events = Event.by_author(pubkey)
 	def listings = events.classified.active
 
 	private

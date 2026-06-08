@@ -16,7 +16,7 @@ module Studio
 			def type = @field[:type].presence || "text"
 			def required? = @field[:required] == true
 			def field_types = Types::InputFieldType.values
-			def input_class = ServiceFormComponent::INPUT
+			def input_class = Forms::Fields::INPUT
 		end
 	end
 end
