@@ -35,7 +35,7 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-baseline justify-between gap-3">
         <span class="text-sm font-medium <%= tone[:text] %>"><%= status[:label] %></span>
-        <% if conversation.deadline && %i[accepted awaiting_fulfillment].include?(conversation.state) %>
+        <% if conversation.deadline && conversation.state == :awaiting_fulfillment %>
           <span class="shrink-0 text-xs text-ink-muted">deliver in <span class="font-mono tabular-nums <%= tone[:text] %>"><%= conversation.deadline %></span></span>
         <% elsif conversation.state == :completed %>
           <span class="shrink-0 text-xs text-ink-muted">paid <%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :inline, tone: :ink) %></span>
@@ -49,20 +49,17 @@
     </div>
   </div>
 
-  <%# the request: the filled schema the client sealed to you (the spec lives in the service drawer) %>
+  <%# the request: the filled schema the client sealed to you, decrypted client-side by the messages
+      controller (the runtime never sees it). The spec lives in the service drawer. %>
   <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
     <div class="mb-4 flex items-center gap-2">
       <%= render Shared::Icon::IconComponent.new(name: "package", size: :sm, color: "text-ink-muted") %>
       <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">request from <%= conversation.name %></p>
     </div>
-    <dl class="-mb-3 divide-y divide-border">
-      <% conversation.inputs.each do |input| %>
-        <div class="py-3">
-          <dt class="mb-1 text-xs font-medium text-ink-muted"><%= input[:label] %></dt>
-          <dd class="text-sm whitespace-pre-wrap break-words text-ink"><%= input[:value] %></dd>
-        </div>
-      <% end %>
-    </dl>
+    <div data-messages-target="request"></div>
+    <p data-messages-target="status" role="status" class="text-sm text-ink-muted">Decrypting the client's request…</p>
+    <button type="button" data-messages-target="unlock" data-action="messages#unlock"
+            class="mt-3 hidden text-xs font-medium text-copper hover:text-copper-bright">Unlock your signer to view</button>
   <% end %>
 
   <%# your delivery, once submitted %>
@@ -91,11 +88,11 @@
     <p class="mt-4 text-xs leading-relaxed text-ink-faint">Coordinated by the runtime, which never holds the funds or your keys.</p>
   </div>
 
-  <%# the decision this state calls for %>
+  <%# the decision this state calls for: a link into the order page where the escrow action lives %>
   <% if actions.any? %>
     <div class="flex flex-col gap-2 sm:flex-row">
       <% actions.each do |action| %>
-        <%= render Shared::Button::ButtonComponent.new(variant: action[:variant], full: true, icon: action[:icon]) do %><%= action[:label] %><% end %>
+        <%= render Shared::Button::ButtonComponent.new(variant: action[:variant], full: true, icon: action[:icon], tag: :a, href: action[:href]) do %><%= action[:label] %><% end %>
       <% end %>
     </div>
   <% end %>

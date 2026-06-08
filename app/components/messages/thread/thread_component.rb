@@ -6,18 +6,16 @@ module Messages
 		# record, the service and the filled schema, the escrow that releases to you, your
 		# delivery, and the one decision the current state calls for. Never free-form chat.
 		class ThreadComponent < ApplicationComponent
-			# state -> the status strip's signal: tone (drives band/lamp/text), label, and
-			# whether the lamp pulses (only states with a live clock the provider owns).
+			# Conversation state (derived from the order's escrow state) -> the status strip's signal: tone
+			# (drives band/lamp/text), label, and whether the lamp pulses (only the funded state has a live
+			# delivery clock the provider owns).
 			STATUS = {
 				received: { tone: :copper, label: "New request", pulse: false },
-				accepted: { tone: :live, label: "Accepted", pulse: true },
 				awaiting_fulfillment: { tone: :live, label: "Awaiting your delivery", pulse: true },
-				verifying_delivery: { tone: :copper, label: "Delivered, verifying", pulse: false },
+				delivered: { tone: :copper, label: "Delivered, awaiting release", pulse: false },
 				completed: { tone: :settled, label: "Completed", pulse: false },
-				expired: { tone: :fault, label: "Expired, not delivered", pulse: false },
-				failed: { tone: :fault, label: "Failed", pulse: false },
 				refunded: { tone: :fault, label: "Refunded", pulse: false },
-				cancelled: { tone: :muted, label: "Cancelled", pulse: false }
+				expired: { tone: :fault, label: "Expired, not delivered", pulse: false }
 			}.freeze
 
 			FALLBACK_STATUS = { tone: :muted, label: "Pending", pulse: false }.freeze
@@ -52,21 +50,24 @@ module Messages
 				end
 			end
 
-			# The state -> the typed actions available now (label, button variant, icon).
+			# The decision this state calls for, as a link into the order page (the canonical escrow action
+			# surface, where the gated funding/settlement panels live). An unfunded order has NO provider action:
+			# the client must fund before the work begins, so the provider cannot act on it yet.
 			def actions
 				case conversation.state
-				when :received
-					[ { label: "Accept request", variant: :primary, icon: "tick-02" },
-						{ label: "Decline", variant: :ghost, icon: "cancel-01" } ]
-				when :accepted, :awaiting_fulfillment
-					[ { label: "Submit delivery", variant: :primary, icon: "sent" },
-						{ label: "Request extension", variant: :ghost, icon: "clock-01" } ]
+				when :awaiting_fulfillment
+					[ { label: "Open order to deliver", variant: :primary, icon: "arrow-right-01", href: order_path } ]
+				when :delivered
+					[ { label: "Open order", variant: :ghost, icon: "arrow-right-01", href: order_path } ]
 				when :completed
-					[ { label: "View delivered result", variant: :ghost, icon: "download-01" } ]
+					[ { label: "View order", variant: :ghost, icon: "arrow-right-01", href: order_path } ]
 				else
 					[]
 				end
 			end
+
+			# Opens the order drawer over the thread (?order_id); the thread stays selected underneath.
+			def order_path = helpers.message_path(conversation.id, order_id: conversation.id)
 		end
 	end
 end

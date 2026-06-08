@@ -1,49 +1,9 @@
-<div class="flex flex-col gap-6">
-  <%# mode + description %>
-  <div>
-    <%= render Shared::Chip::ChipComponent.new(
-          tone: conversation.automated? ? :copper : :muted,
-          label: "#{conversation.automated? ? "automated" : "human"} · #{conversation.span}") %>
-    <div class="markdown mt-3"><%= helpers.markdown(conversation.description) %></div>
-  </div>
-
-  <%# price + escrow, side by side (mirrors viewService) %>
-  <div class="grid gap-4 sm:grid-cols-2">
-    <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
-      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">price</p>
-      <div class="mt-2"><%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :lg) %></div>
-      <p class="mt-1 text-xs text-ink-muted">per request</p>
-    <% end %>
-    <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
-      <div class="mb-2 flex items-center gap-2">
-        <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper") %>
-        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow · every job</p>
-      </div>
-      <p class="text-sm leading-relaxed text-ink-secondary"><%= escrow_explainer %></p>
-    <% end %>
-  </div>
-
-  <%# inputs this service expects %>
-  <%= render Shared::Card::CardComponent.new(padding: :p5) do %>
-    <p class="mb-1 text-xs font-medium uppercase tracking-wider text-ink-muted">inputs this service expects</p>
-    <ul class="-mb-1 divide-y divide-border">
-      <% conversation.inputs.each do |field| %>
-        <li class="flex items-center justify-between gap-3 py-3">
-          <span class="text-sm text-ink"><%= field[:label] %></span>
-          <span class="flex shrink-0 items-center gap-3 text-xs">
-            <span class="text-ink-faint"><%= field[:type] %></span>
-            <span class="<%= field[:required] ? "text-copper" : "text-ink-faint" %>"><%= field[:required] ? "required" : "optional" %></span>
-          </span>
-        </li>
-      <% end %>
-    </ul>
-  <% end %>
-
-  <%# microstandard conformance %>
-  <p class="text-xs leading-relaxed text-ink-faint">
-    conforms to the service-listing convention ·
-    <span class="font-mono text-ink-muted">t:<%= MARKER %></span> ·
-    <span class="font-mono text-ink-muted">svc:<%= conversation.cap %></span> ·
-    <span class="font-mono text-ink-muted">kind 30402</span>
+<% if listing? %>
+  <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: service, show_cta: false) %>
+<% elsif request? %>
+  <%= render Requests::RequestDetail::RequestDetailComponent.new(request: service, viewer:, show_cta: false) %>
+<% else %>
+  <p class="text-sm leading-relaxed text-ink-muted">
+    This service isn't available locally yet, so its full detail can't be shown. The order metadata is in the thread.
   </p>
-</div>
+<% end %>

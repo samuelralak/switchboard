@@ -2,33 +2,24 @@
 
 module Messages
 	module ServiceDetail
-		# The service/listing detail shown in the right slide-over drawer: mode, description,
-		# price, the escrow-every-job explainer, the input schema (label/type/required), and
-		# the kind-30402 conformance line. Mirrors the prototype's viewService, reframed for a
-		# provider viewing their own listing (no buyer CTA, no self-referential track record).
+		# The service detail shown in the right slide-over when a provider clicks the service in a thread.
+		# Delegates to the SAME canonical detail the catalogue/requests pages use (Catalog::ServiceDetail for
+		# a listing, Requests::RequestDetail for an open request), with the buyer/claim CTA suppressed, so the
+		# drawer is identical everywhere. `service` is the resolved Catalog::Listing / Requests::OpenRequest
+		# (nil when the event is not ingested locally).
 		class ServiceDetailComponent < ApplicationComponent
-			# The service-listing microstandard marker (brief §7.1), env-scoped; one source of truth.
-			MARKER = Catalog::Listing.marker
-
-			# The dialog id the trigger button and the drawer share (one service shows at a time).
+			# The dialog id the thread's trigger button and the drawer share (one service shows at a time).
 			DRAWER_ID = "service-drawer"
 
-			attr_reader :conversation
+			attr_reader :service, :viewer
 
-			def initialize(conversation:)
-				@conversation = conversation
+			def initialize(service:, viewer: nil)
+				@service = service
+				@viewer = viewer
 			end
 
-			def escrow_explainer
-				if conversation.automated?
-					"Automated escrow. Funds lock as a Lightning hold invoice, released to you on a valid " \
-						"response and auto-cancelled if the endpoint times out. Genuinely trustless for fast work."
-				else
-					"Manual escrow. The client's funds lock as key-locked Cashu (NUT-11 P2PK), released to you " \
-						"on approval, with a timelock refund to them if you miss the #{conversation.span}. Locked " \
-						"to keys, never held by us."
-				end
-			end
+			def listing? = service.is_a?(Catalog::Listing)
+			def request? = service.is_a?(Requests::OpenRequest)
 		end
 	end
 end

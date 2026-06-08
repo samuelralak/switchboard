@@ -1,24 +1,26 @@
 <% content_for :title, "Messages" %>
 <% section_labels = { needs_you: "Needs you", in_progress: "In progress", done: "Done" } %>
+<% conversations = @state.conversations %>
+<% selected = @state.selected %>
 
 <%# Two-pane inbox: the provider's request queue on the left, the open request on the right. %>
 <div class="flex items-start gap-x-6">
   <%# queue (primary on narrow screens) %>
-  <div class="w-full shrink-0 lg:w-96 <%= "hidden lg:block" if @thread_open %>">
+  <div class="w-full shrink-0 lg:w-96 <%= "hidden lg:block" if @state.thread_open %>">
     <div class="mb-5">
       <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Messages</h1>
       <p class="mt-0.5 text-sm text-ink-muted">Requests clients have sent you.</p>
     </div>
 
-    <% if @conversations.any? %>
-      <% @conversations.group_by(&:section).each do |section, group| %>
+    <% if conversations.any? %>
+      <% conversations.group_by(&:section).each do |section, group| %>
         <div class="mb-2.5 flex items-center gap-2">
           <p class="text-xs font-medium uppercase tracking-wider <%= section == :needs_you ? "text-ink-secondary" : "text-ink-faint" %>"><%= section_labels.fetch(section, section.to_s) %></p>
           <span class="text-xs text-ink-faint"><%= group.size %></span>
         </div>
         <div class="mb-6 flex flex-col gap-2">
           <% group.each do |conversation| %>
-            <%= render Messages::ConversationRow::ConversationRowComponent.new(conversation:, selected: conversation == @selected) %>
+            <%= render Messages::ConversationRow::ConversationRowComponent.new(conversation:, selected: conversation == selected) %>
           <% end %>
         </div>
       <% end %>
@@ -29,16 +31,31 @@
   </div>
 
   <%# the open request (shown on narrow screens only once one is opened) %>
-  <div class="min-w-0 flex-1 <%= "hidden lg:block" unless @thread_open %>">
-    <% if @selected %>
+  <div class="min-w-0 flex-1 <%= "hidden lg:block" unless @state.thread_open %>">
+    <% if selected %>
       <a href="<%= messages_path %>" class="mb-5 inline-flex items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink lg:hidden">
         <%= render Shared::Icon::IconComponent.new(name: "arrow-left-01") %>inbox
       </a>
-      <%= render Messages::Thread::ThreadComponent.new(conversation: @selected) %>
-      <%# clicking the service title opens this right slide-over with the full listing detail %>
+      <%# the request content is end-to-end encrypted: the messages controller decrypts it client-side with
+          the provider's signer and renders it into the thread. Re-keyed per conversation so a Turbo nav
+          re-hydrates the newly-opened thread. %>
+      <div data-controller="messages"
+           data-messages-own-value="<%= current_user.pubkey %>"
+           data-messages-relays-value="<%= @state.dm_relays.to_json %>"
+           data-messages-order-id-value="<%= selected.id %>"
+           data-messages-consumer-value="<%= selected.peer_pubkey %>">
+        <%= render Messages::Thread::ThreadComponent.new(conversation: selected) %>
+      </div>
+      <%# clicking the service title opens this right slide-over with the canonical service detail (the same
+          component the catalogue/requests pages render), CTA suppressed for the provider %>
       <%= render Shared::Drawer::DrawerComponent.new(
-            title: @selected.service, id: Messages::ServiceDetail::ServiceDetailComponent::DRAWER_ID) do %>
-        <%= render Messages::ServiceDetail::ServiceDetailComponent.new(conversation: @selected) %>
+            title: selected.service, id: Messages::ServiceDetail::ServiceDetailComponent::DRAWER_ID) do %>
+        <%= render Messages::ServiceDetail::ServiceDetailComponent.new(service: @state.selected_service, viewer: current_user) %>
+      <% end %>
+
+      <%# the order drawer, open when ?order_id is set (the thread's "Open order" action) %>
+      <% if @open_order %>
+        <%= render "orders/drawer", order_id: @open_order.id, title: @open_order.service, close_path: message_path(selected.id) %>
       <% end %>
     <% end %>
   </div>

@@ -3,29 +3,54 @@
 require "test_helper"
 
 class MessagesControllerTest < ActionDispatch::IntegrationTest
-	test "renders the provider queue with the request, service, and client context" do
+	test "requires login" do
+		get messages_url
+
+		assert_redirected_to root_path
+	end
+
+	test "shows the provider's orders as conversations joined to the service" do
+		sign_in
+		listing = classified_event(pubkey: @session_pubkey, marker: Catalog::Listing.marker, price: 5_000, d: "rev")
+		order = build_order(provider_pubkey: @session_pubkey, consumer_pubkey: SecureRandom.hex(32),
+			listing_coordinate: coordinate_for(listing), amount_sats: 5_000)
+
 		get messages_url
 
 		assert_response :success
-		assert_select "a[href=?]", message_path("0x4a90b2")     # an incoming request links to its thread
-		assert_select "h2", text: /Code review a snippet/       # the first request opens in the detail
-		assert_select "p", text: /request from bob/i            # the filled schema the client sent
-		assert_select "dt", text: /Language/                    # a schema field label
-		assert_select "button", text: /Accept request/          # the provider decision for a new request
-		assert_match(/no track record yet/, response.body)      # a fresh client's signed history
-		# the service title opens a slide-over drawer holding the full listing detail
-		assert_select "button[commandfor=?]", "service-drawer"
-		assert_select "dialog#service-drawer"
-		assert_match(/inputs this service expects/, response.body)
-		assert_match(/kind 30402/, response.body)               # the service-listing conformance line
+		assert_select "a[href=?]", message_path(order.id)
+		assert_match(/Svc/, response.body) # the joined service title from the ingested listing
 	end
 
-	test "opens a settled request and shows the provider's delivery" do
-		get message_url("0x22f7d1")
+	test "an order whose listing is not ingested still renders, with a fallback name" do
+		sign_in
+		build_order(provider_pubkey: @session_pubkey, consumer_pubkey: SecureRandom.hex(32))
+
+		get messages_url
 
 		assert_response :success
-		assert_select "h2", text: /Translate EN/
-		assert_select "p", text: /your delivery/i
-		assert_match(/58 completed/, response.body)             # the client's track record
+		assert_match(/Escrow order/, response.body)
 	end
+
+	test "shows the empty state when the provider has no orders" do
+		sign_in
+
+		get messages_url
+
+		assert_response :success
+		assert_match(/No requests yet/, response.body)
+	end
+
+	private
+
+	def sign_in
+		keypair = Nostr::Keygen.new.generate_key_pair
+		@session_pubkey = keypair.public_key.to_s
+		tags = nip98_tags(url: verify_url, challenge: LoginChallenge.issue.nonce)
+		event = sign_event(kind: Events::Kinds::HTTP_AUTH, tags:, keypair:)
+		post session_url, headers: { "Authorization" => "Nostr #{Base64.strict_encode64(JSON.generate(event))}" }
+		assert_response :created
+	end
+
+	def verify_url = "#{Rails.application.config.x.canonical_origin}/session"
 end
