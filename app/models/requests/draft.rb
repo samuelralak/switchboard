@@ -42,7 +42,7 @@ module Requests
 
 		def field(key) = self.class.value(params, key)
 
-		def title = field(:title).presence || "Untitled request"
+		def title = field(:title).presence || Requests::OpenRequest::DEFAULT_TITLE
 
 		def capability_tag
 			cap = field(:capability)

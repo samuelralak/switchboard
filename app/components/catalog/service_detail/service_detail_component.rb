@@ -20,7 +20,7 @@ module Catalog
 			def automated? = listing.fulfillment == "automated"
 
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
-			def order_coordinate = "#{Events::Kinds::CLASSIFIED}:#{listing.event.pubkey}:#{listing.identifier}"
+			def order_coordinate = listing.coordinate
 
 			def default_mint = Orders::Policy.mint_allowlist.first
 

@@ -35,7 +35,7 @@ module Requests
 			end
 
 			# The title, blank when it is the placeholder default (so the input shows its placeholder on new).
-			def title_value = request.title == "Untitled request" ? nil : request.title
+			def title_value = request.title == Requests::OpenRequest::DEFAULT_TITLE ? nil : request.title
 
 			# Windows split back into value + unit for prefill. The value is left blank on a new request (a
 			# placeholder hints 24 / 3) so the rail's progress dot reflects what the user enters, not a default;

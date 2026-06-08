@@ -20,7 +20,7 @@ module Requests
 			end
 
 			# The addressable coordinate the claim is placed against (kind:pubkey:d).
-			def claim_coordinate = "#{Events::Kinds::CLASSIFIED}:#{request.event.pubkey}:#{request.identifier}"
+			def claim_coordinate = request.coordinate
 
 			def default_mint = Orders::Policy.mint_allowlist.first
 

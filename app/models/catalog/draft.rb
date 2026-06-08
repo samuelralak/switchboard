@@ -40,7 +40,7 @@ module Catalog
 
 		def field(key) = self.class.value(params, key)
 
-		def title = field(:title).presence || "Untitled service"
+		def title = field(:title).presence || Catalog::Listing::DEFAULT_TITLE
 
 		def capability_tag
 			cap = field(:capability)
