@@ -1,0 +1,26 @@
+<a href="<%= order_path %>"
+	class="group flex w-full items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+	<div class="grid size-12 shrink-0 place-items-center rounded-lg border border-border bg-inset">
+		<%= render Shared::Icon::IconComponent.new(name: "package", color: "text-ink-faint") %>
+	</div>
+
+	<div class="min-w-0 flex-1">
+		<div class="flex items-center gap-2.5">
+			<h3 class="truncate font-display font-medium leading-snug tracking-tight text-ink transition-colors group-hover:text-copper"><%= row.title %></h3>
+			<span class="inline-flex shrink-0 items-center gap-1.5 rounded-full border <%= status[:band] %> px-2.5 py-0.5 text-xs font-medium <%= status[:text] %>">
+				<span class="size-1.5 rounded-full <%= status[:lamp] %>" aria-hidden="true"></span><%= status[:label] %>
+			</span>
+		</div>
+		<div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
+			<% if row.cap.present? %><span class="font-mono text-ink-faint"><%= row.cap %></span><% end %>
+			<span class="font-mono text-ink-faint"><%= row.id.first(8) %></span>
+		</div>
+	</div>
+
+	<div class="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+		<%= render Shared::PriceTag::PriceTagComponent.new(amount: row.sats, suffix: "sat") %>
+		<% if awaiting? %>
+			<span class="font-mono text-xs text-ink-faint">fund within <%= funding_left %></span>
+		<% end %>
+	</div>
+</a>

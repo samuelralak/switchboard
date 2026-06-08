@@ -28,3 +28,10 @@ pin "nostr-tools/pure", to: "https://cdn.jsdelivr.net/npm/nostr-tools@2.23.5/pur
 # hands a kind-22242 template to our user signer for NIP-42 AUTH and never sees a key).
 pin "nostr-tools/nip44", to: "https://cdn.jsdelivr.net/npm/nostr-tools@2.23.5/nip44/+esm" # @2.23.5
 pin "nostr-tools/relay", to: "https://cdn.jsdelivr.net/npm/nostr-tools@2.23.5/relay/+esm" # @2.23.5
+
+# Cashu (NUT-11 P2PK / NUT-14 HTLC) for non-custodial manual-order escrow: the browser builds the
+# key-locked / hash-locked token; the runtime never holds it. Pinned at an exact version because v4
+# renamed CashuWallet->Wallet / CashuMint->Mint and SIG_ALL is still in flux (we use SIG_INPUTS).
+# Same vendoring caveat as nostr-tools: the +esm bundle bakes absolute jsdelivr URLs for the
+# @noble/@scure/@cashu chain, so --download won't fully self-host; CSP allows cdn.jsdelivr.net.
+pin "@cashu/cashu-ts", to: "https://cdn.jsdelivr.net/npm/@cashu/cashu-ts@4.5.1/+esm" # @4.5.1

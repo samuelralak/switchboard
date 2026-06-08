@@ -19,4 +19,9 @@ class ApplicationJob < ActiveJob::Base
 	discard_on Messages::UnwrapError do |job, error|
 		Rails.logger.warn("[#{job.class.name}] discarded gift wrap: #{error.message}")
 	end
+
+	# A transition driven by a stale or duplicate observation is non-retryable: discard it.
+	discard_on IllegalTransitionError do |job, error|
+		Rails.logger.warn("[#{job.class.name}] discarded stale transition: #{error.message}")
+	end
 end

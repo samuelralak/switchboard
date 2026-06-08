@@ -1,0 +1,51 @@
+<div id="<%= dom_id %>" class="rounded-2xl border border-border bg-surface p-5">
+	<%# money-in / data-out rail: the escrow headline %>
+	<div class="flex items-center gap-2">
+		<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper") %>
+		<p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow</p>
+		<span class="ml-auto text-sm text-ink-secondary"><%= escrow_label %></span>
+	</div>
+
+	<%# segmented progress strip %>
+	<div class="mt-4 flex gap-1.5">
+		<% nodes.each do |node| %>
+			<span class="h-1 flex-1 rounded-full <%= strip(node.status) %>"></span>
+		<% end %>
+	</div>
+
+	<%# vertical node timeline (the state machine) %>
+	<ol class="mt-5">
+		<% nodes.each_with_index do |node, index| %>
+			<% last = index == nodes.size - 1 %>
+			<li class="flex gap-3.5">
+				<div class="flex flex-col items-center">
+					<span class="grid size-5 shrink-0 place-items-center">
+						<span class="rounded-full <%= lamp(node.status) %>"></span>
+					</span>
+					<% unless last %>
+						<span class="my-1.5 w-px flex-1 <%= connector(node.status) %>"></span>
+					<% end %>
+				</div>
+				<div class="min-w-0 flex-1 <%= last ? "pb-0.5" : "pb-7" %>">
+					<div class="flex items-baseline gap-2.5">
+						<span class="text-sm font-medium <%= label_tone(node.status) %>"><%= node.label %></span>
+						<% if node.at %>
+							<span class="ml-auto shrink-0 font-mono text-xs tabular-nums text-ink-faint"><%= node.at.strftime("%-d %b, %H:%M") %></span>
+						<% end %>
+					</div>
+					<% if node.status != "future" && node.note %>
+						<p class="mt-1.5 max-w-xl text-sm leading-relaxed text-ink-muted"><%= node.note %></p>
+					<% end %>
+					<% if node.countdown %>
+						<p class="mt-2 inline-flex items-center gap-2 font-mono text-xs text-lamp-live">
+							<span class="size-1.5 rounded-full bg-lamp-live" aria-hidden="true"></span>
+							<%= node.countdown[:label] %>
+							<span data-controller="countdown" data-countdown-deadline-value="<%= node.countdown[:at].to_i %>" class="tabular-nums">··:··:··</span>
+							<span class="text-ink-faint">→ <%= node.countdown[:then] %></span>
+						</p>
+					<% end %>
+				</div>
+			</li>
+		<% end %>
+	</ol>
+</div>

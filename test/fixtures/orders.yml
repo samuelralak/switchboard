@@ -1,0 +1,4 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Intentionally empty: orders carry hex/inclusion/positive-amount checks the generated placeholders violate.
+# Build orders in-test with build_order.

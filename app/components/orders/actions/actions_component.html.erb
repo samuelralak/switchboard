@@ -1,0 +1,125 @@
+<div class="mt-5 border-t border-border pt-5">
+	<% if fund? %>
+		<div data-controller="funding"
+			data-funding-order-id-value="<%= order.id %>"
+			data-funding-mint-value="<%= order.mint_url %>"
+			data-funding-amount-value="<%= order.amount_sats %>"
+			data-funding-provider-value="<%= order.provider_pubkey %>"
+			data-funding-consumer-value="<%= order.consumer_pubkey %>"
+			data-funding-relays-value="<%= relays_json %>"
+			data-funding-locktime-seconds-value="<%= locktime_seconds %>">
+			<div class="flex items-start gap-2">
+				<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					Lock <%= number_with_delimiter(order.amount_sats) %> sat at the mint over Lightning to start the escrow.
+					Funds release to the provider only on delivery, with a refund if the work never arrives.
+				</p>
+			</div>
+
+			<div class="mt-4">
+				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
+					data: { funding_target: "start", action: "funding#start" }) do %>Fund escrow<% end %>
+			</div>
+
+			<div data-funding-target="panel" class="mt-4 hidden">
+				<p data-funding-target="status" role="status" class="text-sm text-ink-secondary"></p>
+				<div data-funding-target="invoice" class="mt-3 hidden">
+					<p class="font-mono text-xs uppercase tracking-wider text-ink-muted">Pay this Lightning invoice</p>
+					<textarea data-funding-target="bolt11" readonly rows="3"
+						class="mt-1 w-full resize-none rounded-lg border border-border bg-surface p-2 font-mono text-xs text-ink-secondary"></textarea>
+					<button type="button" data-action="funding#copy"
+						class="mt-1 text-xs font-medium text-copper hover:text-copper-bright">Copy invoice</button>
+				</div>
+			</div>
+
+			<p data-funding-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+
+			<%= form_with url: order_funding_path(order), method: :post, data: { funding_target: "form" }, class: "hidden" do %>
+				<input type="hidden" name="order[mint_url]" data-funding-target="mintUrl">
+				<input type="hidden" name="order[hashlock]" data-funding-target="hashlock">
+				<input type="hidden" name="order[locktime]" data-funding-target="locktime">
+				<input type="hidden" name="order[lock_pubkey]" data-funding-target="lockPubkey">
+				<input type="hidden" name="order[refund_pubkey]" data-funding-target="refundPubkey">
+			<% end %>
+		</div>
+	<% elsif release? %>
+		<div data-controller="settlement"
+			data-settlement-order-id-value="<%= order.id %>"
+			data-settlement-mint-value="<%= order.mint_url %>"
+			data-settlement-relays-value="<%= relays_json %>"
+			data-settlement-own-value="<%= order.consumer_pubkey %>"
+			data-settlement-peer-value="<%= order.provider_pubkey %>"
+			data-settlement-settle-url-value="<%= settle_order_path(order) %>"
+			data-settlement-locktime-value="<%= order.lock&.locktime&.to_i %>">
+			<p class="text-sm leading-relaxed text-ink-secondary">
+				Review the delivered result below, then release the escrow to the provider when you're satisfied.
+				Releasing validates the result's shape, not its quality, that judgment is yours. If the work never
+				arrives, you can refund after the lock expires.
+			</p>
+			<div class="mt-4 flex flex-wrap gap-2">
+				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "square-lock-02",
+					data: { settlement_target: "release", action: "settlement#release" }) do %>Release escrow<% end %>
+				<%= render Shared::Button::ButtonComponent.new(variant: :ghost,
+					data: { settlement_target: "refund", action: "settlement#refund" }) do %>Refund<% end %>
+			</div>
+			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
+			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+	<% elsif settle? %>
+		<%# provider: deliver the finished result to the client, sealed end to end (the runtime never sees it) %>
+		<div data-controller="order-result"
+			data-order-result-order-id-value="<%= order.id %>"
+			data-order-result-own-value="<%= order.provider_pubkey %>"
+			data-order-result-peer-value="<%= order.consumer_pubkey %>"
+			data-order-result-coordinate-value="<%= order.listing_coordinate %>"
+			data-order-result-relays-value="<%= dm_relays_json %>"
+			data-order-result-deliver-url-value="<%= order_delivery_path(order) %>">
+			<div class="mb-4 flex items-start gap-2">
+				<%= render Shared::Icon::IconComponent.new(name: "sent", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					Deliver the finished work to the client. It's sealed to them end to end, so the runtime never sees
+					it. They review it, then release the escrow to you.
+				</p>
+			</div>
+			<%= helpers.simple_form_for :delivery, url: "#",
+				html: { data: { turbo: false, order_result_target: "form", action: "submit->order-result#send" } } do |form| %>
+				<%= form.input :result, as: :text, required: true, label: "Result",
+					placeholder: "The delivered work (text or markdown)",
+					input_html: { rows: 4, class: "resize-y", data: { order_result_target: "field" } } %>
+				<%= form.input :attachments, as: :text, required: false, label: "Attachments",
+					wrapper: :switchboard_mono, hint: "One URL per line.", placeholder: "https://…",
+					input_html: { rows: 2, class: "resize-y", data: { order_result_target: "attachments" } } %>
+				<%= form.input :note, required: false, label: "Note",
+					input_html: { data: { order_result_target: "note" } } %>
+				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "sent", type: "submit", full: true,
+					data: { order_result_target: "submit" }) do %>Submit delivery<% end %>
+			<% end %>
+			<p data-order-result-target="status" role="status" class="mt-3 hidden text-sm text-ink-secondary"></p>
+			<p data-order-result-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+
+		<%# provider: verify the locked budget, then redeem once the consumer releases %>
+		<div class="mt-5 border-t border-border pt-5" data-controller="settlement"
+			data-settlement-order-id-value="<%= order.id %>"
+			data-settlement-mint-value="<%= order.mint_url %>"
+			data-settlement-relays-value="<%= relays_json %>"
+			data-settlement-own-value="<%= order.provider_pubkey %>"
+			data-settlement-peer-value="<%= order.consumer_pubkey %>"
+			data-settlement-amount-value="<%= order.amount_sats %>"
+			data-settlement-hashlock-value="<%= order.lock&.hashlock %>"
+			data-settlement-lock-pubkey-value="<%= order.lock&.lock_pubkey %>"
+			data-settlement-settle-url-value="<%= settle_order_path(order) %>">
+			<p class="text-sm leading-relaxed text-ink-secondary">
+				Verify the locked budget, then redeem once the client approves and releases.
+			</p>
+			<div class="mt-4 flex flex-wrap gap-2">
+				<%= render Shared::Button::ButtonComponent.new(variant: :ghost, icon: "shield-01",
+					data: { settlement_target: "verify", action: "settlement#verify" }) do %>Verify funds<% end %>
+				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
+					data: { settlement_target: "redeem", action: "settlement#redeem" }) do %>Redeem<% end %>
+			</div>
+			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
+			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+	<% end %>
+</div>

@@ -23,10 +23,11 @@ function pastTimestamp() {
 // Build an UNSIGNED NIP-17 rumor (kind 14 chat by default) carrying an id but no sig. created_at is
 // the real time; only seal and wrap are randomized. Mirrors Messages::BuildRumor. authorPubkey MUST
 // be the signer's own pubkey (the anti-impersonation anchor).
-export function buildRumor({ authorPubkey, content, recipients = [], replyTo = null, subject = null, kind = Kind.CHAT, createdAt = nowSeconds() }) {
+export function buildRumor({ authorPubkey, content, recipients = [], replyTo = null, subject = null, extraTags = [], kind = Kind.CHAT, createdAt = nowSeconds() }) {
   const tags = recipients.map((pubkey) => ["p", pubkey])
   if (replyTo) tags.push(["e", replyTo])
   if (subject) tags.push(["subject", subject])
+  for (const tag of extraTags) tags.push(tag) // e.g. an `a` tag joining the rumor to a listing coordinate
   const rumor = { pubkey: authorPubkey, created_at: createdAt, kind, tags, content }
   rumor.id = eventId(rumor)
   return rumor

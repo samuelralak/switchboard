@@ -7,6 +7,11 @@ import { installMockRelays } from "nostr/mock_relay"
 import { buildEvents, broadcastListing, setListingStatus } from "nostr/listing_publish"
 import { buildRequestEvent, broadcastRequest } from "nostr/request_publish"
 import { saveNsec, nsecFor, savedNsecEntry } from "nostr/signer_store"
+import * as escrowIdentity from "nostr/escrow_identity"
+import * as orderFunding from "nostr/order_funding"
+import * as escrowMessages from "nostr/escrow_messages"
+import * as orderEnvelope from "nostr/order_envelope"
+import * as resultEnvelope from "nostr/result_envelope"
 
 // Test-only bridge. System tests drive the keyless crypto from an executeScript context, where a
 // bare-specifier dynamic import does NOT consult the page import map. Loading THIS module via a real
@@ -20,4 +25,5 @@ window.NostrCryptoTest = {
   buildEvents, broadcastListing, setListingStatus,
   buildRequestEvent, broadcastRequest,
   saveNsec, nsecFor, savedNsecEntry,
+  escrowIdentity, orderFunding, escrowMessages, orderEnvelope, resultEnvelope,
 }

@@ -18,9 +18,18 @@ class Event < ApplicationRecord
 
 	scope :recent, -> { order(nostr_created_at: :desc, event_id: :asc) } # NIP-01 tie-break: lower id wins
 	scope :of_kind, ->(kind) { where(kind:) }
-	scope :classified, -> { of_kind(Events::Kinds::CLASSIFIED) }                       # NIP-99 service listings
-	scope :active, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) }  # NIP-40 (not expired)
+	scope :classified, -> { of_kind(Events::Kinds::CLASSIFIED) } # NIP-99 service listings
+	scope :active, -> { where("expires_at IS NULL OR expires_at > ?", Time.current) } # NIP-40 (not expired)
 	scope :with_tag, ->(name, value) { where("tags @> ?", [ [ name, value ] ].to_json) } # GIN-indexed tag facet
+	scope :without_tag, ->(name, value) { where.not("tags @> ?", [ [ name, value ] ].to_json) } # the inverse facet
+	scope :not_unpublished, -> { without_tag("status", "inactive") } # drops author-hidden (status) events
+	scope :by_author, ->(pubkey) { where(pubkey:) }
+
+	# A kind:pubkey:d coordinate -> the single matching event, or nil.
+	def self.by_coordinate(coordinate)
+		kind, pubkey, d_tag = coordinate.to_s.split(":", 3)
+		find_by(kind: kind.to_i, pubkey:, d_tag: d_tag.to_s)
+	end
 
 	# First value of the first tag named `name`, or nil. e.g. tag("title").
 	def tag(name)

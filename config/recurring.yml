@@ -22,3 +22,11 @@ production:
   reap_expired_inbox_wraps:
     command: "InboxWrap.prune_expired"
     schedule: at 3am every day
+  escrow_reconcile_funded:
+    class: Escrow::ReconcileSweepJob
+    queue: escrow
+    schedule: every minute
+  escrow_expire_unfunded:
+    class: Escrow::ExpireSweepJob
+    queue: escrow
+    schedule: every 5 minutes

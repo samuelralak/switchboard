@@ -54,6 +54,13 @@ Rails.application.routes.draw do
 	# DB row id, which is regenerated when a re-publish supersedes the coordinate.
 	get "studio/edit", to: "studio#edit", as: :edit_studio_listing
 
+	# Escrow orders (session-authed): place an order from a listing/request coordinate, and report the HTLC
+	# funding lock. The browser does the Cashu locking/keys; Rails records only observable lock data.
+	resources :orders, only: %i[create show]
+	post "orders/:id/funding", to: "orders#fund", as: :order_funding
+	post "orders/:id/delivery", to: "orders#deliver", as: :order_delivery # provider records the delivery assertion
+	post "orders/:id/settle", to: "orders#settle", as: :settle_order # re-derive state from the mint after a spend
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

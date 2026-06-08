@@ -32,6 +32,64 @@ module ActiveSupport
 			)
 		end
 
+		# Persist an escrow order for tests; defaults to a fresh catalog order in awaiting_funding.
+		def build_order(**overrides)
+			Order.create!(**order_defaults, **overrides)
+		end
+
+		def order_defaults
+			{
+				entry_point: Orders::EntryPoints::CATALOG_ORDER,
+				current_state: Orders::States::AWAITING_FUNDING,
+				tier: Orders::Tiers::TIER1_HTLC,
+				amount_sats: 1_000,
+				listing_coordinate: "30402:#{SecureRandom.hex(32)}:svc",
+				mint_url: "http://127.0.0.1:3338",
+				dedupe_key: SecureRandom.hex(16),
+				funding_deadline_at: 1.hour.from_now,
+				consumer_pubkey: SecureRandom.hex(32),
+				provider_pubkey: SecureRandom.hex(32)
+			}
+		end
+
+		# Fund an order via Orders::Funding with a known preimage; returns [ order, preimage, hashlock ].
+		def fund_order(order = build_order, preimage: SecureRandom.hex(32), locktime: 1.hour.from_now)
+			hashlock = ::Digest::SHA256.hexdigest([ preimage ].pack("H*"))
+			point = -> { "02#{SecureRandom.hex(32)}" }
+			with_unspent_checkstate do
+				Orders::Funding.call(
+					order:, mint_url: order.mint_url, hashlock:, locktime:, lock_pubkey: point.call,
+					refund_pubkey: point.call, proofs: [ { y: point.call, amount: order.amount_sats } ]
+				)
+			end
+			[ order.reload, preimage, hashlock ]
+		end
+
+		# A kind-30402 listing/request event by a specific author, carrying a NIP-99 price/budget tag.
+		def classified_event(pubkey:, marker:, price: 1_000, currency: "sat", d: SecureRandom.hex(4), extra_tags: [])
+			tags = [ [ "d", d ], [ "title", "Svc" ], [ "t", marker ], [ "price", price.to_s, currency ] ] + extra_tags
+			Event.create!(
+				event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64), kind: Events::Kinds::CLASSIFIED,
+				content: "Svc", tags:, nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }
+			)
+		end
+
+		def coordinate_for(event) = "#{event.kind}:#{event.pubkey}:#{event.d_tag}"
+
+		# Minitest 6 dropped stub/mock; shadow Cashu::Checkstate.call to return `result` for the block.
+		def with_checkstate(result)
+			Cashu::Checkstate.singleton_class.define_method(:call) { |**| result }
+			yield
+		ensure
+			Cashu::Checkstate.singleton_class.send(:remove_method, :call)
+		end
+
+		# Funding checkstates the proofs; shadow an all-UNSPENT mint so a funding test needs no live mint.
+		def with_unspent_checkstate(&block)
+			state = Cashu::ProofState.new(y: "02#{SecureRandom.hex(32)}", state: "UNSPENT", witness: nil)
+			with_checkstate([ state ], &block)
+		end
+
 		# Builds and BIP-340-signs an arbitrary Nostr event; returns the wire hash (string keys).
 		# Pass a keypair to control the author (e.g. to assert on its pubkey).
 		def sign_event(kind:, tags: [], content: "", created_at: Time.now.to_i, keypair: Nostr::Keygen.new.generate_key_pair)

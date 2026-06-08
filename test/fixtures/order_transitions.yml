@@ -1,0 +1,3 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Intentionally empty: the order_transitions ledger is written by the statesman machine, not fixtures.

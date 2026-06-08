@@ -42,6 +42,11 @@ gem "dry-validation", "~> 1.11"
 gem "dry-types", "~> 1.8"
 gem "dry-configurable", "~> 1.4"
 
+# --- Order/escrow lifecycle ---
+# Append-only state-machine ledger: order state is DERIVED from order_transitions, so a double-settle is a
+# DB uniqueness violation rather than a silent overwrite. Built by GoCardless for payments. [gocardless/statesman]
+gem "statesman", "~> 13.1"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 

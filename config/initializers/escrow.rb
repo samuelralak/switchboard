@@ -1,0 +1,14 @@
+# frozen_string_literal: true
+
+# Escrow policy: the vetted mint allowlist and per-order cap, read by Orders::Policy. Non-prod allows the
+# local test mint; prod reads ESCROW_MINT_ALLOWLIST.
+Rails.application.configure do
+	config.x.escrow.max_order_sats = Integer(ENV.fetch("ESCROW_MAX_ORDER_SATS", "100000"))
+	config.x.escrow.funding_window_seconds = Integer(ENV.fetch("ESCROW_FUNDING_WINDOW_SECONDS", "3600"))
+	config.x.escrow.max_locktime_seconds = Integer(ENV.fetch("ESCROW_MAX_LOCKTIME_SECONDS", "2592000")) # 30 days
+	config.x.escrow.default_locktime_seconds = Integer(ENV.fetch("ESCROW_DEFAULT_LOCKTIME_SECONDS", "604800")) # 7 days
+
+	local_mints = %w[http://127.0.0.1:3338 http://localhost:3338]
+	prod_mints = ENV.fetch("ESCROW_MINT_ALLOWLIST", "").split(",").map(&:strip).reject(&:empty?)
+	config.x.escrow.mint_allowlist = Rails.env.production? ? prod_mints : local_mints
+end

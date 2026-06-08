@@ -15,13 +15,14 @@ function norm(url) {
 }
 
 class MockRelayServer {
-  constructor(url, { authRequired = false, fail = false, proactiveAuth = true } = {}) {
+  constructor(url, { authRequired = false, fail = false, proactiveAuth = true, enforceAuthors = true } = {}) {
     this.url = url
     this.authRequired = authRequired
-    this.fail = fail                   // simulate a relay that never connects (onerror)
-    this.proactiveAuth = proactiveAuth // false = challenge only reactively on REQ/EVENT (exercises re-subscribe)
-    this.events = []                   // stored events
-    this.sockets = new Set()           // connected FakeWebSockets
+    this.fail = fail                     // simulate a relay that never connects (onerror)
+    this.proactiveAuth = proactiveAuth   // false = challenge only reactively on REQ/EVENT (exercises re-subscribe)
+    this.enforceAuthors = enforceAuthors // false = a non-compliant relay that leaks wrong-author events
+    this.events = []                     // stored events
+    this.sockets = new Set()             // connected FakeWebSockets
   }
 
   store(event) {
@@ -33,9 +34,11 @@ class MockRelayServer {
   }
 }
 
-// Minimal filter match: kinds + single-letter tag filters (#p etc.), enough for kind-1059 #p inbox subs.
-function matches(filter, event) {
+// Minimal filter match: kinds + authors + single-letter tag filters (#p etc.). enforceAuthors mirrors a
+// real relay honoring the authors filter; pass false to simulate a non-compliant relay.
+function matches(filter, event, enforceAuthors = true) {
   if (filter.kinds && !filter.kinds.includes(event.kind)) return false
+  if (enforceAuthors && filter.authors && !filter.authors.includes(event.pubkey)) return false
   for (const key of Object.keys(filter)) {
     if (key[0] !== "#") continue
     const tag = key.slice(1)
@@ -99,7 +102,7 @@ class FakeWebSocket {
     }
     this.subs.set(subid, filters)
     for (const event of this.server?.events || []) {
-      if (filters.some((f) => matches(f, event))) this.emit([ "EVENT", subid, event ])
+      if (filters.some((f) => matches(f, event, this.server?.enforceAuthors ?? true))) this.emit([ "EVENT", subid, event ])
     }
     this.emit([ "EOSE", subid ])
   }
@@ -113,7 +116,7 @@ class FakeWebSocket {
   // A live event published elsewhere on this server: push it to each matching open subscription.
   deliver(event) {
     for (const [ subid, filters ] of this.subs) {
-      if (filters.some((f) => matches(f, event))) this.emit([ "EVENT", subid, event ])
+      if (filters.some((f) => matches(f, event, this.server?.enforceAuthors ?? true))) this.emit([ "EVENT", subid, event ])
     }
   }
 
@@ -135,6 +138,7 @@ export function installMockRelays(configs) {
   for (const config of configs) {
     const server = new MockRelayServer(config.url, {
       authRequired: config.authRequired, fail: config.fail, proactiveAuth: config.proactiveAuth,
+      enforceAuthors: config.enforceAuthors,
     })
     ;(config.seed || []).forEach((event) => server.store(event))
     servers.set(config.url, server)

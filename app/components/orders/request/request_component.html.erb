@@ -1,0 +1,31 @@
+<div class="mt-5 border-t border-border pt-5"
+	data-controller="order-request"
+	data-order-request-order-id-value="<%= order.id %>"
+	data-order-request-coordinate-value="<%= order.listing_coordinate %>"
+	data-order-request-peer-value="<%= order.provider_pubkey %>"
+	data-order-request-own-value="<%= order.consumer_pubkey %>"
+	data-order-request-relays-value="<%= relays_json %>">
+	<div class="mb-4 flex items-start gap-2">
+		<%= render Shared::Icon::IconComponent.new(name: "package", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+		<p class="text-sm leading-relaxed text-ink-secondary">
+			Tell the provider what you need to start. Your request is sealed to them end to end, so the runtime
+			never sees it.
+		</p>
+	</div>
+
+	<%= helpers.simple_form_for :request, url: "#",
+		html: { data: { turbo: false, order_request_target: "form", action: "submit->order-request#send" } } do |form| %>
+		<% fields.each_with_index do |field, index| %>
+			<%= form.input :"input_#{index}", required: field[:required], label: field[:label],
+				input_html: { autocomplete: "off", data: { order_request_target: "field", label: field[:label],
+					required: field[:required] ? "true" : "false" } } %>
+		<% end %>
+		<%= form.input :note, as: :text, required: false, label: "Note",
+			input_html: { rows: 3, class: "resize-y", data: { order_request_target: "note" } } %>
+		<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "sent", type: "submit", full: true,
+			data: { order_request_target: "submit" }) do %>Send request to provider<% end %>
+	<% end %>
+
+	<p data-order-request-target="status" role="status" class="mt-3 hidden text-sm text-ink-secondary"></p>
+	<p data-order-request-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+</div>

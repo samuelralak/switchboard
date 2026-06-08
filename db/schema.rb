@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_04_215147) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_07_212726) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -69,6 +69,107 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_215147) do
     t.index ["nonce"], name: "index_login_challenges_on_nonce", unique: true
   end
 
+  create_table "order_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "content_hash", limit: 64, null: false
+    t.datetime "created_at", null: false
+    t.datetime "delivered_at", null: false
+    t.string "delivery_event_id", limit: 64, null: false
+    t.uuid "order_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_deliveries_on_order_id", unique: true
+    t.check_constraint "content_hash::text ~ '^[a-f0-9]{64}$'::text", name: "order_deliveries_content_hash_hex"
+    t.check_constraint "delivery_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "order_deliveries_event_id_hex"
+  end
+
+  create_table "order_effects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "kind", limit: 32, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "order_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_effects_on_order_id", unique: true
+    t.check_constraint "kind::text = ANY (ARRAY['released'::character varying, 'refunded'::character varying]::text[])", name: "order_effects_kind"
+  end
+
+  create_table "order_locks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "amount_sats", null: false
+    t.string "arbiter_pubkey", limit: 66
+    t.datetime "created_at", null: false
+    t.string "hashlock", limit: 64, null: false
+    t.string "lock_pubkey", limit: 66, null: false
+    t.datetime "locktime", null: false
+    t.string "mint_url", limit: 512, null: false
+    t.uuid "order_id", null: false
+    t.string "refund_pubkey", limit: 66, null: false
+    t.integer "required_refund_signatures", default: 1, null: false
+    t.integer "required_signatures", default: 1, null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_locks_on_order_id", unique: true
+    t.check_constraint "amount_sats > 0", name: "order_locks_amount_positive"
+    t.check_constraint "arbiter_pubkey IS NULL OR arbiter_pubkey::text ~ '^0[23][0-9a-f]{64}$'::text", name: "order_locks_arbiter_pubkey_point"
+    t.check_constraint "hashlock::text ~ '^[0-9a-f]{64}$'::text", name: "order_locks_hashlock_hex"
+    t.check_constraint "lock_pubkey::text ~ '^0[23][0-9a-f]{64}$'::text", name: "order_locks_lock_pubkey_point"
+    t.check_constraint "refund_pubkey::text ~ '^0[23][0-9a-f]{64}$'::text", name: "order_locks_refund_pubkey_point"
+    t.check_constraint "required_refund_signatures >= 1", name: "order_locks_refund_sigs_positive"
+    t.check_constraint "required_signatures >= 1", name: "order_locks_sigs_positive"
+  end
+
+  create_table "order_proofs", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "amount_sats", null: false
+    t.datetime "created_at", null: false
+    t.string "keyset_id", limit: 66
+    t.uuid "order_id", null: false
+    t.string "proof_y", limit: 66, null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_proofs_on_order_id"
+    t.index ["proof_y"], name: "index_order_proofs_on_proof_y", unique: true
+    t.check_constraint "amount_sats > 0", name: "order_proofs_amount_positive"
+    t.check_constraint "proof_y::text ~ '^0[23][0-9a-f]{64}$'::text", name: "order_proofs_y_point"
+  end
+
+  create_table "order_transitions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "from_state", limit: 32, null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.boolean "most_recent", default: false, null: false
+    t.uuid "order_id", null: false
+    t.integer "sort_key", null: false
+    t.string "to_state", limit: 32, null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id", "most_recent"], name: "index_order_transitions_parent_most_recent", unique: true, where: "most_recent"
+    t.index ["order_id", "sort_key"], name: "index_order_transitions_parent_sort", unique: true
+    t.check_constraint "from_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "order_transitions_from_state"
+    t.check_constraint "to_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "order_transitions_to_state"
+  end
+
+  create_table "orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.bigint "amount_sats", null: false
+    t.string "consumer_pubkey", limit: 64, null: false
+    t.datetime "created_at", null: false
+    t.string "current_state", limit: 32, default: "awaiting_funding", null: false
+    t.string "dedupe_key", limit: 255, null: false
+    t.string "entry_point", limit: 32, null: false
+    t.datetime "funding_deadline_at", null: false
+    t.string "listing_coordinate", limit: 512, null: false
+    t.string "mint_url", limit: 512, null: false
+    t.string "provider_pubkey", limit: 64, null: false
+    t.string "tier", limit: 32, default: "tier1_htlc", null: false
+    t.datetime "updated_at", null: false
+    t.index ["consumer_pubkey", "listing_coordinate"], name: "index_orders_active_order_per_consumer", unique: true, where: "(((entry_point)::text = 'catalog_order'::text) AND ((current_state)::text = ANY ((ARRAY['awaiting_funding'::character varying, 'funded'::character varying])::text[])))"
+    t.index ["consumer_pubkey"], name: "index_orders_on_consumer_pubkey"
+    t.index ["dedupe_key"], name: "index_orders_on_dedupe_key", unique: true
+    t.index ["funding_deadline_at"], name: "index_orders_funding_due", where: "((current_state)::text = 'awaiting_funding'::text)"
+    t.index ["listing_coordinate"], name: "index_orders_active_claim_per_request", unique: true, where: "(((entry_point)::text = 'request_claim'::text) AND ((current_state)::text = ANY ((ARRAY['awaiting_funding'::character varying, 'funded'::character varying])::text[])))"
+    t.index ["provider_pubkey"], name: "index_orders_on_provider_pubkey"
+    t.check_constraint "amount_sats > 0", name: "orders_amount_positive"
+    t.check_constraint "consumer_pubkey::text <> provider_pubkey::text", name: "orders_parties_differ"
+    t.check_constraint "consumer_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "orders_consumer_pubkey_hex"
+    t.check_constraint "current_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "orders_current_state"
+    t.check_constraint "entry_point::text = ANY (ARRAY['catalog_order'::character varying, 'request_claim'::character varying]::text[])", name: "orders_entry_point"
+    t.check_constraint "provider_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "orders_provider_pubkey_hex"
+    t.check_constraint "tier::text = ANY (ARRAY['tier1_htlc'::character varying, 'tier2_arbiter'::character varying]::text[])", name: "orders_tier"
+  end
+
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "ip_address"
@@ -107,5 +208,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_04_215147) do
     t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "users_pubkey_hex"
   end
 
+  add_foreign_key "order_deliveries", "orders"
+  add_foreign_key "order_effects", "orders"
+  add_foreign_key "order_locks", "orders"
+  add_foreign_key "order_proofs", "orders"
+  add_foreign_key "order_transitions", "orders"
   add_foreign_key "sessions", "users"
 end

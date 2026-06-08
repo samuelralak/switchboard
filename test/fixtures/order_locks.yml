@@ -1,0 +1,4 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Intentionally empty: order locks carry hex/point check constraints the generated placeholders violate.
+# Build them in-test via Orders::Funding.

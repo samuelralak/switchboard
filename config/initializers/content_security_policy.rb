@@ -10,6 +10,9 @@
 # NIP-05 domains (https); img-src allows https for remote profile pictures.
 Rails.application.configure do
 	config.content_security_policy do |policy|
+		# Non-prod-only: the escrow system test drives cashu-ts in-browser against the local HTTP mint
+		# (http://127.0.0.1:3338); production mints are HTTPS, already covered by :https below.
+		mint_local = Rails.env.production? ? [] : %w[http://127.0.0.1:3338 http://localhost:3338]
 		policy.default_src     :self
 		policy.base_uri        :self
 		policy.object_src      :none
@@ -19,7 +22,7 @@ Rails.application.configure do
 		policy.style_src       :self, :unsafe_inline, "https://fonts.googleapis.com", "https://cdn.hugeicons.com"
 		policy.font_src        :self, :data, "https://fonts.gstatic.com", "https://cdn.hugeicons.com"
 		policy.img_src         :self, :data, :https
-		policy.connect_src     :self, :https, "wss:"
+		policy.connect_src     :self, :https, "wss:", *mint_local
 	end
 
 	# Per-session nonce: javascript_importmap_tags stamps it on its inline scripts automatically,
