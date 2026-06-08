@@ -109,6 +109,33 @@ const scenarios = {
     return { threw, stillUnspent: states.every((s) => s.state === "UNSPENT") }
   },
 
+  // After a successful redeem the locked proofs read SPENT (the condition the settlement controller checks
+  // before resubmitting), and a naive second redeem is rejected by the mint -- the "proofs already spent"
+  // bug the doRedeem idempotency guard exists to prevent.
+  async doubleRedeemIsIdempotent(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" }), provider = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    await escrow.ensureMintSupports(provider)
+    const providerKp = newKeypair(), consumerKp = newKeypair()
+
+    const proofs = await mintTestSats(consumer, 64)
+    const locktime = Math.floor(Date.now() / 1000) + 3600
+    const lock = await escrow.lockHtlc({ wallet: consumer, amount: 64, proofs,
+      providerPubkey: providerKp.pkHex, consumerRefundPubkey: consumerKp.pkHex, locktime })
+
+    await escrow.redeemWithPreimage({ wallet: provider, lockedProofs: lock.lockedProofs,
+      preimage: lock.preimage, providerPrivkey: providerKp.skHex })
+    const states = await escrow.proofState({ wallet: provider, proofs: lock.lockedProofs })
+
+    let reSwapThrew = false
+    try {
+      await escrow.redeemWithPreimage({ wallet: provider, lockedProofs: lock.lockedProofs,
+        preimage: lock.preimage, providerPrivkey: providerKp.skHex })
+    } catch (_) { reSwapThrew = true }
+
+    return { allSpent: states.every((s) => s.state === "SPENT"), reSwapThrew }
+  },
+
   // Drive the real funding orchestrator (order_funding.js) against the mint and return the report Rails
   // records, so the Ruby Orders::Funding contract can verify the browser output end-to-end. The local
   // FakeWallet auto-pays the invoice, so the poll resolves without a human paying.

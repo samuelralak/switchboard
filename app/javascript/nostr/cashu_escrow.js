@@ -23,11 +23,13 @@ export async function ensureMintSupports(wallet) {
   await wallet.loadMint() // populate keysets used by later swaps
   const info = await (await fetch(`${wallet.mint.mintUrl}/v1/info`)).json()
   const nuts = info?.nuts ?? {}
+
   for (const nut of [ 7, 11, 14 ]) {
     const entry = nuts[nut] ?? nuts[String(nut)]
     const ok = entry === true || entry?.supported === true
     if (!ok) throw new Error(`Mint ${wallet.mint.mintUrl} does not support NUT-${nut}`)
   }
+
   return wallet
 }
 
@@ -49,10 +51,11 @@ export async function lockHtlc({
     .addHashlock(hash)                     // the HASH, never the preimage; flips the secret kind to HTLC
   if (requiredSignatures > 1) builder.requireLockSignatures(requiredSignatures)
   if (requiredRefundSignatures > 1) builder.requireRefundSignatures(requiredRefundSignatures)
-  const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize secret
 
+  const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize secret
   const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
   const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
+
   return { token, lockedProofs: send, change: keep, hash, preimage: pre, locktime }
 }
 
@@ -65,9 +68,11 @@ export async function redeemWithPreimage({ wallet, lockedProofs, preimage, provi
     if (!isHTLCSpendAuthorised(signed)) {
       throw new Error("HTLC witness not spend-authorised (wrong preimage or signature)")
     }
+
     // The raw mint swap requires the witness as a JSON string, not an object.
     return { ...signed, witness: typeof signed.witness === "string" ? signed.witness : JSON.stringify(signed.witness) }
   })
+
   return swapInputs(wallet, inputs)
 }
 
@@ -87,6 +92,7 @@ export async function proofState({ wallet, proofs }) {
 // so we parse it directly rather than depend on a helper's exact input type.
 export function parseWitness(witness) {
   if (!witness) return { preimage: null, signatures: [] }
+
   try {
     const w = typeof witness === "string" ? JSON.parse(witness) : witness
     return { preimage: w?.preimage ?? null, signatures: w?.signatures ?? [] }
@@ -97,12 +103,15 @@ export function parseWitness(witness) {
 
 // --- internals ---
 
-// Swap already-witnessed inputs into fresh proofs (fees off => outputs total == inputs total).
+// Swap already-witnessed inputs into fresh proofs (fees off => outputs total == inputs total). The outputs
+// MUST use the inputs' own keyset, not the wallet's active one: a mint that rotated keysets between funding
+// and redeem would otherwise mismatch inputs (keyset A) against outputs (keyset B) and the swap is rejected.
 async function swapInputs(wallet, inputs) {
-  const keyset = wallet.getKeyset()
+  const keyset = wallet.getKeyset(inputs[0]?.id)
   const amount = inputs.reduce((sum, p) => sum + Number(p.amount), 0)
   const outputs = OutputData.createRandomData(amount, keyset)
   const { signatures } = await wallet.mint.swap({ inputs, outputs: outputs.map((o) => o.blindedMessage) })
+
   return { proofs: outputs.map((o, i) => o.toProof(signatures[i], keyset)) }
 }
 

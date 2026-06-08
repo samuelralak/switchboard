@@ -35,6 +35,12 @@ class CashuEscrowTest < ApplicationSystemTestCase
 		assert r["lockedSpent"], "the refund must consume the locked proofs"
 	end
 
+	test "after a redeem the proofs read spent, so a second redeem must not resubmit them" do
+		r = run_scenario("doubleRedeemIsIdempotent")
+		assert r["allSpent"], "the locked proofs must read SPENT after a redeem (the re-redeem guard's check)"
+		assert r["reSwapThrew"], "a naive second redeem is rejected by the mint (proofs already spent)"
+	end
+
 	test "rejects a refund attempted before the locktime" do
 		r = run_scenario("refundBeforeLocktime")
 		assert r["threw"], "a refund before the locktime must be rejected"
