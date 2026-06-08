@@ -6,16 +6,20 @@
 # the on-demand drawer from the in-flight form params. Posting is non-custodial (the browser signs +
 # broadcasts the kind-30402 request with the consumer's key), so there is no create POST.
 class RequestsController < ApplicationController
+	include PublishesInBrowser
+
 	before_action :require_login
 	before_action :set_compose_context, only: :new
 
-	# Fields the form posts to #preview. PREVIEW_KEYS shape the draft; CARRY_KEYS carry an existing request
-	# through an edit (ignored by the Draft, permitted so the POST logs no unpermitted params).
+	# Fields the form posts to #preview; shape the draft. The shared CARRY_KEYS come from PublishesInBrowser.
 	PREVIEW_KEYS = %i[title description capability budget delivery_value delivery_unit claim_value claim_unit].freeze
-	CARRY_KEYS = %i[d_tag status published_at created_at].freeze
 
+	# "My requests" is the consumer's ledger: the orders they placed/claimed (Orders::Ledger) plus the
+	# requests they posted that are still awaiting a claim (the board, scoped to them).
 	def index
+		@orders = Orders::Ledger.call(pubkey: current_user.pubkey)
 		@board = Requests::Ui::State.grid(pubkey: current_user.pubkey)
+		@open_order = @orders.find { |row| row.id == params[:order_id] } # ?order_id opens that order's drawer
 	end
 
 	def new
@@ -31,15 +35,5 @@ class RequestsController < ApplicationController
 
 	private
 
-	def set_compose_context
-		@pubkey = current_user.pubkey
-		@publish_relays = NostrClient.configuration.relays # the catalog relays; post there so it is catalogued
-		@btc_usd = Pricing::BtcRate.call # nil hides the fiat hint; never blocks the render
-	end
-
-	def draft_params
-		# Drop the framework CSRF token before permit (still verified by Rails before this action runs);
-		# otherwise it logs as an unpermitted parameter on every preview POST.
-		params.except(:authenticity_token).permit(*PREVIEW_KEYS, *CARRY_KEYS).to_h
-	end
+	def draft_params = preview_params(*PREVIEW_KEYS)
 end

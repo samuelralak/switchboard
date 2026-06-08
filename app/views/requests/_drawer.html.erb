@@ -3,6 +3,6 @@
     by the page render (requests/index) and the Requests::Ui::Update broadcast. %>
 <div id="request-drawer-<%= request.dom_id %>-wrap">
   <%= render Shared::Drawer::DrawerComponent.new(title: request.title, id: "request-drawer-#{request.dom_id}") do %>
-    <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request) %>
+    <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request, viewer: current_user) %>
   <% end %>
 </div>

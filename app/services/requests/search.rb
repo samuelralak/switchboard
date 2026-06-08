@@ -22,10 +22,8 @@ module Requests
 		# the `limit` applies to visible rows. Both filters use the tags GIN index. The marker include is what
 		# keeps service listings off the board (and, symmetrically, requests out of the catalog).
 		def board_scope
-			scope = Event.classified.active
-									 .with_tag("t", OpenRequest.marker)
-									 .where("NOT (tags @> ?)", [ %w[status inactive] ].to_json)
-			pubkey.present? ? scope.where(pubkey:) : scope
+			scope = Event.classified.active.with_tag("t", OpenRequest.marker).not_unpublished
+			pubkey.present? ? scope.by_author(pubkey) : scope
 		end
 	end
 end

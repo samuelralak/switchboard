@@ -57,6 +57,10 @@ module Requests
 		def budget_currency = budget_tag[2].presence || "sat"
 		def budget? = budget_amount.present?
 
+		# Escrow locks whole sats, so only a fixed positive whole-sat budget is claimable. One source of truth
+		# for the UI claim gate (Requests::RequestDetail) and the server enforcement (Orders::Place).
+		def whole_sat_budget? = budget_currency == "sat" && budget_amount.is_a?(Integer) && budget_amount.positive?
+
 		# How long a provider has to claim before the budget auto-refunds (brief §10.2 claim window),
 		# and the post-claim turnaround the consumer asks for. Microstandard form e.g. "7d" / "48h".
 		def claim_window = event.tag("claim_window")

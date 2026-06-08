@@ -27,6 +27,37 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 		assert_not_includes response.body, "Someone else's request"
 	end
 
+	test "My requests shows the consumer's placed orders, opening each in the order drawer" do
+		sign_in
+		listing = classified_event(pubkey: SecureRandom.hex(32), marker: Catalog::Listing.marker, price: 2_000)
+		order = build_order(consumer_pubkey: @session_pubkey, listing_coordinate: coordinate_for(listing))
+
+		get requests_url
+
+		assert_response :success
+		assert_select "a[href=?]", requests_path(order_id: order.id) # the row opens the URL-driven drawer
+		assert_includes response.body, "Svc" # the joined listing title
+	end
+
+	test "?order_id opens the order drawer with a lazy frame to the order detail" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
+
+		get requests_url(order_id: order.id)
+
+		assert_response :success
+		assert_select "turbo-frame[src=?]", order_path(order) # the drawer lazy-loads the detail
+	end
+
+	test "?order_id for an order that isn't yours renders no drawer" do
+		sign_in
+
+		get requests_url(order_id: build_order.id) # someone else's order
+
+		assert_response :success
+		assert_select "turbo-frame", false
+	end
+
 	test "new renders the composer, the section rail, and the preview drawer" do
 		sign_in
 

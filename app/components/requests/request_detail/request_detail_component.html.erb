@@ -49,12 +49,35 @@
     </div>
   <% end %>
 
-  <%# Claim action (provider side). Claiming binds the deposited escrow to the provider; it lands with the
-      payments work, so it is shown disabled with an explainer for now. %>
+  <%# Claim action (provider side): places a request_claim order AND publishes the claimer's escrow key
+      (escrow ensured at claim time) so the poster can lock the budget to them. Hidden in the messages
+      drawer, where the provider has already claimed. %>
+  <% if show_cta %>
   <div>
-    <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "user-multiple", disabled: true) do %>Claim this request<% end %>
-    <p class="mt-3 text-xs leading-relaxed text-ink-muted">
-      Claiming binds the escrowed budget to you and starts the delivery clock. It is coming with escrow and payments.
-    </p>
+    <% if claimable? %>
+      <div data-controller="claim"
+        data-claim-pubkey-value="<%= viewer.pubkey %>"
+        data-claim-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+        data-claim-mint-value="<%= default_mint %>">
+        <form action="<%= helpers.orders_path %>" method="post" class="hidden" data-claim-target="form">
+          <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
+          <input type="hidden" name="order[coordinate]" value="<%= claim_coordinate %>">
+          <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">
+          <input type="hidden" name="order[dedupe_key]" value="<%= SecureRandom.uuid %>">
+        </form>
+        <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "user-multiple",
+          data: { claim_target: "button", action: "claim#claim" }) do %>Claim this request<% end %>
+        <p data-claim-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+        <p class="mt-3 text-xs leading-relaxed text-ink-muted">
+          Claiming places the order and enables escrow on your account. The poster then locks the budget to you.
+        </p>
+      </div>
+    <% else %>
+      <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "user-multiple", disabled: true) do %>Claim this request<% end %>
+      <p class="mt-3 text-xs leading-relaxed text-ink-muted">
+        Claiming binds the escrowed budget to you and starts the delivery clock. Open, whole-sat requests are claimable.
+      </p>
+    <% end %>
   </div>
+  <% end %>
 </div>

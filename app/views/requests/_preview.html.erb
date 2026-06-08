@@ -7,7 +7,7 @@
       action: "turbo:frame-missing->request-form#previewFailed turbo:fetch-request-error->request-form#previewFailed turbo:frame-render->request-form#previewLoaded"
     } do %>
   <h3 class="mb-5 font-display text-lg font-semibold tracking-tight text-ink"><%= request.title %></h3>
-  <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request) %>
+  <%= render Requests::RequestDetail::RequestDetailComponent.new(request: request, viewer: current_user) %>
 <% end %>
 
 <%# Lives OUTSIDE the frame (in the persistent page DOM) so a failed/redirected render can't blank it. %>
