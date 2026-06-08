@@ -85,7 +85,7 @@
       <form action="<%= helpers.orders_path %>" method="post" class="block">
         <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
         <input type="hidden" name="order[coordinate]" value="<%= order_coordinate %>">
-        <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">
+        <input type="hidden" name="order[mint_url]" value="<%= Orders::Policy.default_mint %>">
         <input type="hidden" name="order[dedupe_key]" value="<%= SecureRandom.uuid %>">
         <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, type: "submit", icon: "arrow-right-01") do %>Order this service<% end %>
       </form>

@@ -22,11 +22,9 @@ module Catalog
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
 			def order_coordinate = listing.coordinate
 
-			def default_mint = Orders::Policy.mint_allowlist.first
-
 			# Escrow locks whole sats, so only a fixed whole-sat listing (with a vetted mint available) is
 			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
-			def orderable? = default_mint.present? && !listing.per_hour? && listing.whole_sat_price?
+			def orderable? = Orders::Policy.default_mint.present? && !listing.per_hour? && listing.whole_sat_price?
 
 			# The pricing-basis caption under the price (the PriceTag carries the amount + currency).
 			def price_basis_label = listing.per_hour? ? "per hour" : "per request"

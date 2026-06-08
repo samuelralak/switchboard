@@ -58,11 +58,11 @@
       <div data-controller="claim"
         data-claim-pubkey-value="<%= viewer.pubkey %>"
         data-claim-relays-value="<%= NostrClient.configuration.relays.to_json %>"
-        data-claim-mint-value="<%= default_mint %>">
+        data-claim-mint-value="<%= Orders::Policy.default_mint %>">
         <form action="<%= helpers.orders_path %>" method="post" class="hidden" data-claim-target="form">
           <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
           <input type="hidden" name="order[coordinate]" value="<%= claim_coordinate %>">
-          <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">
+          <input type="hidden" name="order[mint_url]" value="<%= Orders::Policy.default_mint %>">
           <input type="hidden" name="order[dedupe_key]" value="<%= SecureRandom.uuid %>">
         </form>
         <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "user-multiple",

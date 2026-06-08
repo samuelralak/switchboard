@@ -11,5 +11,7 @@ module Orders
 		def default_locktime_seconds = Rails.application.config.x.escrow.default_locktime_seconds
 		def mint_allowlist = Array(Rails.application.config.x.escrow.mint_allowlist)
 		def mint_allowed?(url) = mint_allowlist.include?(url)
+		# The mint pre-filled into a new order / claim (nil when none is vetted -> the action stays inert).
+		def default_mint = mint_allowlist.first
 	end
 end

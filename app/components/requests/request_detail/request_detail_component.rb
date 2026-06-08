@@ -22,12 +22,10 @@ module Requests
 			# The addressable coordinate the claim is placed against (kind:pubkey:d).
 			def claim_coordinate = request.coordinate
 
-			def default_mint = Orders::Policy.mint_allowlist.first
-
 			# A signed-in non-author can claim an open, whole-sat request when a vetted mint is available.
 			# Escrow locks whole sats, so non-sat / decimal / no-budget requests keep the inert CTA.
 			def claimable?
-				return false unless viewer && default_mint.present? && request.open?
+				return false unless viewer && Orders::Policy.default_mint.present? && request.open?
 				return false if viewer.pubkey == request.event.pubkey
 
 				whole_sat_budget?
