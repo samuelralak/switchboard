@@ -19,14 +19,17 @@ export default class extends Controller {
   async send(event) {
     event?.preventDefault() // the simple_form <form> submits to "#"; the request goes out over NIP-17, not HTTP
     this.clearError()
+
     const missing = this.fieldTargets.find((field) => field.dataset.required === "true" && !field.value.trim())
     if (missing) return this.showError(`${missing.dataset.label || "A required field"} is required.`)
 
     this.submitTarget.disabled = true
     this.setStatus("Encrypting and sending…")
+
     try {
       const signer = await ensureSignerFor(this.ownValue, { prompt: true })
       if (!signer) throw new Error("Unlock your signer to send your request.")
+
       await sendOrderRequest({
         signer, ownPubkey: this.ownValue, peerPubkey: this.peerValue, relays: this.relaysValue,
         orderId: this.orderIdValue, coordinate: this.coordinateValue,
@@ -63,18 +66,21 @@ export default class extends Controller {
 
   setStatus(message) {
     if (!this.hasStatusTarget) return
+
     this.statusTarget.textContent = message
     this.statusTarget.classList.toggle("hidden", !message)
   }
 
   showError(message) {
     if (!this.hasErrorTarget) return
+
     this.errorTarget.textContent = message
     this.errorTarget.classList.remove("hidden")
   }
 
   clearError() {
     if (!this.hasErrorTarget) return
+
     this.errorTarget.textContent = ""
     this.errorTarget.classList.add("hidden")
   }

@@ -18,6 +18,7 @@ export default class extends Controller {
     this.startTarget.disabled = true
     this.panelTarget.classList.remove("hidden")
     this.clearError()
+
     try {
       await this.fund()
     } catch (error) {
@@ -101,6 +102,7 @@ export default class extends Controller {
     this.locktimeTarget.value = payload.locktime
     this.lockPubkeyTarget.value = payload.lock_pubkey
     this.refundPubkeyTarget.value = payload.refund_pubkey
+
     payload.proofs.forEach((proof) => this.appendProof(proof))
   }
 

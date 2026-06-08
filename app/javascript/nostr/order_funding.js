@@ -25,16 +25,20 @@ export async function mintLockAndReport({
   wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, onInvoice, onStatus, signal,
 }) {
   await ensureMintSupports(wallet)
+
   onStatus?.("invoice")
   const quote = await withTimeout(wallet.createMintQuoteBolt11(amount), "the mint did not issue an invoice")
   onInvoice?.(quote.request, quote.quote) // bolt11 to pay + the quote id
   await waitForPaid(wallet, quote.quote, { onStatus, signal })
+
   onStatus?.("minting")
   const minted = await withTimeout(wallet.mintProofsBolt11(amount, quote.quote), "the mint did not issue the ecash")
   const proofs = minted?.proofs ?? minted
+
   onStatus?.("locking")
   const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
   const payload = await reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey })
+
   return { payload, token: lock.token, preimage: lock.preimage, lockedProofs: lock.lockedProofs }
 }
 
@@ -42,6 +46,7 @@ export async function mintLockAndReport({
 async function reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey }) {
   const states = await proofState({ wallet, proofs: lock.lockedProofs })
   const proofs = lock.lockedProofs.map((proof, i) => ({ y: states[i].Y, amount: Number(proof.amount), keyset_id: proof.id }))
+
   return {
     mint_url: mintUrl, hashlock: lock.hash, locktime: String(locktime),
     lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey, proofs,
@@ -52,11 +57,14 @@ async function reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, 
 async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 2000, tries = 150 } = {}) {
   for (let i = 0; i < tries; i++) {
     if (signal?.aborted) throw new Error("funding cancelled")
+
     const { state } = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
     if (state === "PAID" || state === "ISSUED") return
+
     onStatus?.("waiting")
     await sleep(intervalMs)
   }
+
   throw new Error("invoice was not paid in time")
 }
 
@@ -68,15 +76,18 @@ async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 200
 export async function backupSecrets({ signer, ownPubkey, relays, orderId, secrets }) {
   const record = { orderId, ...secrets, savedAt: Math.floor(Date.now() / 1000) }
   await idbPut("escrow_secrets", orderId, record)
+
   const rumor = buildRumor({ authorPubkey: ownPubkey, content: JSON.stringify(record), recipients: [ ownPubkey ], subject: BACKUP_SUBJECT })
   const { toSelf } = await wrapMessage(rumor, signer, ownPubkey)
   const set = new RelaySet(relays, { signer })
+
   try {
     const results = await set.publishToMany(toSelf)
     if (!results.some((r) => r.status === "ok")) throw new Error("escrow backup did not reach any relay")
   } finally {
     set.close()
   }
+
   return record
 }
 
@@ -88,6 +99,7 @@ export function loadSecrets(orderId) {
 // Disaster recovery: the order's unlock material from the encrypted self-DM backup on relays, or null.
 export async function restoreSecretsFromRelay({ signer, ownPubkey, relays, orderId }) {
   const set = new RelaySet(relays, { signer })
+
   try {
     for (const wrap of await collectWraps(set, ownPubkey)) {
       try {
@@ -97,6 +109,7 @@ export async function restoreSecretsFromRelay({ signer, ownPubkey, relays, order
         // skip a wrap this signer cannot read or that is not an escrow backup
       }
     }
+
     return null
   } finally {
     set.close()
@@ -110,6 +123,7 @@ function collectWraps(set, ownPubkey) {
       onevent: (event) => wraps.push(event),
       oneose: () => { sub.close(); resolve(wraps) },
     })
+
     setTimeout(() => { sub.close(); resolve(wraps) }, FETCH_TIMEOUT)
   })
 }

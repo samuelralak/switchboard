@@ -27,6 +27,7 @@ export async function verifyDeliveredProofs({ wallet, proofs, hashlock, lockPubk
 
   const states = await proofState({ wallet, proofs })
   if (!states.every((state) => state.state === "UNSPENT")) return { ok: false, reason: "the proofs are not unspent" }
+
   return { ok: true }
 }
 
@@ -34,6 +35,7 @@ export async function verifyDeliveredProofs({ wallet, proofs, hashlock, lockPubk
 export async function redeemDelivered({ wallet, proofs, preimage, providerPrivkey }) {
   if (!HEX64.test(preimage)) throw new Error("preimage must be 64-hex")
   if (!HEX64.test(providerPrivkey)) throw new Error("provider privkey must be 64-hex")
+
   await ensureMintSupports(wallet) // load keysets; self-contained on a fresh page
   return redeemWithPreimage({ wallet, lockedProofs: proofs, preimage, providerPrivkey })
 }
@@ -41,6 +43,7 @@ export async function redeemDelivered({ wallet, proofs, preimage, providerPrivke
 // Consumer reclaims the backed-up token after the locktime (signature only, no preimage).
 export async function refundExpired({ wallet, token, refundPrivkey }) {
   if (!HEX64.test(refundPrivkey)) throw new Error("refund privkey must be 64-hex")
+
   await ensureMintSupports(wallet) // load keysets; self-contained on a fresh page
   return refund({ wallet, token, consumerRefundPrivkey: refundPrivkey })
 }
@@ -50,6 +53,7 @@ function parseHtlc(secret) {
   try {
     const [ kind, body ] = typeof secret === "string" ? JSON.parse(secret) : secret
     if (kind !== "HTLC" || !body) return null
+
     const tags = Object.fromEntries((body.tags || []).map(([ name, ...values ]) => [ name, values ]))
     return {
       hashlock: body.data,

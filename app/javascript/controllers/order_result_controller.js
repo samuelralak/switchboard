@@ -37,7 +37,9 @@ export default class extends Controller {
     } catch (error) {
       return this.setStatus(error.message)
     }
+
     if (!signer) return this.showLocked()
+
     await this.hydrate(signer)
   }
 
@@ -48,21 +50,26 @@ export default class extends Controller {
     } catch (error) {
       return this.setStatus(error.message)
     }
+
     if (!signer) return
+
     this.hideUnlock()
     await this.hydrate(signer)
   }
 
   async hydrate(signer) {
     this.setStatus("Decrypting the delivered result…")
+
     try {
       if (!(await canMessage(signer))) return this.setStatus("This signer can't decrypt the result (NIP-44 unavailable).")
+
       const result = await latestResultEnvelope({
         signer, ownPubkey: this.ownValue, relays: this.relaysValue,
         orderId: this.orderIdValue, provider: this.providerValue,
       })
       if (!this.active) return // navigated away mid-fetch
       if (!result) return this.setStatus("No result delivered yet.")
+
       this.render(result)
     } catch {
       this.setStatus("Couldn't reach your relays to load the result.")
@@ -72,8 +79,10 @@ export default class extends Controller {
   render(result) {
     this.resultTarget.replaceChildren()
     if (result.result) this.resultTarget.append(this.body(result.result))
+
     const links = (result.attachments || []).map((a) => this.attachment(a)).filter(Boolean)
     if (links.length) this.resultTarget.append(this.attachmentList(links))
+
     this.setStatus(result.result || links.length ? "" : "The provider delivered an empty result.")
   }
 
@@ -98,10 +107,12 @@ export default class extends Controller {
   // text so a hostile scheme (javascript:) can never be clicked.
   attachment(att) {
     if (!att || typeof att.url !== "string") return null
+
     const row = document.createElement("div")
     row.className = "flex items-baseline justify-between gap-3 text-sm"
     const left = document.createElement("span")
     left.className = "min-w-0 truncate"
+
     if (/^https?:\/\//i.test(att.url)) {
       const a = document.createElement("a")
       a.href = att.url
@@ -113,6 +124,7 @@ export default class extends Controller {
     } else {
       left.textContent = att.name || att.url
     }
+
     const hash = document.createElement("span")
     hash.className = "shrink-0 font-mono text-xs text-ink-faint"
     hash.textContent = att.hash ? `sha256 ${String(att.hash).slice(0, 12)}` : ""
@@ -124,6 +136,7 @@ export default class extends Controller {
     if (lostNsecSession(this.ownValue)) {
       return this.setStatus("Your key was cleared on reload. Sign in again to read the delivered result.")
     }
+
     this.setStatus("Unlock your signer to read the delivered result.")
     if (this.hasUnlockTarget) this.unlockTarget.classList.remove("hidden")
   }
@@ -137,6 +150,7 @@ export default class extends Controller {
   async send(event) {
     event?.preventDefault() // the simple_form <form> submits to "#"; the result goes out over NIP-17, not HTTP
     this.clearError()
+
     const result = this.hasFieldTarget ? this.fieldTarget.value.trim() : ""
     const note = this.hasNoteTarget ? this.noteTarget.value.trim() : ""
     const attachments = this.collectAttachments()
@@ -144,9 +158,11 @@ export default class extends Controller {
 
     this.submitTarget.disabled = true
     this.setStatus("Encrypting and delivering…")
+
     try {
       const signer = await ensureSignerFor(this.ownValue, { prompt: true })
       if (!signer) throw new Error("Unlock your signer to deliver the result.")
+
       const sent = await sendResultEnvelope({
         signer, ownPubkey: this.ownValue, peerPubkey: this.peerValue, relays: this.relaysValue,
         orderId: this.orderIdValue, coordinate: this.coordinateValue, result, attachments, note,
@@ -165,6 +181,7 @@ export default class extends Controller {
   // computed here so the server-recorded commitment matches what was sealed.
   collectAttachments() {
     if (!this.hasAttachmentsTarget) return []
+
     return this.attachmentsTarget.value
       .split("\n").map((line) => line.trim()).filter((line) => /^https?:\/\//i.test(line))
       .map((url) => ({ url }))
@@ -174,6 +191,7 @@ export default class extends Controller {
   // content_hash }. Until then this is a no-op so the E2E result flow ships independently (Option B).
   async recordDelivery(sent, result, attachments) {
     if (!this.hasDeliverUrlValue || !this.deliverUrlValue) return
+
     const contentHash = await sha256Hex(JSON.stringify({ result, attachments }))
     const token = document.querySelector("meta[name='csrf-token']")?.content
     await fetch(this.deliverUrlValue, {
@@ -198,18 +216,21 @@ export default class extends Controller {
 
   setStatus(message) {
     if (!this.hasStatusTarget) return
+
     this.statusTarget.textContent = message
     this.statusTarget.classList.toggle("hidden", !message)
   }
 
   showError(message) {
     if (!this.hasErrorTarget) return
+
     this.errorTarget.textContent = message
     this.errorTarget.classList.remove("hidden")
   }
 
   clearError() {
     if (!this.hasErrorTarget) return
+
     this.errorTarget.textContent = ""
     this.errorTarget.classList.add("hidden")
   }
