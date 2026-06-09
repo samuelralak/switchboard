@@ -36,7 +36,15 @@ module NostrClient
 			conn.instance_variable_set(:@socket, socket)
 			conn.define_singleton_method(:send_frame) { |*| nil }
 			conn.define_singleton_method(:resubscribe) { nil }
+			stub_timer_seam(conn)
 			[ conn, socket_sent ]
+		end
+
+		# Timer seam without a live reactor: record armed timeouts (and their blocks) into the real timers
+		# table so re-arming on defer/resend is observable, and settle's cancel is a plain delete.
+		def stub_timer_seam(conn)
+			conn.define_singleton_method(:arm_timeout) { |id, &blk| send(:timers)[id] = (blk || true) }
+			conn.define_singleton_method(:cancel_timeout) { |id| send(:timers).delete(id) }
 		end
 
 		def auth_frames(sent) = sent.select { |frame| frame.first == AUTH }
@@ -79,6 +87,54 @@ module NostrClient
 
 			assert_not conn.authenticate
 			assert_empty auth_frames(sent)
+		end
+
+		test "challenge rotation cannot drive unbounded signing: a rotate+reject loop stays capped" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, sent = stubbed_connection
+
+			# A hostile relay that rotates its challenge and rejects each AUTH must not extract more than the
+			# per-connection cap; the cap resets only on a genuine AUTH OK or on disconnect, never on rotation.
+			10.times do |i|
+				conn.store_challenge("chal-#{i}")
+				conn.authenticate
+				conn.on_auth_failed # the relay rejects: clears the in-flight id but NOT the attempt cap
+			end
+
+			assert_equal NostrClient::Authentication::MAX_AUTH_ATTEMPTS, auth_frames(sent).size
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "an in-flight AUTH blocks a second authenticate until it resolves" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, sent = stubbed_connection
+			conn.store_challenge("chal")
+
+			assert conn.authenticate, "the first AUTH goes out"
+			assert_not conn.authenticate, "a second is blocked while one is in flight (no parallel signing)"
+
+			assert_equal 1, auth_frames(sent).size
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "on_close clears an in-flight AUTH so the relay can re-authenticate after reconnect" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, = stubbed_connection
+			conn.define_singleton_method(:schedule_reconnect) { nil }
+			conn.store_challenge("chal")
+			assert conn.authenticate
+			assert conn.auth_in_flight?
+
+			conn.send(:on_close, Struct.new(:code).new(1006)) # drop mid-AUTH
+
+			assert_not conn.auth_in_flight?, "on_close must clear the in-flight AUTH id"
+			conn.send(:transition_to, :connected)
+			conn.store_challenge("chal2") # relay re-challenges after reconnect
+			assert conn.authenticate, "a fresh challenge re-authenticates after the drop"
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
 		end
 
 		test "does not sign AUTH for an empty or non-string challenge" do
@@ -140,21 +196,29 @@ module NostrClient
 			conn, sent = stubbed_connection
 			conn.store_challenge("chal")
 
-			(NostrClient::Authentication::MAX_AUTH_ATTEMPTS + 2).times { conn.authenticate }
+			# Each round: AUTH out, relay rejects (on_auth_failed clears the in-flight id). The cap stops it.
+			(NostrClient::Authentication::MAX_AUTH_ATTEMPTS + 2).times do
+				conn.authenticate
+				conn.on_auth_failed
+			end
 
 			assert_equal NostrClient::Authentication::MAX_AUTH_ATTEMPTS, auth_frames(sent).size
 		ensure
 			NostrClient.configure { |c| c.auth_signer = nil }
 		end
 
-		test "a successful AUTH resets the cap so a rotated challenge can re-authenticate" do
+		test "a successful AUTH resets the cap so a later challenge can re-authenticate" do
 			NostrClient.configure { |c| c.auth_signer = fake_signer }
 			conn, sent = stubbed_connection
 			conn.store_challenge("chal")
 
-			NostrClient::Authentication::MAX_AUTH_ATTEMPTS.times { conn.authenticate }
+			NostrClient::Authentication::MAX_AUTH_ATTEMPTS.times do
+				conn.authenticate
+				conn.on_auth_failed # relay rejects; clears the in-flight id, not the cap
+			end
 			assert_not conn.authenticate, "cap is reached"
-			conn.on_authenticated # the relay accepted one of them
+
+			conn.on_authenticated # the relay finally accepts one
 			assert conn.authenticate, "cap reset after a successful AUTH"
 
 			assert_equal NostrClient::Authentication::MAX_AUTH_ATTEMPTS + 1, auth_frames(sent).size
@@ -200,6 +264,106 @@ module NostrClient
 
 			resent = socket_sent.map { |j| JSON.parse(j) }.select { |f| f.first == "EVENT" }.map { |f| f.last["id"] }
 			assert_equal %w[evt1 evt2], resent.sort
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "a deferred publish re-arms a fresh timeout on defer and again on re-send" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, = connection_with_socket
+			conn.store_challenge("chal")
+			queue = Thread::Queue.new
+			conn.send(:pending)["evt1"] = { queue:, event: { "id" => "evt1" } }
+
+			conn.settle_ok("evt1", false, "auth-required: x") # defer + authenticate: an AUTH-wait timeout is armed
+			assert conn.send(:timers).key?("evt1"), "a timeout is armed while AUTH is in flight"
+			assert queue.empty?, "the publish does not settle until AUTH resolves"
+
+			conn.settle_ok("authid", true, "") # AUTH OK: resend_deferred re-arms a fresh publish timeout
+			assert conn.send(:timers).key?("evt1"), "the re-sent publish gets a fresh window, not the elapsed one"
+			assert queue.empty?, "the re-sent publish waits for its own OK"
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "a stalled AUTH (accepted frame, no OK) is released so the next gated op can re-authenticate" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, = connection_with_socket
+			conn.store_challenge("chal")
+			q1 = Thread::Queue.new
+			conn.send(:pending)["evt1"] = { queue: q1, event: { "id" => "evt1" } }
+
+			conn.settle_ok("evt1", false, "auth-required: x") # defers + authenticates (authid in flight)
+			assert conn.auth_in_flight?, "an AUTH is in flight"
+
+			conn.send(:timers).fetch("evt1").call # the relay never OKs: the AUTH-wait timeout fires
+			assert_equal :auth_required, q1.pop.status, "the stalled caller unblocks"
+			assert_not conn.auth_in_flight?, "the stalled AUTH is released, not orphaned"
+
+			q2 = Thread::Queue.new
+			conn.send(:pending)["evt2"] = { queue: q2, event: { "id" => "evt2" } }
+			conn.settle_ok("evt2", false, "auth-required: y")
+
+			assert conn.auth_in_flight?, "a later gated op sends a fresh AUTH instead of waiting on the dead one"
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "an AUTH-wait timeout keeps the in-flight AUTH while a sibling publish still awaits it" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, socket_sent = connection_with_socket
+			conn.store_challenge("chal")
+			q1 = Thread::Queue.new
+			q2 = Thread::Queue.new
+			conn.send(:pending)["evt1"] = { queue: q1, event: { "id" => "evt1" } }
+			conn.send(:pending)["evt2"] = { queue: q2, event: { "id" => "evt2" } }
+
+			conn.settle_ok("evt1", false, "auth-required: x") # authenticates (authid in flight)
+			conn.settle_ok("evt2", false, "auth-required: x") # waits on the SAME in-flight AUTH
+
+			conn.send(:timers).fetch("evt1").call # evt1's AUTH-wait fires, but evt2 still awaits
+			assert_equal :auth_required, q1.pop.status
+			assert conn.auth_in_flight?, "the AUTH is kept while a sibling still rides it"
+
+			conn.settle_ok("authid", true, "") # a late real AUTH OK re-sends only the still-awaiting evt2
+			resent = socket_sent.map { |json| JSON.parse(json) }.select { |f| f.first == "EVENT" }.map { |f| f.last["id"] }
+			assert_equal [ "evt2" ], resent
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "a black-holing relay (rotate + stall) cannot extract more than the cap of R_op signings" do
+			NostrClient.configure { |c| c.auth_signer = fake_signer }
+			conn, = connection_with_socket
+			auth_sent = []
+			conn.define_singleton_method(:send_frame) { |*frame| auth_sent << frame }
+
+			(NostrClient::Authentication::MAX_AUTH_ATTEMPTS + 3).times do |i|
+				id = "evt#{i}"
+				conn.store_challenge("chal-#{i}") # the relay rotates its challenge each round
+				conn.send(:pending)[id] = { queue: Thread::Queue.new, event: { "id" => id } }
+				conn.settle_ok(id, false, "auth-required: x") # defer + authenticate (or settle-now once capped)
+				conn.send(:timers)[id]&.call # the relay never OKs: fire the AUTH-wait timer (stall path) if armed
+			end
+
+			# settle_auth_wait must NOT reset @auth_attempts, so the stall path still trips the cap and stops signing.
+			signings = auth_sent.count { |frame| frame.first == AUTH }
+			assert_equal NostrClient::Authentication::MAX_AUTH_ATTEMPTS, signings
+		ensure
+			NostrClient.configure { |c| c.auth_signer = nil }
+		end
+
+		test "an auth-required EVENT with no usable signer settles :auth_required now, not only on the timeout" do
+			NostrClient.configure { |c| c.auth_signer = nil }
+			conn, = connection_with_socket
+			queue = Thread::Queue.new
+			conn.send(:pending)["evt1"] = { queue:, event: { "id" => "evt1" } }
+
+			conn.settle_ok("evt1", false, "auth-required: x")
+
+			assert_not conn.auth_in_flight?, "no AUTH was sent (no signer)"
+			assert_equal :auth_required, queue.pop.status, "the caller settles immediately, not only on the timer"
+			assert_not conn.send(:pending).key?("evt1"), "the pending entry is cleared"
 		ensure
 			NostrClient.configure { |c| c.auth_signer = nil }
 		end

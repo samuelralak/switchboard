@@ -12,7 +12,10 @@ module NostrClient
 		MAX_AUTH_ATTEMPTS = 3
 		MAX_CHALLENGE_BYTES = 1024
 
-		# Remember the relay's challenge without signing anything yet (lazy AUTH).
+		# Remember the relay's challenge without signing anything yet (lazy AUTH). The attempt cap is
+		# monotonic per connection: it resets ONLY on a genuine AUTH OK (on_authenticated) or on disconnect
+		# (reset_auth). Resetting it on a rotated challenge would let a relay that rotates+rejects in a loop
+		# drive an unbounded R_op signing oracle and saturate the reactor thread, so we do not.
 		def store_challenge(value) = @challenge = value
 
 		# Sign + send the NIP-42 AUTH for the stored challenge. Returns the sent AUTH event, or nil if
@@ -35,6 +38,10 @@ module NostrClient
 		# True when +event_id+ is the OK for the AUTH credential we sent (not a normal publish).
 		def awaiting_auth_ok?(event_id) = !@auth_event_id.nil? && event_id == @auth_event_id
 
+		# True while an AUTH credential is sent but not yet resolved: a deferred publish waits on it rather
+		# than triggering its own AUTH (which would fan a burst of gated ops into parallel signings).
+		def auth_in_flight? = !@auth_event_id.nil?
+
 		# The relay accepted our AUTH: clear the in-flight id, reset the cap, re-apply subscriptions.
 		def on_authenticated
 			@auth_event_id = nil
@@ -47,10 +54,12 @@ module NostrClient
 
 		private
 
-		# Preconditions for sending AUTH: a configured signer, a usable stored challenge, an open
-		# socket, and attempts left (the cap stops auth loops).
+		# Preconditions for sending AUTH: a configured signer, a usable stored challenge, an open socket,
+		# no AUTH already in flight (so a burst of gated ops cannot fan out into parallel signings), and
+		# attempts left (the cap stops auth loops).
 		def can_authenticate?
 			return false unless NostrClient.configuration.auth_signer && valid_challenge? && connected?
+			return false if @auth_event_id
 
 			auth_attempts_remaining?
 		end
