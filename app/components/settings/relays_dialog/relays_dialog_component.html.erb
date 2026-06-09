@@ -17,9 +17,10 @@
           <ul role="list" class="space-y-2">
             <% display_relays.each do |relay| %>
               <li class="flex items-center gap-2.5 rounded-lg border border-border bg-surface px-3 py-2">
-                <span class="size-1.5 shrink-0 rounded-full <%= relay_status_class(relay[:status]) %>"></span>
+                <span class="size-1.5 shrink-0 rounded-full <%= relay_status_class(relay[:status]) %>" title="<%= relay[:status] %>"></span>
                 <span class="font-mono text-xs text-ink-secondary"><%= relay[:host] %></span>
-                <button type="button" class="-m-1.5 ml-auto p-1.5 text-ink-faint hover:text-ink" aria-label="Remove <%= relay[:host] %>">
+                <span class="ml-auto font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint"><%= relay_role(relay) %></span>
+                <button type="button" class="-m-1.5 p-1.5 text-ink-faint hover:text-ink" aria-label="Remove <%= relay[:host] %>">
                   <i class="hgi-stroke hgi-cancel-01 text-sm" aria-hidden="true"></i>
                 </button>
               </li>

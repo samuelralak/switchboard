@@ -40,6 +40,16 @@ module NostrClient
 			connection
 		end
 
+		# Evicts the connection at +url+: drops it from the pool and disconnects it (which sets the permanent
+		# stopping flag, so the reconnect loop never revives it). Deliberately does NOT touch @subscriptions --
+		# the active subs stay registered and replay onto any future add_connection of this (or another) url.
+		# A no-op for a url not held. The caller (Relays::Reconcile) never targets a seed, since seeds are
+		# always in the desired set; disconnect runs outside the lock, like connect in add_connection.
+		def remove_connection(url)
+			connection = @mutex.synchronize { @connections.delete(url) }
+			connection&.disconnect
+		end
+
 		# Subscribes every connection to +filters+ and stores them for later connections.
 		def subscribe_all(subscription_id, filters)
 			@mutex.synchronize do
@@ -68,6 +78,11 @@ module NostrClient
 
 		def status
 			@mutex.synchronize { @connections.transform_values { |conn| connection_status(conn) } }
+		end
+
+		# The urls this process currently holds connections for; the catalog reconcile diffs against this.
+		def connection_urls
+			@mutex.synchronize { @connections.keys }
 		end
 
 		private
@@ -99,13 +114,9 @@ module NostrClient
 			end
 		end
 
-		def handle_event(connection, subscription_id, event)
-			@on_event&.call(connection, subscription_id, event)
-		end
+		def handle_event(connection, subscription_id, event) = @on_event&.call(connection, subscription_id, event)
 
-		def handle_eose(connection, subscription_id)
-			@on_eose&.call(connection, subscription_id)
-		end
+		def handle_eose(connection, subscription_id) = @on_eose&.call(connection, subscription_id)
 
 		def handle_closed(connection, subscription_id, reason = nil)
 			if connection.auth_required?(reason)
@@ -121,13 +132,9 @@ module NostrClient
 			logger.info("[NostrClient] CLOSED #{connection.url} #{subscription_id}: #{reason}")
 		end
 
-		def handle_notice(connection, text)
-			logger.info("[NostrClient] NOTICE #{connection.url}: #{text}")
-		end
+		def handle_notice(connection, text) = logger.info("[NostrClient] NOTICE #{connection.url}: #{text}")
 
-		def handle_ok(connection, event_id, accepted, text = nil)
-			connection.settle_ok(event_id, accepted, text)
-		end
+		def handle_ok(connection, event_id, accepted, text = nil) = connection.settle_ok(event_id, accepted, text)
 
 		# Lazy AUTH: only store the relay's challenge. We sign and send the AUTH credential later, and
 		# only if a gated operation actually needs it (see Publishing#defer_until_authenticated).

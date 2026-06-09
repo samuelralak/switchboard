@@ -10,6 +10,7 @@ Rails.application.config.to_prepare do
 		relays = Rails.application.config_for(:relays)
 		config.relays = relays.urls
 		config.dm_relays = relays.dm_relays || []
+		config.indexer_relays = relays.indexer_relays || []
 		# Answer NIP-42 AUTH with the R_op key, but only once it is provisioned in credentials
 		# (so boot and the catalog ingest work fine before the operational key exists).
 		config.auth_signer = Operational::Signer.new if Operational::Signer.configured?

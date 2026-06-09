@@ -15,7 +15,10 @@ module Sessions
 			raise AuthenticationError, "challenge unknown, expired, or already used" unless LoginChallenge.consume(nonce)
 
 			data = Events::VerifyHttpAuth.call(event_data:, http_method:, url:)
-			Users::FindOrCreate.call(pubkey: data["pubkey"])
+			user = Users::FindOrCreate.call(pubkey: data["pubkey"])
+			# Pull this user's NIP-65 relays into the catalog ingest, off the request path (cooldown-gated).
+			Users::RelayListFetchJob.perform_later(user.pubkey)
+			user
 		end
 
 		private

@@ -31,7 +31,7 @@ module NostrClient
 		end
 
 		# Open persistent publish connections in a process that needs to SEND (the Puma web process), as
-		# opposed to the relay:boot ingest process which opens its own via Catalog::Sync. Idempotent:
+		# opposed to the relay:boot ingest process which opens its own via Relays::Sync. Idempotent:
 		# add_connection dedupes a url already held, so it is safe to call once per worker after fork.
 		def boot_publishing!(urls = configuration.dm_relays)
 			start

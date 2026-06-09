@@ -85,5 +85,27 @@ module NostrClient
 			assert_not manager.send(:malformed?, ok, [ "evt1", true, "msg" ]) # exactly 3
 			assert_not manager.send(:malformed?, "WHATEVER", []) # unknown type: not validated, falls through
 		end
+
+		test "remove_connection disconnects the connection, drops it from the pool, and leaves @subscriptions intact" do
+			manager = NostrClient::Manager.instance
+			closed = []
+			connection = Object.new
+			connection.define_singleton_method(:disconnect) { closed << true }
+			manager.instance_variable_get(:@connections)["wss://evict.test"] = connection
+			manager.instance_variable_get(:@subscriptions)["listings"] = [ { kinds: [ 30_402 ] } ]
+
+			manager.remove_connection("wss://evict.test")
+
+			assert_equal [ true ], closed, "the connection is disconnected (blocking reconnect revival)"
+			assert_not_includes manager.connection_urls, "wss://evict.test", "and dropped from the pool"
+			assert_equal [ { kinds: [ 30_402 ] } ], manager.instance_variable_get(:@subscriptions)["listings"], "subs survive"
+		ensure
+			manager.instance_variable_get(:@connections).delete("wss://evict.test")
+			manager.instance_variable_get(:@subscriptions).delete("listings")
+		end
+
+		test "remove_connection is a safe no-op for a url not held" do
+			assert_nothing_raised { NostrClient::Manager.instance.remove_connection("wss://absent.test") }
+		end
 	end
 end

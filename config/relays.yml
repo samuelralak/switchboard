@@ -12,6 +12,13 @@ default: &default
   # added here once it is fortified (deferred until after v1).
   dm_relays:
     - wss://auth.nostr1.com
+  # Well-known public indexers, read-only, for fetching a signed-in user's NIP-65 (kind:10002) relay list
+  # on login. NIP-65 spreads relay lists to these, so a small fixed set finds most users' lists; distinct
+  # from the volatile catalog `urls` so metadata discovery does not ride per-user content connections.
+  indexer_relays:
+    - wss://purplepag.es
+    - wss://relay.nostr.band
+    - wss://relay.damus.io
 
 development:
   <<: *default

@@ -1,23 +1,24 @@
 # frozen_string_literal: true
 
-# The relay set shown in the sidebar group, the manage modal, and the settings page. Mock data and
-# status for now (a prototype shell); once NIP-65 / kind-10050 ingestion lands this becomes the
-# signed-in user's own relays with live connection status.
+# The relay set shown in the sidebar group, the manage modal, and the settings page: the signed-in user's
+# own NIP-65 write relays unioned with our default seeds, lit with live connection status. Built by
+# Relays::DisplayList (seeds + user relays + the cross-process status snapshot).
 module RelaysHelper
 	SIDEBAR_RELAY_CAP = 4
 
-	def display_relays
-		[
-			{ host: "relay.damus.io",   status: :settled },
-			{ host: "nos.lol",          status: :settled },
-			{ host: "relay.primal.net", status: :settled },
-			{ host: "nostr.band",       status: :live },
-			{ host: "auth.nostr1.com",  status: :live }
-		]
-	end
+	# Current.user (not current_user) so it resolves the same in a ViewComponent, a plain view, and a
+	# controller; nil for a signed-out viewer, which DisplayList renders as just the seeds.
+	def display_relays = Relays::DisplayList.call(user: Current.user)
 
 	# Live/settled lamp class for a relay's connection status, matching the catalog status dots.
 	def relay_status_class(status)
 		status == :live ? "bg-lamp-live" : "bg-lamp-settled"
+	end
+
+	# The relay's NIP-65 role label: outbox (write), inbox (read), or both.
+	def relay_role(relay)
+		return "read/write" if relay[:read] && relay[:write]
+
+		relay[:write] ? "write" : "read"
 	end
 end

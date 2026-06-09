@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_08_192203) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_09_150920) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -187,6 +187,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_08_192203) do
     t.string "user_agent"
     t.uuid "user_id", null: false
     t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
+  create_table "user_relays", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "nostr_created_at", null: false
+    t.string "pubkey", limit: 64, null: false
+    t.boolean "read", default: true, null: false
+    t.string "relay_list_event_id", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.string "url", null: false
+    t.boolean "write", default: true, null: false
+    t.index ["pubkey", "url"], name: "index_user_relays_on_pubkey_and_url", unique: true
+    t.index ["url", "pubkey"], name: "index_user_relays_on_write_url_pubkey", where: "write"
+    t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "user_relays_pubkey_hex"
+    t.check_constraint "relay_list_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "user_relays_event_id_hex"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

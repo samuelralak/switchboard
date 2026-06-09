@@ -18,10 +18,7 @@ module Events
 
 				event = Event.create!(attributes)
 
-				txn.after_commit do
-					broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
-					Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
-				end
+				txn.after_commit { project(event) }
 
 				event
 			end
@@ -40,6 +37,15 @@ module Events
 		end
 
 		private
+
+		# After commit (the row is already saved, so a failure here is loud, not a swallowed side effect):
+		# broadcast a listing to its live surface, and project the per-pubkey kind-0 / kind:10002 (each
+		# job re-reads the current winner, so it is idempotent).
+		def project(event)
+			broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
+			Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
+			Users::RelayListProjectJob.perform_later(event.pubkey) if event.kind == Kinds::RELAY_LIST
+		end
 
 		# Route a kind-30402 event to the right live surface by its marker: an open request to the demand
 		# board, everything else to the supply catalog. Requests and listings share the kind, so the marker

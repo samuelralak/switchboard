@@ -11,7 +11,7 @@ module Catalog
 	# Best-effort by design. (1) The store is Solid Cache (size-bounded, no read-touch), so the cold key may
 	# be evicted under pressure; #since then returns nil and the next boot does a full, limit-bounded re-pull
 	# (harmless via Upsert idempotency). (2) It is a SINGLE global watermark, so it assumes gapless ingest: a
-	# dropped enqueue (a transient queue-DB failure, logged in Catalog::Sync#enqueue) can be skipped once a
+	# dropped enqueue (a transient queue-DB failure, logged in Relays::Sync#dispatch) can be skipped once a
 	# faster relay advances the HWM past it, until that listing is re-published or the key is evicted. A
 	# per-relay watermark (the source_relay column exists) would close that, but needs per-connection filters
 	# in Manager, so it is a deferred cursor-model change, not a stability fix.

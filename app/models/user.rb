@@ -7,6 +7,8 @@ class User < ApplicationRecord
 	include Users::Profilable
 
 	has_many :sessions, dependent: :destroy # revocable login sessions (Rails 8 auth)
+	# NIP-65 relays projected from this pubkey's latest kind:10002 (write relays feed the catalog ingest).
+	has_many :user_relays, primary_key: :pubkey, foreign_key: :pubkey, dependent: :destroy, inverse_of: :user
 
 	# Uniqueness is enforced by the DB unique index, not a (racy) model validation.
 	validates :pubkey, presence: true, format: { with: Events::Kinds::HEX64 }

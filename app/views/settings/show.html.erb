@@ -21,9 +21,9 @@
     <ul role="list" class="divide-y divide-border">
       <% display_relays.each do |relay| %>
         <li class="flex items-center gap-3 px-5 py-3">
-          <span class="size-1.5 shrink-0 rounded-full <%= relay_status_class(relay[:status]) %>"></span>
+          <span class="size-1.5 shrink-0 rounded-full <%= relay_status_class(relay[:status]) %>" title="<%= relay[:status] %>"></span>
           <span class="font-mono text-xs text-ink-secondary"><%= relay[:host] %></span>
-          <span class="ml-auto font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint"><%= relay[:status] %></span>
+          <span class="ml-auto font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint"><%= relay_role(relay) %></span>
         </li>
       <% end %>
     </ul>
