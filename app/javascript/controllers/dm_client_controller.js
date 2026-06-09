@@ -56,6 +56,7 @@ export default class extends Controller {
         relays: this.relaysValue,
         inboxUrl: this.inboxUrlValue,
         onMessage: (rumor) => this.append(rumor),
+        onStatus: (state) => this.reflectConnectivity(state),
       })
       this.client = client
       await client.start()
@@ -67,6 +68,17 @@ export default class extends Controller {
     } finally {
       this.starting = false
     }
+  }
+
+  // Live connectivity from the relay set: a frozen "Connected." while the inbox is silently dead is the
+  // exact symptom we are fixing, so reflect drops and recoveries. The relay set keeps reconnecting either way.
+  reflectConnectivity(state) {
+    if (!this.active || !this.client) return
+
+    if (state === "connected") return this.setStatus("Connected.")
+    if (state === "degraded") return this.setStatus("Reconnecting…")
+
+    this.setStatus("Connection lost. Reconnecting…")
   }
 
   showLocked() {

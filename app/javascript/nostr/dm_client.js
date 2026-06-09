@@ -1,4 +1,5 @@
 import { RelaySet } from "nostr/relay_set"
+import { BoundedSet } from "nostr/bounded_set"
 import { buildRumor, wrapMessage, unwrap, Kind } from "nostr/nip17"
 import { MAX_PLAINTEXT } from "nostr/nip44"
 
@@ -12,13 +13,14 @@ import { MAX_PLAINTEXT } from "nostr/nip44"
 //   stop()                        close the subscription + relays
 
 export class DmClient {
-  constructor({ signer, relays, inboxUrl = null, onMessage = () => {} }) {
+  constructor({ signer, relays, inboxUrl = null, onMessage = () => {}, onStatus = () => {} }) {
     this.signer = signer
     this.relays = new RelaySet(relays, { signer })
     this.inboxUrl = inboxUrl
     this.onMessage = onMessage
+    this.onStatus = onStatus // ("connected" | "degraded" | "offline") as relays drop and recover
     this.pubkey = null
-    this.seen = new Set() // decrypted rumor ids, deduped across live + cold-start + own self-copy
+    this.seen = new BoundedSet() // decrypted rumor ids, deduped across live + cold-start + own self-copy
     this.subscription = null
   }
 
@@ -28,6 +30,9 @@ export class DmClient {
       [ { kinds: [ Kind.GIFT_WRAP ], "#p": [ this.pubkey ] } ],
       { onevent: (wrap) => this.ingest(wrap) },
     )
+    this.subscription.addEventListener("relay-reopened", () => this.onStatus("connected"))
+    this.subscription.addEventListener("relay-degraded", () => this.onStatus("degraded"))
+    this.subscription.addEventListener("all-relays-closed", () => this.onStatus("offline"))
     await this.coldStart()            // cache first -- works even if the relays are down
     await this.subscription.connected // then assert live connectivity (rejects if none open / none configured)
   }

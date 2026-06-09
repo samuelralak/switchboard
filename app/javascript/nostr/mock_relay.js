@@ -15,12 +15,14 @@ function norm(url) {
 }
 
 class MockRelayServer {
-  constructor(url, { authRequired = false, fail = false, proactiveAuth = true, enforceAuthors = true } = {}) {
+  constructor(url, { authRequired = false, fail = false, proactiveAuth = true, enforceAuthors = true, blackhole = false, withholdOk = false } = {}) {
     this.url = url
     this.authRequired = authRequired
     this.fail = fail                     // simulate a relay that never connects (onerror)
     this.proactiveAuth = proactiveAuth   // false = challenge only reactively on REQ/EVENT (exercises re-subscribe)
     this.enforceAuthors = enforceAuthors // false = a non-compliant relay that leaks wrong-author events
+    this.blackhole = blackhole           // true = accept the socket but never answer REQ (silent half-open)
+    this.withholdOk = withholdOk         // true = store + broadcast an EVENT but never send its OK (slow ack / publish timeout)
     this.events = []                     // stored events
     this.sockets = new Set()             // connected FakeWebSockets
   }
@@ -31,6 +33,12 @@ class MockRelayServer {
 
   broadcast(event) {
     for (const socket of this.sockets) socket.deliver(event)
+  }
+
+  // Simulate a server-initiated drop (restart, idle timeout, network blip): close every open socket with
+  // a non-auth reason so the client's reconnect path -- not the auth-required path -- is exercised.
+  dropSockets(reason = "relay restarting") {
+    for (const socket of [ ...this.sockets ]) socket.drop(reason)
   }
 }
 
@@ -90,11 +98,15 @@ class FakeWebSocket {
       return
     }
     this.server?.store(event)
+    if (this.server?.withholdOk) { this.server?.broadcast(event); return } // accept + store but never ack (slow ack)
+
     this.emit([ "OK", event.id, true, "" ])
     this.server?.broadcast(event)
   }
 
   onClientReq(subid, filters) {
+    if (this.server?.blackhole) return // silent half-open: socket stays OPEN, REQ swallowed, no EOSE/EVENT
+
     if (this.server?.authRequired && !this.authed) {
       this.emit([ "CLOSED", subid, "auth-required: authentication required to read" ])
       this.emit([ "AUTH", this.challenge() ])
@@ -129,6 +141,15 @@ class FakeWebSocket {
     this.server?.sockets.delete(this)
     setTimeout(() => this.onclose?.({}), 0)
   }
+
+  // A server-initiated close carrying a reason, so nostr-tools surfaces it to the subscription's onclose.
+  drop(reason) {
+    if (this.readyState === 3) return
+
+    this.readyState = 3
+    this.server?.sockets.delete(this)
+    setTimeout(() => this.onclose?.({ code: 1006, reason }), 0)
+  }
 }
 
 // Install the mock for a set of relays. configs: [{ url, authRequired, seed: [events] }]. Urls must be
@@ -138,7 +159,7 @@ export function installMockRelays(configs) {
   for (const config of configs) {
     const server = new MockRelayServer(config.url, {
       authRequired: config.authRequired, fail: config.fail, proactiveAuth: config.proactiveAuth,
-      enforceAuthors: config.enforceAuthors,
+      enforceAuthors: config.enforceAuthors, blackhole: config.blackhole, withholdOk: config.withholdOk,
     })
     ;(config.seed || []).forEach((event) => server.store(event))
     servers.set(config.url, server)
