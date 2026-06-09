@@ -22,6 +22,7 @@ export class DmClient {
     this.pubkey = null
     this.seen = new BoundedSet() // decrypted rumor ids, deduped across live + cold-start + own self-copy
     this.subscription = null
+    this.abort = new AbortController() // aborts in-flight cold-start / deposit fetches on stop()
   }
 
   async start() {
@@ -30,9 +31,14 @@ export class DmClient {
       [ { kinds: [ Kind.GIFT_WRAP ], "#p": [ this.pubkey ] } ],
       { onevent: (wrap) => this.ingest(wrap) },
     )
-    this.subscription.addEventListener("relay-reopened", () => this.onStatus("connected"))
-    this.subscription.addEventListener("relay-degraded", () => this.onStatus("degraded"))
-    this.subscription.addEventListener("all-relays-closed", () => this.onStatus("offline"))
+    // Hold the handlers so stop() can remove them (symmetric teardown), even though the subscription's
+    // events target is closure-local and GC-eligible once the handle is dropped.
+    this.onConnected = () => this.onStatus("connected")
+    this.onDegraded = () => this.onStatus("degraded")
+    this.onOffline = () => this.onStatus("offline")
+    this.subscription.addEventListener("relay-reopened", this.onConnected)
+    this.subscription.addEventListener("relay-degraded", this.onDegraded)
+    this.subscription.addEventListener("all-relays-closed", this.onOffline)
     await this.coldStart()            // cache first -- works even if the relays are down
     await this.subscription.connected // then assert live connectivity (rejects if none open / none configured)
   }
@@ -45,7 +51,7 @@ export class DmClient {
     try {
       for (let page = 0; page < 100; page += 1) { // page cap backstops a misbehaving cursor
         const url = cursor ? `${this.inboxUrl}?cursor=${encodeURIComponent(cursor)}` : this.inboxUrl
-        const response = await fetch(url, { headers: { Accept: "application/json" } })
+        const response = await fetch(url, { headers: { Accept: "application/json" }, signal: this.abort.signal })
         if (!response.ok) return // 401 = not signed in; treat any miss as empty
         const body = await response.json()
         for (const wrap of body.wraps || []) await this.ingest(wrap)
@@ -98,11 +104,16 @@ export class DmClient {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(wrap),
+        signal: this.abort.signal,
       })
     } catch { /* best-effort */ }
   }
 
   stop() {
+    this.abort.abort() // cancel any in-flight cold-start / deposit fetch
+    this.subscription?.removeEventListener("relay-reopened", this.onConnected)
+    this.subscription?.removeEventListener("relay-degraded", this.onDegraded)
+    this.subscription?.removeEventListener("all-relays-closed", this.onOffline)
     this.subscription?.close()
     this.relays.close()
     this.seen.clear()

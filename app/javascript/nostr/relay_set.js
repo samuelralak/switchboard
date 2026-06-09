@@ -131,9 +131,14 @@ export class RelaySet {
   // unbounded await would hang the publish forever.
   async settleAuth(relay) {
     for (let i = 0; i < 100 && !relay.authPromise && !relay.challenge; i++) await sleep(10)
-    const deadline = sleep(AUTH_TIMEOUT)
-    if (relay.authPromise) return Promise.race([relay.authPromise.catch(() => {}), deadline])
-    if (relay.challenge && this.signer) return Promise.race([relay.auth(this.authFn()).catch(() => {}), deadline])
+    // A cancellable deadline: clear its timer once the race settles, so the loser does not leave a live
+    // setTimeout running for AUTH_TIMEOUT after the auth resolved (or after the relay/subscription closed).
+    let timer
+    const deadline = new Promise((resolve) => { timer = setTimeout(resolve, AUTH_TIMEOUT) })
+    const race = (promise) => Promise.race([promise.catch(() => {}), deadline]).finally(() => clearTimeout(timer))
+    if (relay.authPromise) return race(relay.authPromise)
+    if (relay.challenge && this.signer) return race(relay.auth(this.authFn()))
+    clearTimeout(timer)
   }
 
   // Subscribe across all relays. Cross-relay dedup via the shared seen-set; oneose fires once on the first
@@ -149,12 +154,15 @@ export class RelaySet {
     const connectedOnce = new Set()   // urls that have connected before, so reopened is a real recovery
     const probing = new Set()         // urls with a probe in flight, so probes never overlap on one url
     const probeTimers = new Map()     // url -> probe deadline timer, so revalidate/close can cancel an in-flight probe
+    const probeSubs = new Map()       // url -> in-flight probe sub, so close() can tear one down mid-flight
     let lastSeen = now()
     let eosed = false
     let settled = false
     let subClosed = false
     let resolveReady, rejectReady
     const connected = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject })
+    connected.catch(() => {}) // mark handled: a consumer may ignore `connected` (one-shot fetch) yet still
+    // close(), and the all-relays-failed / closed rejections must not surface as unhandled rejections.
     if (this.urls.length === 0) { settled = true; rejectReady(new Error("no relays configured")) }
 
     const stopped = () => this.closed || subClosed
@@ -229,6 +237,9 @@ export class RelaySet {
         // down the freshly-revalidated LIVE relay, flashing a false "Reconnecting…".
         clearTimeout(probeTimers.get(url))
         probeTimers.delete(url)
+        const probeSub = probeSubs.get(url)
+        if (probeSub) { try { probeSub.close() } catch { /* already closed */ } }
+        probeSubs.delete(url)
         probing.delete(url)
         this.evict(url)
         open(url)
@@ -256,18 +267,23 @@ export class RelaySet {
           const probeSub = relay.subscribe([{ ids: [ "0".repeat(64) ] }], {
             eoseTimeout: this.probeTimeout + 2000,
             oneose: () => {
-              if (abandoned || stopped()) return // the orphaned eose timer must not refresh a closed probe
+              // Ignore a stale fire: abandoned/closed, or a revalidate/newer probe has superseded this one.
+              if (abandoned || stopped() || probeSubs.get(url) !== probeSub) return
 
               answered = true
               markSeen()
               probing.delete(url)
               probeTimers.delete(url)
+              probeSubs.delete(url)
               try { probeSub.close() } catch { /* closed */ }
             },
           })
           const timer = setTimeout(() => {
+            if (probeSubs.get(url) !== probeSub) return // superseded by revalidate or a newer probe
+
             probing.delete(url)
             probeTimers.delete(url)
+            probeSubs.delete(url)
             if (answered || stopped()) return
 
             abandoned = true
@@ -277,6 +293,7 @@ export class RelaySet {
             scheduleReconnect(url)
           }, this.probeTimeout)
           probeTimers.set(url, timer)
+          probeSubs.set(url, probeSub)
         } catch { probing.delete(url) /* relay already gone: the close path handles it */ }
       }
     }
@@ -295,6 +312,9 @@ export class RelaySet {
       removeEventListener: (...args) => events.removeEventListener(...args),
       close: () => {
         subClosed = true
+        // Settle a still-pending `connected` so a consumer awaiting it (e.g. DmClient.start) fails fast on
+        // teardown instead of hanging forever (close before any relay connected/failed).
+        if (!settled) { settled = true; rejectReady(new Error("subscription closed")) }
         clearInterval(probeTimer)
         removeGlobal("online", onOnline)
         removeGlobal("visibilitychange", onVisible)
@@ -302,8 +322,15 @@ export class RelaySet {
         reconnectTimers.clear()
         for (const timer of probeTimers.values()) clearTimeout(timer)
         probeTimers.clear()
+        for (const sub of probeSubs.values()) { try { sub.close() } catch { /* already closed */ } }
+        probeSubs.clear()
         for (const sub of subsByUrl.values()) { try { sub.close() } catch { /* already closed */ } }
         subsByUrl.clear()
+        // Release the per-url bookkeeping eagerly (the closure is GC'd once the handle is dropped anyway).
+        retries.clear()
+        everFailed.clear()
+        connectedOnce.clear()
+        probing.clear()
       },
     }
   }

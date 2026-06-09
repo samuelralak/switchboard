@@ -12,6 +12,7 @@ export default class extends Controller {
     mode: { type: String, default: "all" },
     sort: { type: String, default: "newest" },
     view: { type: String, default: "service" },
+    cap: { type: Number, default: 200 }, // max live cards kept per lens before the oldest are pruned
   }
 
   connect() {
@@ -19,6 +20,12 @@ export default class extends Controller {
     this.updateQueryState()
     this.syncView()
     this.apply()
+  }
+
+  // Cancel any pending refresh frame so a Turbo navigation away does not leave an orphaned callback
+  // holding this (now detached) controller instance.
+  disconnect() {
+    cancelAnimationFrame(this.refreshFrame)
   }
 
   filter() {
@@ -86,11 +93,11 @@ export default class extends Controller {
     this.queryTarget.select()
   }
 
-  // Re-apply the current filter (and re-sort) to a card added live via Turbo Stream.
+  // Re-apply the current filter to a card added live via Turbo Stream, then coalesce the count/sort/prune.
+  // Filtering one card is O(1); the expensive whole-grid work is batched in scheduleRefresh.
   cardTargetConnected(card) {
     this.applyToCard(card)
-    this.updateCount()
-    this.scheduleSort()
+    this.scheduleRefresh()
   }
 
   modeValueChanged() {
@@ -105,7 +112,7 @@ export default class extends Controller {
   viewValueChanged() {
     this.syncView()
     this.apply()
-    this.scheduleSort()
+    this.scheduleRefresh()
   }
 
   // Reorder rows in place by the active sort, within EACH lens's list container independently (so a
@@ -124,11 +131,36 @@ export default class extends Controller {
     })
   }
 
-  // Coalesce a flood of live-prepend re-sorts into one frame; skip when newest (already ordered).
-  scheduleSort() {
-    if (this.sortValue === "newest") return
-    cancelAnimationFrame(this.sortFrame)
-    this.sortFrame = requestAnimationFrame(() => this.applySort())
+  // Coalesce a live flood of streamed cards into ONE whole-grid pass on the next frame. Stimulus fires
+  // cardTargetConnected per card, and a relay backfill can stream hundreds at once; running updateCount
+  // (which scans every card) + a re-sort PER card is O(n^2) and freezes the tab. One pass per frame is O(n).
+  scheduleRefresh() {
+    cancelAnimationFrame(this.refreshFrame)
+    this.refreshFrame = requestAnimationFrame(() => this.refresh())
+  }
+
+  refresh() {
+    this.pruneOverflow() // prune first so the badge counts only the cards that remain
+    this.updateCount()
+    if (this.sortValue !== "newest") this.applySort() // newest = the prepend order, no reorder needed
+  }
+
+  // Bound the live-streamed DOM: keep only the newest `cap` cards per lens (the oldest sit off-screen at
+  // the bottom), removing each pruned card's drawer too, so a long session or a backfill flood cannot grow
+  // the page unbounded. A reload restores the server's top set.
+  pruneOverflow() {
+    this.listTargets.forEach((list) => {
+      const cards = [...list.children].filter((card) => card.matches('[data-catalog-target="card"]'))
+      cards.slice(this.capValue).forEach((card) => this.removeCard(card))
+    })
+  }
+
+  // Remove a card and its detail drawer together (the card's commandfor points at the drawer dialog; the
+  // removable wrapper is that id + "-wrap"), so pruning never orphans a drawer.
+  removeCard(card) {
+    const drawer = card.getAttribute("commandfor")
+    if (drawer) document.getElementById(`${drawer}-wrap`)?.remove()
+    card.remove()
   }
 
   apply() {

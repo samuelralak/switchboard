@@ -64,6 +64,10 @@ export default class extends Controller {
       this.setBusy(false)
       this.setStatus("Connected.")
     } catch {
+      // A failed start() (e.g. connected rejected on a teardown race) must not leave a half-open client:
+      // stop it so its subscription/listeners/in-flight fetch are torn down, not left until disconnect().
+      this.client?.stop()
+      this.client = null
       this.disable("Couldn't reach your relays.")
     } finally {
       this.starting = false
@@ -126,7 +130,7 @@ export default class extends Controller {
   }
 
   append(rumor) {
-    if (!this.hasThreadTarget) return
+    if (!this.active || !this.hasThreadTarget) return // ignore a late cold-start ingest after teardown
     const item = document.createElement("li")
     item.textContent = rumor.content
     this.threadTarget.appendChild(item)
