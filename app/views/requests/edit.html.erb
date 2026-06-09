@@ -1,0 +1,5 @@
+<% content_for :title, "My requests" %>
+
+<%= render "requests/form_page", draft: @draft, pubkey: @pubkey, publish_relays: @publish_relays, d_tag: @d_tag, btc_usd: @btc_usd,
+      heading: "Edit request",
+      subtitle: "Update and re-post. The new version supersedes the current one under the same coordinate." %>

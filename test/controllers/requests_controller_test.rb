@@ -27,6 +27,52 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 		assert_not_includes response.body, "Someone else's request"
 	end
 
+	test "My requests lists the poster's own requests with a d-tag-keyed edit link, including withdrawn ones" do
+		sign_in
+		request_event(title: "Open need", pubkey: @session_pubkey, d_tag: "open")
+		request_event(title: "Withdrawn need", pubkey: @session_pubkey, d_tag: "gone", status: "inactive")
+
+		get requests_url
+
+		assert_response :success
+		assert_includes response.body, "Open need"
+		assert_includes response.body, "Withdrawn need" # kept so the poster can re-post it
+		assert_select "a[href=?]", edit_request_path(d: "open")
+		assert_select "a[href=?]", edit_request_path(d: "gone")
+	end
+
+	test "edit prefills the form for the poster's own request, carrying its d-tag and status" do
+		sign_in
+		request_event(title: "Logo redraw", pubkey: @session_pubkey, d_tag: "logo", status: "inactive")
+
+		get edit_request_url(d: "logo")
+
+		assert_response :success
+		assert_select "h1", text: "Edit request"
+		assert_select "input[name=?][value=?]", "title", "Logo redraw"
+		assert_select "input[name=?][value=?]", "d_tag", "logo"       # re-post supersedes the same coordinate
+		assert_select "input[name=?][value=?]", "status", "inactive"  # editing preserves a withdrawn status
+	end
+
+	test "edit redirects to My requests when the request is not the poster's own" do
+		sign_in
+		request_event(title: "Theirs", pubkey: "b" * 64, d_tag: "theirs")
+
+		get edit_request_url(d: "theirs")
+
+		assert_redirected_to requests_path
+	end
+
+	test "edit redirects when the coordinate now holds a service listing, not an open request" do
+		sign_in
+		# Listings share kind 30402; one could supersede a request at the same d. My requests must not edit it.
+		listing_event(pubkey: @session_pubkey, d_tag: "shared")
+
+		get edit_request_url(d: "shared")
+
+		assert_redirected_to requests_path
+	end
+
 	test "My requests shows the consumer's placed orders, opening each in the order drawer" do
 		sign_in
 		listing = classified_event(pubkey: SecureRandom.hex(32), marker: Catalog::Listing.marker, price: 2_000)
@@ -94,11 +140,24 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 	private
 
 	# A request event by a specific author (so My requests can assert own-vs-others filtering).
-	def request_event(title:, pubkey: SecureRandom.hex(32))
-		tags = [ [ "d", SecureRandom.hex(4) ], [ "title", title ], [ "t", Requests::OpenRequest.marker ] ]
-		Event.create!(event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64),
-									kind: Events::Kinds::CLASSIFIED, content: title, tags:,
-									nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) })
+	def request_event(title:, pubkey: SecureRandom.hex(32), d_tag: SecureRandom.hex(4), status: nil)
+		tags = [ [ "d", d_tag ], [ "title", title ], [ "t", Requests::OpenRequest.marker ] ]
+		tags << [ "status", status ] if status
+		Event.create!(
+			event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64),
+			kind: Events::Kinds::CLASSIFIED, content: title, tags:,
+			nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }
+		)
+	end
+
+	# A kind-30402 carrying the LISTING marker at the given coordinate (a service listing, not a request).
+	def listing_event(pubkey:, d_tag:)
+		Event.create!(
+			event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64),
+			kind: Events::Kinds::CLASSIFIED, content: "service",
+			tags: [ [ "d", d_tag ], %w[title Service], [ "t", Catalog::Listing.marker ] ],
+			nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }
+		)
 	end
 
 	def sign_in

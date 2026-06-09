@@ -14,7 +14,7 @@
     <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :primary, icon: "add-01", extra: "shrink-0") do %>Post a request<% end %>
   </header>
 
-  <% if @orders.empty? && @board.size.zero? %>
+  <% if @orders.empty? && @authored.empty? %>
     <%= render Shared::EmptyState::EmptyStateComponent.new(
           title: "Nothing here yet", body: "Order a service from the catalog, or post a request it doesn't cover.", icon: "package") do %>
       <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :primary, icon: "add-01") do %>Post a request<% end %>
@@ -33,25 +33,23 @@
       </div>
     <% end %>
 
-    <%# requests you've posted, still awaiting a claim %>
-    <% if @board.size.positive? %>
-      <section data-controller="catalog" data-catalog-view-value="request" class="mt-8">
+    <%# requests you've posted: edit + withdraw/re-post each in place (mirrors the studio's My-listings). %>
+    <% if @authored.any? %>
+      <section data-controller="my-requests"
+               data-my-requests-pubkey-value="<%= current_user.pubkey %>"
+               data-my-requests-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+               class="mt-8">
         <div class="mb-2.5">
-          <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">posted, awaiting a claim</p>
+          <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">posted requests</p>
         </div>
-        <div id="<%= @board.grid_target %>" data-catalog-target="list" class="flex flex-col gap-3">
-          <%= render partial: @board.partial, collection: @board.requests, as: :request %>
+        <div class="flex flex-col gap-3">
+          <% @authored.each do |request| %>
+            <%= render Requests::MyRequest::MyRequestComponent.new(request: request) %>
+          <% end %>
         </div>
       </section>
     <% end %>
   <% end %>
-
-  <%# Request-detail drawers (one per posted request), opened by the card buttons via commandfor. %>
-  <div id="<%= Requests::Ui::State::DRAWER_TARGET %>">
-    <% @board.requests.each do |request| %>
-      <%= render "requests/drawer", request: request %>
-    <% end %>
-  </div>
 </div>
 
 <%# the order drawer, open when ?order_id points at one of your orders %>

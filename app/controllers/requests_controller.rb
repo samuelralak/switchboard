@@ -7,23 +7,32 @@
 # broadcasts the kind-30402 request with the consumer's key), so there is no create POST.
 class RequestsController < ApplicationController
 	include PublishesInBrowser
+	include RedirectsOnError
 
 	before_action :require_login
-	before_action :set_compose_context, only: :new
+	before_action :set_compose_context, only: %i[new edit]
 
 	# Fields the form posts to #preview; shape the draft. The shared CARRY_KEYS come from PublishesInBrowser.
 	PREVIEW_KEYS = %i[title description capability budget delivery_value delivery_unit claim_value claim_unit].freeze
 
 	# "My requests" is the consumer's ledger: the orders they placed/claimed (Orders::Ledger) plus the
-	# requests they posted that are still awaiting a claim (the board, scoped to them).
+	# requests they posted (Requests::AuthoredRequests, which keeps withdrawn ones so they can be re-posted).
 	def index
 		@orders = Orders::Ledger.call(pubkey: current_user.pubkey)
-		@board = Requests::Ui::State.grid(pubkey: current_user.pubkey)
+		@authored = Requests::AuthoredRequests.call(pubkey: current_user.pubkey)
 		@open_order = @orders.find { |row| row.id == params[:order_id] } # ?order_id opens that order's drawer
 	end
 
 	def new
 		@draft = Requests::Draft.open_request({}, pubkey: @pubkey)
+	end
+
+	# Prefill the form from the poster's own conforming request, keyed on the STABLE d-tag (so edit links
+	# survive a re-publish, which recreates the row with a new UUID). A miss (gone/superseded/not theirs/now
+	# a listing at that d) raises NotFoundError -> RedirectsOnError sends them back to My requests.
+	def edit
+		@draft = Requests::FindOwnRequest.call(pubkey: current_user.pubkey, d_tag: params[:d])
+		@d_tag = @draft.identifier
 	end
 
 	# On-demand preview: builds a draft OpenRequest from the in-flight form and renders the very component
@@ -34,6 +43,9 @@ class RequestsController < ApplicationController
 	end
 
 	private
+
+	# Request edits/publishes happen on My requests, so a recoverable error lands back there, not on the catalog.
+	def error_redirect_fallback = requests_path
 
 	def draft_params = preview_params(*PREVIEW_KEYS)
 end

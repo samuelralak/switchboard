@@ -43,6 +43,9 @@ Rails.application.routes.draw do
 	get "requests", to: "requests#index", as: :requests
 	get "requests/new", to: "requests#new", as: :new_request
 	post "requests/preview", to: "requests#preview", as: :request_preview
+	# Edit re-posts under the same d-tag (supersede). Keyed on the stable d-tag (?d=) rather than the DB
+	# row id, which is regenerated when a re-post supersedes the coordinate.
+	get "requests/edit", to: "requests#edit", as: :edit_request
 
 	# Provider studio: author + publish your own kind-30402 service listings. Session-authenticated.
 	# The listing is signed + broadcast IN THE BROWSER with the provider's key (non-custodial, §6.3),

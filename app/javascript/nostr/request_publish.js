@@ -75,6 +75,49 @@ function assertPublishable(data) {
   if (missing.length) throw new Error(`Request is missing required fields: ${missing.join(", ")}.`)
 }
 
+function tagValue(event, name) {
+  return (event.tags || []).find((t) => t[0] === name)?.[1]
+}
+
+// The newest event matching a filter on these relays, or null (EOSE / timeout). Used to flip status on
+// the CURRENT version rather than a possibly-stale render-time snapshot (another tab may have edited it).
+function fetchLatest(set, filter, ms = 4000) {
+  return new Promise((resolve) => {
+    let latest = null
+    const sub = set.subscribeMany([filter], {
+      onevent: (e) => { if (!latest || (Number(e.created_at) || 0) > (Number(latest.created_at) || 0)) latest = e },
+      oneose: () => { sub.close(); resolve(latest) },
+    })
+    setTimeout(() => { sub.close(); resolve(latest) }, ms)
+  })
+}
+
+// Withdraw / re-post: re-sign the request with its status tag flipped (everything else preserved, so it is
+// reversible) and broadcast it. Re-fetches the latest version of the coordinate first so the flip usually
+// applies to a concurrent edit's content, not a stale snapshot. Best-effort: if the relays serve nothing
+// back (EOSE/timeout) it falls back to the render-time snapshot, which can still revert an edit that has
+// not yet propagated to these relays. A fresh created_at supersedes the coordinate; the public board hides
+// any non-"active". Unlike a listing there is no NIP-89 handler to keep in sync (a request advertises no
+// service), so this is just the single re-signed event.
+export async function setRequestStatus(event, status, signer, relays) {
+  const set = new RelaySet(relays, { signer })
+  try {
+    const dTag = tagValue(event, "d") || ""
+    const pubkey = await signer.getPublicKey()
+    const latest = await fetchLatest(set, { kinds: [event.kind], authors: [pubkey], "#d": [dTag] })
+    const base = latest && (Number(latest.created_at) || 0) >= (Number(event.created_at) || 0) ? latest : event
+
+    const tags = (base.tags || []).filter((t) => t[0] !== "status").concat([["status", status]])
+    const createdAt = Math.max(Math.floor(Date.now() / 1000), (Number(base.created_at) || 0) + 1)
+    const signed = await signer.signEvent({ kind: base.kind, created_at: createdAt, content: base.content || "", tags })
+
+    const results = await set.publishToMany(signed)
+    return { event: signed, results, reached: results.filter((r) => r.status === "ok").length }
+  } finally {
+    set.close()
+  }
+}
+
 // Sign + broadcast the request event. Returns the signed event, its addressable coordinate, and
 // per-relay results.
 export async function broadcastRequest(data, config, signer, relays) {
