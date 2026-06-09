@@ -50,6 +50,31 @@ module NostrClient
 			assert_equal "sub1", dropped
 		end
 
+		test "add_connection is idempotent: a second add for the same url returns the existing connection" do
+			manager = NostrClient::Manager.instance
+			reactor = NostrClient::Reactor.instance
+			reactor.define_singleton_method(:schedule) { |&_b| nil } # do not boot EM or open a real socket
+
+			first = manager.add_connection("wss://dedupe.test")
+			second = manager.add_connection("wss://dedupe.test")
+
+			assert_same first, second
+			assert_equal 1, manager.status.keys.count("wss://dedupe.test")
+		ensure
+			reactor.singleton_class.send(:remove_method, :schedule)
+			manager.instance_variable_get(:@connections).delete("wss://dedupe.test")
+		end
+
+		test "publish raises rather than silently returning [] when this process holds no connections" do
+			manager = NostrClient::Manager.instance
+			held = manager.instance_variable_get(:@connections).dup
+			manager.instance_variable_get(:@connections).clear
+
+			assert_raises(NostrClient::Error) { manager.publish({ "id" => "x" }) }
+		ensure
+			manager.instance_variable_get(:@connections).replace(held)
+		end
+
 		test "malformed? rejects a known frame whose payload arity is out of range (too few OR too many)" do
 			manager = NostrClient::Manager.instance
 			ok = NostrClient::Messages::Inbound::OK

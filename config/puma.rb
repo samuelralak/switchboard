@@ -30,6 +30,17 @@
 threads_count = ENV.fetch("RAILS_MAX_THREADS", 3)
 threads threads_count, threads_count
 
+# Worker processes (clustered mode) when WEB_CONCURRENCY is set; default 0 keeps the single-process,
+# threads-only server. Relay publish sockets live on a per-process EventMachine reactor, so clustering
+# is what makes the fork hooks below matter.
+worker_count = ENV.fetch("WEB_CONCURRENCY", 0).to_i
+workers worker_count
+
+# Load the app in the master before forking so the fork hooks below see NostrClient/Operational loaded
+# (otherwise before_worker_boot's defined?() guard would silently skip booting the per-worker publish
+# sockets, and the first clustered web publish would then hit the fail-loud raise). Clustered mode only.
+preload_app! if worker_count.positive?
+
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
 port ENV.fetch("PORT", 3000)
 
@@ -42,3 +53,24 @@ plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 # Specify the PID file. Defaults to tmp/pids/server.pid in development.
 # In other environments, only set the PID file if requested.
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
+
+# Relay publish sockets live on a background EventMachine reactor that does NOT survive fork. Only in
+# clustered mode: tear it down before forking and let each worker boot its own; only a provisioned R_op
+# key with configured DM relays opens connections, so even then dev/test stay socket-free. Defined only
+# when clustered, so the single-process default neither warns nor runs them.
+if worker_count.positive?
+	before_fork do
+		NostrClient.stop if defined?(NostrClient)
+	rescue StandardError => e
+		warn "[NostrClient] before_fork stop skipped: #{e.class}: #{e.message}"
+	end
+
+	before_worker_boot do
+		next unless defined?(NostrClient) && defined?(Operational::Signer)
+
+		NostrClient.reactor.reset
+		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.dm_relays.any?
+	rescue StandardError => e
+		warn "[NostrClient] before_worker_boot publishing skipped: #{e.class}: #{e.message}"
+	end
+end

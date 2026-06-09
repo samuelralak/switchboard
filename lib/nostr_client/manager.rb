@@ -24,10 +24,15 @@ module NostrClient
 		def on_event(&block) = @on_event = block
 		def on_eose(&block) = @on_eose = block
 
-		# Adds a relay connection at +url+ and subscribes it to all active subscriptions.
+		# Adds a relay connection at +url+ and subscribes it to all active subscriptions. Idempotent: a
+		# second add for a url already held returns the existing connection rather than overwriting (and
+		# orphaning the in-flight publishes / timers of) a live one.
 		def add_connection(url)
-			connection = Connection.new(url:, on_message: method(:route))
+			connection = nil
 			@mutex.synchronize do
+				return @connections[url] if @connections[url]
+
+				connection = Connection.new(url:, on_message: method(:route))
 				@connections[url] = connection
 				@subscriptions.each { |subscription_id, filters| connection.subscribe(subscription_id, filters) }
 			end
@@ -45,8 +50,13 @@ module NostrClient
 
 		# Publishes a signed event to every connection and returns a PublishResult per relay. Arms all
 		# relays first, then collects, so total latency is ~one timeout, not N relays times the timeout.
+		# Raises rather than silently returning [] when this process holds no connections (e.g. a web
+		# worker that never opened publish sockets), so a lost broadcast is loud, not a false success.
 		def publish(event_hash)
-			@mutex.synchronize { @connections.values }.map { |connection| connection.publish_async(event_hash) }.map(&:pop)
+			connections = @mutex.synchronize { @connections.values }
+			raise NostrClient::Error, "no relay connections in this process" if connections.empty?
+
+			connections.map { |connection| connection.publish_async(event_hash) }.map(&:pop)
 		end
 
 		def stop
@@ -98,7 +108,14 @@ module NostrClient
 		end
 
 		def handle_closed(connection, subscription_id, reason = nil)
-			return connection.authenticate if connection.auth_required?(reason)
+			if connection.auth_required?(reason)
+				# Keep the sub (resubscribe re-sends it) when an AUTH is sent or already in flight; only when
+				# AUTH is impossible (cap reached / no signer / no usable challenge) do we WARN and drop it,
+				# so a permanently-unauthenticatable sub is observable instead of silently dead.
+				return if connection.authenticate || connection.auth_in_flight?
+
+				logger.warn("[NostrClient] #{connection.url} CLOSED #{subscription_id}: auth unavailable, dropping sub")
+			end
 
 			connection.drop_subscription(subscription_id)
 			logger.info("[NostrClient] CLOSED #{connection.url} #{subscription_id}: #{reason}")
