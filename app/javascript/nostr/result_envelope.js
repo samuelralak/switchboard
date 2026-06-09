@@ -27,7 +27,8 @@ export async function sendResultEnvelope({ signer, ownPubkey, peerPubkey, relays
   const set = new RelaySet(relays, { signer })
   try {
     const results = await set.publishToMany(toRecipient)
-    if (!results.some((result) => result.status === "ok")) throw new Error("delivered result did not reach any relay")
+    // ok = acked; timeout = open + sent but slow to ack (possibly stored). Only hard errors everywhere fail.
+    if (!results.some((result) => result.status === "ok" || result.status === "timeout")) throw new Error("delivered result did not reach any relay")
     await set.publishToMany(toSelf) // keep the provider's own copy, best-effort
   } finally {
     set.close()

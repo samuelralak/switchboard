@@ -133,8 +133,10 @@ export async function restoreFromWallet(accountPubkey, signer, relays) {
   }
 }
 
-// Publish a signed event to the relays, throwing unless it reached at least one (a generated key with
-// no durable backup, or an unadvertised pubkey, must not be silently relied on).
+// Publish a signed event to the relays, throwing unless it was ACKed by at least one (a generated key
+// with no durable backup, or an unadvertised pubkey, must not be silently relied on). This gates funding
+// BEFORE any mint, so unlike the post-mint message paths it requires a real OK (not a mere timeout):
+// failing early here is safe, and proceeding on an uncertain escrow-key advertisement is not.
 async function broadcast(set, event, what) {
   const results = await set.publishToMany(event)
   if (!results.some((r) => r.status === "ok")) throw new Error(`escrow ${what} did not reach any relay`)

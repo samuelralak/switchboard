@@ -83,7 +83,8 @@ export async function backupSecrets({ signer, ownPubkey, relays, orderId, secret
 
   try {
     const results = await set.publishToMany(toSelf)
-    if (!results.some((r) => r.status === "ok")) throw new Error("escrow backup did not reach any relay")
+    // ok = acked; timeout = open + sent but slow to ack (possibly stored). Only hard errors everywhere fail.
+    if (!results.some((r) => r.status === "ok" || r.status === "timeout")) throw new Error("escrow backup did not reach any relay")
   } finally {
     set.close()
   }
