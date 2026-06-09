@@ -9,6 +9,7 @@ module Catalog
 		SUBSCRIPTION = "listings"
 
 		option :limit, type: Types::Coercible::Integer, default: -> { 200 }
+		option :cursor, default: -> { Cursor.new }, reader: :private
 
 		delegate :stop, to: :NostrClient
 
@@ -36,8 +37,13 @@ module Catalog
 			NostrClient.manager.subscribe_all(SUBSCRIPTION, catalog_filters)
 		end
 
+		# Resume from the persisted high-water-mark so a restart does not re-pull the whole catalog; a
+		# first-ever boot (no cursor) falls back to the full initial pull bounded by `limit`.
 		def catalog_filters
-			[ { kinds: [ Events::Kinds::CLASSIFIED ], limit: } ]
+			filter = { kinds: [ Events::Kinds::CLASSIFIED ], limit: }
+			since = cursor.since
+			filter[:since] = since if since
+			[ filter ]
 		end
 
 		# Off the reactor thread onto Solid Queue, wrapped in the Rails executor.
