@@ -1,0 +1,31 @@
+<div class="lg:flex lg:gap-x-16">
+  <h1 class="sr-only">Account settings</h1>
+
+  <%# Section rail: horizontal scroll on mobile, a fixed column flush to the content's left edge on desktop.
+      Each item is its own route, so the active section is highlighted by page, not scroll position. %>
+  <aside data-controller="scroll-into-view" class="-mx-2 flex overflow-x-auto border-b border-border px-2 pb-4 lg:mx-0 lg:block lg:w-56 lg:flex-none lg:border-0 lg:px-0 lg:pb-0">
+    <nav class="flex-none">
+      <ul role="list" class="flex gap-x-1 whitespace-nowrap lg:flex-col lg:gap-y-0.5">
+        <% items.each do |item| %>
+          <li>
+            <% if item[:soon] %>
+              <span aria-disabled="true" class="flex cursor-default items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-faint">
+                <i class="hgi-stroke <%= item[:icon] %> text-base text-ink-faint" aria-hidden="true"></i>
+                <span><%= item[:label] %></span>
+                <span class="ml-auto rounded-full bg-surface-2 px-1.5 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider text-ink-faint">Soon</span>
+              </span>
+            <% else %>
+              <a href="<%= item[:path] %>"<%= ' aria-current="page"'.html_safe if active?(item[:key]) %>
+                 class="group flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium <%= active?(item[:key]) ? "bg-surface text-copper" : "text-ink-muted hover:bg-surface hover:text-ink" %>">
+                <i class="hgi-stroke <%= item[:icon] %> text-base <%= active?(item[:key]) ? "text-copper" : "text-ink-faint group-hover:text-ink" %>" aria-hidden="true"></i>
+                <span><%= item[:label] %></span>
+              </a>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </nav>
+  </aside>
+
+  <main class="mt-8 min-w-0 flex-auto lg:mt-0"><%= content %></main>
+</div>

@@ -1,0 +1,12 @@
+<% content_for(:title, "Settings") %>
+
+<%= render Settings::Shell::ShellComponent.new(active: :profile) do %>
+  <div class="mb-6">
+    <h2 class="text-base font-semibold text-ink">Profile</h2>
+    <p class="mt-1 text-sm text-ink-muted">Your public Nostr profile (kind-0), signed by you. Anyone can read it.</p>
+  </div>
+
+  <%= render Settings::ProfileForm::ProfileFormComponent.new(
+        user: @profile.user, pubkey: @profile.pubkey,
+        publish_relays: @profile.publish_relays, metadata_event: @profile.metadata_event) %>
+<% end %>

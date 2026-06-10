@@ -1,0 +1,96 @@
+<%= helpers.simple_form_for user, url: "#", html: {
+      id: "profile-form", novalidate: true, class: "flex flex-col gap-5",
+      data: {
+        controller: "profile-form", turbo: false, action: "submit->profile-form#publish",
+        profile_form_pubkey_value: pubkey,
+        profile_form_relays_value: publish_relays.to_json,
+        profile_form_base_value: base_event.to_json,
+        profile_form_refresh_url_value: helpers.settings_profile_path
+      }
+    } do |form| %>
+
+  <%# Publish status / receipt, filled by the controller (mutually-exclusive success vs error styling). %>
+  <div data-profile-form-target="status" hidden class="rounded-xl border px-4 py-3 text-sm"></div>
+
+  <%# Picture: a banner with the avatar overlapping it, each click-to-upload (Blossom, NIP-B7) with your key. %>
+  <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+    <div class="mb-4">
+      <h2 class="font-display text-base font-semibold tracking-tight text-ink">Picture</h2>
+      <p class="mt-0.5 text-xs text-ink-faint">Click the banner or avatar to upload. Max 20&nbsp;MiB; PNG, JPEG, WebP, GIF.</p>
+    </div>
+
+    <div class="relative">
+      <%# Banner %>
+      <button type="button" data-action="profile-form#pickBanner" aria-label="Upload banner"
+              class="group relative block aspect-[4/1] w-full overflow-hidden rounded-xl border border-border bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+        <img data-profile-form-target="bannerPreview" src="<%= user.banner %>" alt=""
+             class="size-full object-cover<%= " hidden" if user.banner.blank? %>">
+        <span data-profile-form-target="bannerPlaceholder" class="<%= "hidden " if user.banner.present? %>absolute inset-0 grid place-items-center text-ink-faint">
+          <i class="hgi-stroke hgi-image-add-01 text-2xl" aria-hidden="true"></i>
+        </span>
+        <span class="absolute inset-0 grid place-items-center bg-canvas/55 opacity-0 transition-opacity group-hover:opacity-100">
+          <span class="inline-flex items-center gap-1.5 rounded-lg bg-surface-2/90 px-3 py-1.5 text-xs font-medium text-ink">
+            <i class="hgi-stroke hgi-image-upload-01" aria-hidden="true"></i> Change banner
+          </span>
+        </span>
+      </button>
+
+      <%# Avatar, overlapping the banner's lower-left. %>
+      <button type="button" data-action="profile-form#pickAvatar" aria-label="Upload avatar"
+              class="group absolute -bottom-7 left-4 size-20 overflow-hidden rounded-full border-4 border-surface bg-inset ring-1 ring-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+        <img data-profile-form-target="avatarPreview" src="<%= user.picture %>" alt=""
+             class="size-full object-cover<%= " hidden" if user.picture.blank? %>">
+        <span data-profile-form-target="avatarPlaceholder" class="<%= "hidden " if user.picture.present? %>absolute inset-0 grid place-items-center text-ink-faint">
+          <i class="hgi-stroke hgi-user-circle text-2xl" aria-hidden="true"></i>
+        </span>
+        <span class="absolute inset-0 grid place-items-center bg-canvas/55 opacity-0 transition-opacity group-hover:opacity-100">
+          <i class="hgi-stroke hgi-camera-01 text-lg text-ink" aria-hidden="true"></i>
+        </span>
+      </button>
+    </div>
+
+    <%# Hidden file inputs the avatar/banner buttons trigger. %>
+    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden
+           data-profile-form-target="avatarFile" data-action="change->profile-form#avatarSelected">
+    <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden
+           data-profile-form-target="bannerFile" data-action="change->profile-form#bannerSelected">
+
+    <%# The avatar/banner URLs ride in hidden fields (collected by the controller); the uploads fill them. %>
+    <input type="hidden" value="<%= user.picture %>" data-profile-form-target="field" data-field="picture">
+    <input type="hidden" value="<%= user.banner %>" data-profile-form-target="field" data-field="banner">
+
+    <%# Upload feedback; the mt clears the avatar's overhang below the banner. %>
+    <p data-profile-form-target="uploadStatus" class="mt-10 text-xs text-ink-faint" aria-live="polite"></p>
+  <% end %>
+
+  <%# Identity: prefilled from the projected kind-0 columns. The controller collects by data-field, so the %>
+  <%# simple_form input names (user[...]) are irrelevant; nothing is ever POSTed to Rails. %>
+  <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+    <div class="mb-5">
+      <h2 class="font-display text-base font-semibold tracking-tight text-ink">Identity</h2>
+      <p class="mt-0.5 text-xs text-ink-faint">How you appear across Nostr. Anyone can read this; it is public.</p>
+    </div>
+
+    <%= form.input :display_name, label: "Display name", placeholder: "Ada Lovelace",
+          input_html: { autocomplete: "off", data: { profile_form_target: "field", field: "display_name" } } %>
+    <%= form.input :name, label: "Username", placeholder: "ada", hint: "A short handle, no spaces.",
+          input_html: { autocomplete: "off", data: { profile_form_target: "field", field: "name" } } %>
+    <%= form.input :about, as: :text, label: "About",
+          placeholder: "What you do, in a line or two. Markdown is supported.",
+          input_html: { rows: 4, class: "resize-y", data: { profile_form_target: "field", field: "about" } } %>
+    <%= form.input :website, as: :url, label: "Website", placeholder: "https://…",
+          input_html: { autocomplete: "off", data: { profile_form_target: "field", field: "website" } } %>
+    <%= form.input :nip05, label: "Nostr address (NIP-05)", placeholder: "ada@example.com",
+          hint: "name@domain. Verified separately.",
+          input_html: { autocomplete: "off", data: { profile_form_target: "field", field: "nip05" } } %>
+    <%= form.input :lud16, label: "Lightning address", placeholder: "ada@walletofsatoshi.com",
+          hint: "For zaps (lud16).",
+          input_html: { autocomplete: "off", data: { profile_form_target: "field", field: "lud16" } } %>
+  <% end %>
+
+  <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "sent", type: "submit",
+        data: { profile_form_target: "submit" }) do %>Sign &amp; publish profile<% end %>
+  <p class="px-0.5 text-xs leading-relaxed text-ink-faint">
+    Signs a conforming <span class="font-mono text-ink-muted">kind-0</span> profile with your key and broadcasts it to relays. Switchboard never holds your key.
+  </p>
+<% end %>

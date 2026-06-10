@@ -26,7 +26,7 @@
     <li>
       <div class="flex items-center justify-between px-2">
         <p class="font-mono text-xs uppercase tracking-widest text-ink-faint">relays</p>
-        <button type="button" command="show-modal" commandfor="<%= Settings::RelaysDialog::RelaysDialogComponent::DIALOG_ID %>" class="text-xs font-medium text-copper hover:text-copper-bright">Manage</button>
+        <a href="<%= helpers.settings_relays_path %>" class="text-xs font-medium text-copper hover:text-copper-bright">Manage</a>
       </div>
       <ul role="list" class="-mx-2 mt-2 space-y-1">
         <% sidebar_relays.each do |relay| %>
@@ -41,18 +41,18 @@
         <% end %>
         <% if more_relays_count.positive? %>
           <li>
-            <button type="button" command="show-modal" commandfor="<%= Settings::RelaysDialog::RelaysDialogComponent::DIALOG_ID %>" class="group flex w-full items-center gap-x-3 rounded-md p-2 text-ink-faint hover:bg-surface hover:text-ink">
+            <a href="<%= helpers.settings_relays_path %>" class="group flex w-full items-center gap-x-3 rounded-md p-2 text-ink-faint hover:bg-surface hover:text-ink">
               <span class="grid size-6 shrink-0 place-items-center rounded-lg border border-dashed border-border font-mono text-[0.625rem]">+<%= more_relays_count %></span>
               <span class="text-sm/6">More relays</span>
-            </button>
+            </a>
           </li>
         <% end %>
       </ul>
     </li>
 
     <li class="mt-auto -mx-2">
-      <a href="<%= helpers.settings_path %>" class="group flex items-center gap-x-3 rounded-md p-2 text-sm/6 font-semibold text-ink-muted hover:bg-surface hover:text-ink">
-        <i class="hgi-stroke hgi-settings-02 shrink-0 text-lg text-ink-faint group-hover:text-ink" aria-hidden="true"></i>
+      <a href="<%= helpers.settings_path %>"<%= " aria-current=\"page\"".html_safe if on_settings? %> class="group flex items-center gap-x-3 rounded-md p-2 text-sm/6 font-semibold <%= on_settings? ? "bg-surface text-copper" : "text-ink-muted hover:bg-surface hover:text-ink" %>">
+        <i class="hgi-stroke hgi-settings-02 shrink-0 text-lg <%= on_settings? ? "text-copper" : "text-ink-faint group-hover:text-ink" %>" aria-hidden="true"></i>
         Settings
       </a>
     </li>

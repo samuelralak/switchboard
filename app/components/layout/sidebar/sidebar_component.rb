@@ -42,6 +42,13 @@ module Layout
 			rescue StandardError
 				false
 			end
+
+			# True anywhere under settings (the section rail's sub-pages). False outside a request.
+			def on_settings?
+				helpers.request.path.start_with?("/settings")
+			rescue StandardError
+				false
+			end
 		end
 	end
 end

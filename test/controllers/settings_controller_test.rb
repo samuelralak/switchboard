@@ -9,14 +9,12 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to root_path
 	end
 
-	test "renders the relays section when signed in" do
+	test "redirects to the profile section when signed in" do
 		sign_in
 
 		get settings_url
 
-		assert_response :success
-		assert_select "h2", text: "Relays"
-		assert_includes response.body, "relay.damus.io"
+		assert_redirected_to settings_profile_path
 	end
 
 	private

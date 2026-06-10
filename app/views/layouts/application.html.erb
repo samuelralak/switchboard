@@ -111,9 +111,6 @@
       </main>
     </div>
 
-    <%# Single instance of the manage-relays modal, triggered from the sidebar relays group + settings. %>
-    <%= render Settings::RelaysDialog::RelaysDialogComponent.new %>
-
     <%# Re-hydrates a saved nsec signer after a hard reload; opened on demand by the signer store. %>
     <% if signed_in? %>
       <%= render Sessions::UnlockDialog::UnlockDialogComponent.new(user: current_user) %>

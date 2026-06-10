@@ -34,8 +34,16 @@ Rails.application.routes.draw do
 	# crypto + relay I/O. Distinct from the order-scoped messages#index above.
 	get "dms", to: "direct_messages#index", as: :direct_messages
 
-	# Account settings (relays, profile, signer); reached from the sidebar + the avatar menu.
+	# Account settings: a section rail of sub-pages (Profile / Relays / ...), reached from the sidebar + the
+	# avatar menu. /settings lands on the default sub-page.
 	get "settings", to: "settings#show", as: :settings
+	namespace :settings do
+		# Non-custodial profile editor: show renders the form; update is the post-broadcast reconcile (the browser
+		# signs + broadcasts the kind-0 itself, then PATCHes here to force-fetch it back). settings_profile_path.
+		# controller: keeps the singular ProfileController name (a singular resource defaults to the plural).
+		resource :profile, only: %i[show update], controller: "profile"
+		resource :relays, only: :show
+	end
 
 	# Open requests (funded bounties): the public board (index), and authoring your own (new + preview).
 	# Like the studio, posting is signed + broadcast IN THE BROWSER with the consumer's key (non-custodial,

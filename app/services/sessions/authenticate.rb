@@ -16,8 +16,10 @@ module Sessions
 
 			data = Events::VerifyHttpAuth.call(event_data:, http_method:, url:)
 			user = Users::FindOrCreate.call(pubkey: data["pubkey"])
-			# Pull this user's NIP-65 relays into the catalog ingest, off the request path (cooldown-gated).
+			# Pull this user's NIP-65 relays + kind-0 profile into the ingest, off the request path (cooldown-gated):
+			# nothing subscribes to kind-0, so this login fetch is what populates the profile projection.
 			Users::RelayListFetchJob.perform_later(user.pubkey)
+			Users::MetadataFetchJob.perform_later(user.pubkey)
 			user
 		end
 

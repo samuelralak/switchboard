@@ -32,7 +32,7 @@ module Layout
 
 			def menu_items
 				[
-					{ label: "Your profile", href: "#" },
+					{ label: "Your profile", href: helpers.settings_profile_path },
 					{ label: "Settings", href: helpers.settings_path }
 				]
 			end

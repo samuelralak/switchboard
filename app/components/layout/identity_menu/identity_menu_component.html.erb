@@ -3,7 +3,7 @@
     <button class="flex items-center gap-1.5 rounded-xl p-0.5 hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
       <span class="sr-only">Open user menu</span>
       <% if picture %>
-        <img src="<%= picture %>" alt=""
+        <img src="<%= picture %>" alt="" data-identity-avatar
              data-controller="image-fallback" data-action="error->image-fallback#failed"
              class="size-8 rounded-lg object-cover ring-1 ring-border" />
         <%# a dead avatar URL falls back to the identicon %>
@@ -15,7 +15,7 @@
     </button>
     <el-menu anchor="bottom end" popover class="w-56 origin-top-right rounded-xl border border-border bg-surface-2 py-2 shadow-panel transition transition-discrete [--anchor-gap:--spacing(2.5)] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in">
       <div class="px-3 py-2">
-        <p class="truncate text-sm font-medium text-ink"><%= display_label %></p>
+        <p class="truncate text-sm font-medium text-ink" data-identity-name><%= display_label %></p>
         <% if nip05 %><p class="truncate font-mono text-xs text-ink-secondary"><%= nip05 %></p><% end %>
         <p class="font-mono text-xs text-ink-faint"><%= display_npub %></p>
       </div>

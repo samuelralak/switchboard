@@ -13,7 +13,7 @@ module Layout
 				assert_selector "a", text: "My requests"
 				assert_no_selector "a", text: "Provider studio" # moved to the top-bar CTA
 				assert_text "relay.damus.io"
-				assert_selector "button", text: "Manage"
+				assert_selector "a", text: "Manage" # links to the relays settings page (no modal)
 				assert_selector "a", text: "Settings"
 			end
 		end
