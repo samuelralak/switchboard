@@ -11,7 +11,19 @@ module Notifications
 		option :metadata, type: Types::Strict::Hash, default: -> { {} }
 
 		def call
-			Notification.create!(recipient_pubkey:, notification_type:, metadata:)
+			notification = Notification.create!(recipient_pubkey:, notification_type:, metadata:)
+			broadcast(notification)
+			notification
+		end
+
+		private
+
+		# Live push to the recipient's bell. Best-effort: a broadcast failure must not fail the recorded row
+		# (it still appears on the next page load).
+		def broadcast(notification)
+			Notifications::Ui::Update.call(notification:)
+		rescue StandardError => e
+			Rails.error.report(e, handled: true, context: { notification_id: notification.id })
 		end
 	end
 end

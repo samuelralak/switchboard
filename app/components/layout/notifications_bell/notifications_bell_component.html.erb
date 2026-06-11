@@ -1,0 +1,29 @@
+<div data-controller="notifications" data-notifications-seen-url-value="<%= helpers.seen_notifications_path %>">
+  <%= helpers.turbo_stream_from stream %>
+  <%# Persistent (page-load) live region: the count change on each badge swap is announced to screen readers. %>
+  <span class="sr-only" role="status" aria-live="polite" data-notifications-target="status"></span>
+
+  <el-dropdown class="relative">
+    <button type="button" data-action="notifications#open"
+            class="relative -m-2.5 p-2.5 text-ink-faint hover:text-ink focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+      <span class="sr-only">Notifications</span>
+      <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
+      <%= render "notifications/badge", count: unseen_count %>
+    </button>
+
+    <el-menu anchor="bottom end" popover class="w-80 origin-top-right rounded-xl border border-border bg-surface-2 shadow-panel transition transition-discrete [--anchor-gap:--spacing(2.5)] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in">
+      <div class="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span class="font-mono text-xs uppercase tracking-widest text-ink-secondary">Notifications</span>
+        <%= link_to "See all", helpers.notifications_path,
+              class: "rounded text-xs font-medium text-copper hover:text-copper-bright focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright" %>
+      </div>
+
+      <ul id="<%= list_target %>" data-notifications-target="list" role="list" class="max-h-96 divide-y divide-border overflow-y-auto">
+        <%= render partial: "notifications/notification", collection: notifications, as: :notification %>
+        <li data-notifications-target="empty"<%= " hidden".html_safe if notifications.any? %> class="px-4 py-8 text-center text-xs text-ink-faint">
+          No notifications yet.
+        </li>
+      </ul>
+    </el-menu>
+  </el-dropdown>
+</div>

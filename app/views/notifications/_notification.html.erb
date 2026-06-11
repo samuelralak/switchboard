@@ -1,0 +1,22 @@
+<%# One notification row: rendered in the bell dropdown + the full page, and prepended live by Notifications::Ui::Update.
+    Unread rows (read_at nil) show a copper dot and mark themselves read on click via the per-row controller. %>
+<li id="notification_<%= notification.id %>">
+  <%= link_to notification_order_path(notification), data: read_on_click_data(notification),
+        class: "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface focus:bg-surface focus:outline-hidden" do %>
+    <span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-inset text-ink-secondary">
+      <i class="hgi-stroke <%= notification_icon(notification) %> text-sm" aria-hidden="true"></i>
+    </span>
+    <span class="min-w-0 flex-1">
+      <span class="block text-sm leading-snug <%= notification.read_at ? "text-ink-secondary" : "text-ink" %>">
+        <%= notification_headline(notification) %>
+      </span>
+      <span class="mt-0.5 block font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+        <%= time_ago_in_words(notification.created_at) %> ago
+      </span>
+    </span>
+    <% unless notification.read_at %>
+      <span class="mt-1.5 size-2 shrink-0 rounded-full bg-copper" aria-hidden="true"></span>
+      <span class="sr-only">Unread</span>
+    <% end %>
+  <% end %>
+</li>

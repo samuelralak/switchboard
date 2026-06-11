@@ -34,6 +34,12 @@ Rails.application.routes.draw do
 	# crypto + relay I/O. Distinct from the order-scoped messages#index above.
 	get "dms", to: "direct_messages#index", as: :direct_messages
 
+	# In-app notifications: the full feed (index), per-notification mark-as-read (update), and a seen-marker
+	# the bell posts when its dropdown opens.
+	resources :notifications, only: %i[index update] do
+		post :seen, on: :collection
+	end
+
 	# Account settings: a section rail of sub-pages (Profile / Relays / ...), reached from the sidebar + the
 	# avatar menu. /settings lands on the default sub-page.
 	get "settings", to: "settings#show", as: :settings

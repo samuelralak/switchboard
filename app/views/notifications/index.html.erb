@@ -1,0 +1,18 @@
+<% content_for(:title, "Notifications") %>
+
+<div class="mx-auto max-w-2xl">
+  <header class="mb-6">
+    <h1 class="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">Notifications</h1>
+    <p class="mt-2 leading-relaxed text-ink-muted">Updates on your orders and requests.</p>
+  </header>
+
+  <% if @notifications.any? %>
+    <ul role="list" class="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+      <%= render partial: "notifications/notification", collection: @notifications, as: :notification %>
+    </ul>
+  <% else %>
+    <%= render Shared::EmptyState::EmptyStateComponent.new(
+          title: "No notifications yet",
+          body: "Updates on your orders and requests will show up here.", icon: "notification-02") %>
+  <% end %>
+</div>

@@ -81,10 +81,7 @@
                   <span class="hidden sm:inline">Provider studio</span>
                 <% end %>
 
-                <button type="button" class="-m-2.5 p-2.5 text-ink-faint hover:text-ink">
-                  <span class="sr-only">View notifications</span>
-                  <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
-                </button>
+                <%= render Layout::NotificationsBell::NotificationsBellComponent.new(user: current_user) %>
 
                 <%# Separator %>
                 <div aria-hidden="true" class="hidden lg:block lg:h-6 lg:w-px lg:bg-border"></div>
