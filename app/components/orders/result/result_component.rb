@@ -2,10 +2,14 @@
 
 module Orders
 	module Result
-		# The consumer's "data out · delivered result" panel on the order page: the provider's finished work,
-		# decrypted client-side by the order_result controller (the runtime never sees it) and shown so the
-		# consumer can verify before releasing. Visible to the consumer once funded (a result may have arrived)
-		# through released; a result envelope may not exist yet, in which case the panel says so.
+		# The delivered-result panel on the order page. Two viewers, one component:
+		#   - the CONSUMER sees the provider's finished work, decrypted from the result envelope, so they can
+		#     verify it before releasing the escrow;
+		#   - the PROVIDER sees their OWN delivery, decrypted from the provider self-copy the result envelope
+		#     keeps, once they have delivered -- so they can confirm what they sent (the note + inputs).
+		# The order_result controller does the decryption client-side with the VIEWER's signer (own = viewer);
+		# the runtime never sees the result. Shown from funded through released; the trust anchor is always the
+		# order's provider (a result is only rendered when its envelope author is that provider).
 		class ResultComponent < ApplicationComponent
 			SHOWN_STATES = [ Orders::States::FUNDED, Orders::States::RELEASED ].freeze
 
@@ -16,13 +20,37 @@ module Orders
 				@viewer = viewer
 			end
 
-			def render? = consumer? && order.current_state.in?(SHOWN_STATES)
+			# The consumer always gets the panel (a result may have arrived); the provider gets it only once they
+			# have delivered, so their self-copy exists to decrypt.
+			def render?
+				order.current_state.in?(SHOWN_STATES) && (consumer? || delivered_by_provider?)
+			end
 
-			def relays_json = NostrClient.configuration.dm_relays.to_json
+			def heading
+				provider? ? "your delivery" : "data out · delivered result"
+			end
+
+			def icon
+				provider? ? "sent" : "download-01"
+			end
+
+			def relays_json
+				NostrClient.configuration.dm_relays.to_json
+			end
 
 			private
 
-			def consumer? = viewer&.pubkey == order.consumer_pubkey
+			def consumer?
+				viewer&.pubkey == order.consumer_pubkey
+			end
+
+			def provider?
+				viewer&.pubkey == order.provider_pubkey
+			end
+
+			def delivered_by_provider?
+				provider? && order.delivery.present?
+			end
 		end
 	end
 end

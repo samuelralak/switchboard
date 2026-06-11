@@ -26,10 +26,15 @@ export async function sendResultEnvelope({ signer, ownPubkey, peerPubkey, relays
   const { toRecipient, toSelf } = await wrapMessage(rumor, signer, peerPubkey)
   const set = new RelaySet(relays, { signer })
   try {
-    const results = await set.publishToMany(toRecipient)
+    const recipientAcks = await set.publishToMany(toRecipient)
     // ok = acked; timeout = open + sent but slow to ack (possibly stored). Only hard errors everywhere fail.
-    if (!results.some((result) => result.status === "ok" || result.status === "timeout")) throw new Error("delivered result did not reach any relay")
-    await set.publishToMany(toSelf) // keep the provider's own copy, best-effort
+    if (!recipientAcks.some((ack) => ack.status === "ok" || ack.status === "timeout")) throw new Error("delivered result did not reach any relay")
+
+    // The provider reads this self-copy back to review their own delivery, so it must be durably stored too:
+    // a recorded delivery with no readable self-copy would show the provider "no result delivered" after the
+    // fact. Throwing here keeps the delivery un-recorded so a retry re-publishes both copies.
+    const selfAcks = await set.publishToMany(toSelf)
+    if (!selfAcks.some((ack) => ack.status === "ok" || ack.status === "timeout")) throw new Error("your copy of the delivered result did not reach any relay")
   } finally {
     set.close()
   }

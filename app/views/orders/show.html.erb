@@ -13,7 +13,7 @@
 				<%= render Orders::Actions::ActionsComponent.new(order: @order, viewer: current_user) %>
 			<% end %>
 
-			<%# consumer: the provider's delivered result, decrypted client-side (renders for the consumer once funded) %>
+			<%# the delivered result, decrypted client-side: the consumer sees the provider's work; the provider sees their own self-copy once delivered %>
 			<%= render Orders::Result::ResultComponent.new(order: @order, viewer: current_user) %>
 		</div>
 	<% end %>

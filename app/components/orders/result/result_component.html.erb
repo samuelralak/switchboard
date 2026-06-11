@@ -1,13 +1,13 @@
 <div class="mt-4"
 	data-controller="order-result"
 	data-order-result-order-id-value="<%= order.id %>"
-	data-order-result-own-value="<%= order.consumer_pubkey %>"
+	data-order-result-own-value="<%= viewer.pubkey %>"
 	data-order-result-provider-value="<%= order.provider_pubkey %>"
 	data-order-result-relays-value="<%= relays_json %>">
 	<%= render Shared::Card::CardComponent.new(padding: :p5) do %>
 		<div class="flex items-center gap-2">
-			<%= render Shared::Icon::IconComponent.new(name: "download-01", size: :sm, color: "text-ink-muted") %>
-			<p class="text-xs font-medium uppercase tracking-wider text-ink-muted">data out · delivered result</p>
+			<%= render Shared::Icon::IconComponent.new(name: icon, size: :sm, color: "text-ink-muted") %>
+			<p class="text-xs font-medium uppercase tracking-wider text-ink-muted"><%= heading %></p>
 		</div>
 		<div data-order-result-target="result" class="mt-3"></div>
 		<p data-order-result-target="status" role="status" class="mt-3 text-sm text-ink-muted">Decrypting the delivered result…</p>

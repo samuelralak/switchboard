@@ -68,7 +68,7 @@ export default class extends Controller {
         orderId: this.orderIdValue, provider: this.providerValue,
       })
       if (!this.active) return // navigated away mid-fetch
-      if (!result) return this.setStatus("No result delivered yet.")
+      if (!result) return this.setStatus(this.emptyMessage())
 
       this.render(result)
     } catch {
@@ -76,14 +76,44 @@ export default class extends Controller {
     }
   }
 
+  // Nothing decrypted. For the provider viewing their OWN delivery, "not delivered yet" reads wrong (they
+  // just delivered), so name the relay round-trip instead; a delivery without a stored self-copy can't happen
+  // now that sendResultEnvelope requires both copies.
+  emptyMessage() {
+    if (this.ownValue === this.providerValue) return "Your delivered copy isn't on your relays yet. Refresh to retry."
+
+    return "No result delivered yet."
+  }
+
   render(result) {
     this.resultTarget.replaceChildren()
+
     if (result.result) this.resultTarget.append(this.body(result.result))
 
     const links = (result.attachments || []).map((a) => this.attachment(a)).filter(Boolean)
     if (links.length) this.resultTarget.append(this.attachmentList(links))
 
-    this.setStatus(result.result || links.length ? "" : "The provider delivered an empty result.")
+    if (result.note) this.resultTarget.append(this.noteBlock(result.note))
+
+    this.setStatus(result.result || links.length || result.note ? "" : "An empty result was delivered.")
+  }
+
+  // The free-form note attached to the delivery (the form's last field).
+  noteBlock(text) {
+    const wrap = document.createElement("div")
+    wrap.className = "mt-4 border-t border-border pt-4"
+
+    const label = document.createElement("p")
+    label.className = "text-xs font-medium uppercase tracking-wider text-ink-muted"
+    label.textContent = "note"
+
+    const body = document.createElement("p")
+    body.className = "mt-2 text-sm leading-relaxed whitespace-pre-wrap break-words text-ink-secondary"
+    body.textContent = text // plain text only; never raw innerHTML
+
+    wrap.append(label, body)
+
+    return wrap
   }
 
   body(text) {
