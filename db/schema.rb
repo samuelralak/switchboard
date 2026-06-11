@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_09_150920) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_10_093536) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -67,6 +67,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_09_150920) do
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_login_challenges_on_expires_at"
     t.index ["nonce"], name: "index_login_challenges_on_nonce", unique: true
+  end
+
+  create_table "notifications", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.string "notification_type", null: false
+    t.datetime "read_at"
+    t.string "recipient_pubkey", null: false
+    t.datetime "seen_at"
+    t.datetime "updated_at", null: false
+    t.index ["recipient_pubkey", "created_at"], name: "index_notifications_on_recipient_pubkey_and_created_at"
+    t.index ["recipient_pubkey", "seen_at"], name: "index_notifications_on_recipient_pubkey_and_seen_at"
   end
 
   create_table "order_deliveries", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

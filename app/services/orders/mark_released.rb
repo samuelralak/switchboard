@@ -15,16 +15,24 @@ module Orders
 
 		def call
 			ensure_funded!
+			first_release = order.release.nil? # a re-reveal supersedes; it must not re-notify the provider
 			Order.transaction do |txn|
 				record!
-				# Flip the live lifecycle to "Released, awaiting redemption" on both parties' open pages, after
-				# commit, mirroring Orders::Transition and Orders::MarkDelivered.
-				txn.after_commit { Orders::Ui::Update.call(order:) }
+				# Flip the live lifecycle to "Released, awaiting redemption" + prompt the provider to redeem once,
+				# after commit, mirroring Orders::MarkDelivered. Best-effort: never raises into the money path.
+				txn.after_commit { broadcast_and_notify(first_release) }
 			end
 			order.release
 		end
 
 		private
+
+		def broadcast_and_notify(first_release)
+			Orders::Ui::Update.call(order:)
+			Notifications::ForOrder.call(order:, event: :release_authorized) if first_release
+		rescue StandardError => e
+			Rails.error.report(e, handled: true, context: { order_id: order.id })
+		end
 
 		def ensure_funded!
 			return if order.current_state == Orders::States::FUNDED

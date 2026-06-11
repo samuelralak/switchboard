@@ -15,16 +15,24 @@ module Orders
 
 		def call
 			ensure_funded!
+			first_delivery = order.delivery.nil? # a re-delivery supersedes; it must not re-notify the consumer
 			Order.transaction do |txn|
 				record!
-				# Flip the live status strip to "Delivered, awaiting release" on both parties' open pages, after
-				# commit, mirroring Orders::Transition.
-				txn.after_commit { Orders::Ui::Update.call(order:) }
+				# Flip the live status strip to "Delivered, awaiting release" + notify the consumer once, after
+				# commit, mirroring Orders::Transition. Best-effort: never raises into the committed money path.
+				txn.after_commit { broadcast_and_notify(first_delivery) }
 			end
 			order.delivery
 		end
 
 		private
+
+		def broadcast_and_notify(first_delivery)
+			Orders::Ui::Update.call(order:)
+			Notifications::ForOrder.call(order:, event: :delivered) if first_delivery
+		rescue StandardError => e
+			Rails.error.report(e, handled: true, context: { order_id: order.id })
+		end
 
 		def ensure_funded!
 			return if order.current_state == Orders::States::FUNDED

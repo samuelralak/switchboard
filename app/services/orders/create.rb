@@ -21,7 +21,14 @@ module Orders
 
 		def call
 			validate!
-			Order.create!(attributes)
+			order = nil
+			Order.transaction do |txn|
+				order = Order.create!(attributes)
+				# Notify the affected party after commit (a request claim alerts the requester); only a genuinely
+				# new order fires this -- an idempotent re-create raises below and never reaches here.
+				txn.after_commit { Notifications::ForOrder.call(order:, event: :placed) }
+			end
+			order
 		rescue ActiveRecord::RecordNotUnique
 			# A repeat order returns the order it collides with: a dedupe_key re-submit of the same logical order,
 			# or the active order the actor already has open for this listing/request. An unrelated collision (a

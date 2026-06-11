@@ -12,9 +12,9 @@ module Orders
 		def call
 			Order.transaction do |txn|
 				advanced = order.with_lock { advance! }
-				# Broadcast the new state to open tracking pages only AFTER the (outermost) commit, mirroring
+				# Broadcast the new state + notify the affected party only AFTER the (outermost) commit, mirroring
 				# Events::Upsert's txn.after_commit -> Catalog::Ui::Update. Never push a phantom on a rollback.
-				txn.after_commit { Orders::Ui::Update.call(order:) } if advanced
+				txn.after_commit { broadcast_and_notify } if advanced
 			end
 			order
 		rescue Statesman::TransitionFailedError
@@ -24,6 +24,16 @@ module Orders
 		end
 
 		private
+
+		# Live update + the recipient notification for the new state. Both are best-effort observers that run
+		# AFTER commit: a broadcast or notification failure is reported, never raised, so it cannot 500 a request
+		# whose money-path state has already committed.
+		def broadcast_and_notify
+			Orders::Ui::Update.call(order:)
+			Notifications::ForOrder.call(order:, event: order.current_state)
+		rescue StandardError => e
+			Rails.error.report(e, handled: true, context: { order_id: order.id, to: })
+		end
 
 		# Returns the transition (truthy) when it advanced, or nil when already at `to` (idempotent no-op).
 		def advance!
