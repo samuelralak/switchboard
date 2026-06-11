@@ -10,8 +10,7 @@ module Layout
 			def nav_items
 				[
 					{ label: "Catalog", href: helpers.root_path, icon: "hgi-store-01", active: on_catalog? },
-					{ label: "My requests", href: helpers.requests_path, icon: "hgi-package", active: on_requests? },
-					{ label: "Messages", href: helpers.messages_path, icon: "hgi-mail-01", active: on_messages? }
+					{ label: "Orders", href: helpers.orders_path, icon: "hgi-package", active: on_orders? }
 				]
 			end
 
@@ -29,16 +28,10 @@ module Layout
 				false
 			end
 
-			# True anywhere under My requests / the request composer. False outside a request.
-			def on_requests?
-				helpers.request.path.start_with?("/requests")
-			rescue StandardError
-				false
-			end
-
-			# True anywhere under the messages inbox. False outside a request.
-			def on_messages?
-				helpers.request.path.start_with?("/messages")
+			# True across the order hub and its sub-flows: the hub itself, the request composer (/requests/new),
+			# and an order's message thread (/messages/:id) -- all "your orders" surfaces. False outside a request.
+			def on_orders?
+				helpers.request.path.start_with?("/orders", "/requests", "/messages")
 			rescue StandardError
 				false
 			end

@@ -20,7 +20,7 @@
         </div>
         <div class="mb-6 flex flex-col gap-2">
           <% group.each do |conversation| %>
-            <%= render Messages::ConversationRow::ConversationRowComponent.new(conversation:, selected: conversation == selected) %>
+            <%= render Messages::ConversationRow::ConversationRowComponent.new(conversation:, href: message_path(conversation.id), selected: conversation == selected) %>
           <% end %>
         </div>
       <% end %>

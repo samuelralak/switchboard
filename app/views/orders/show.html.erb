@@ -9,6 +9,7 @@
 			<%= render Shared::Card::CardComponent.new(padding: :p5) do %>
 				<%= render Orders::Details::DetailsComponent.new(order: @order) %>
 				<%= render Orders::Request::RequestComponent.new(order: @order, viewer: current_user) %>
+				<%= render Orders::IncomingRequest::IncomingRequestComponent.new(order: @order, viewer: current_user) %>
 				<%= render Orders::Actions::ActionsComponent.new(order: @order, viewer: current_user) %>
 			<% end %>
 

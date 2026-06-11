@@ -1,0 +1,33 @@
+<%# The Buying tab: orders you've placed (active, then settled/terminal) and the requests you've posted that
+    are still awaiting a claim (edit / withdraw in place, mirroring the studio's My-listings). %>
+<% if orders.empty? && authored.empty? %>
+  <p class="py-12 text-center text-sm text-ink-faint">Nothing yet. Post a request, or order a service from the catalog.</p>
+<% else %>
+  <% { "active" => orders.select(&:active?), "settled & terminal" => orders.reject(&:active?) }.each do |label, rows| %>
+    <% next if rows.empty? %>
+    <div class="mt-6 mb-2.5 first:mt-0">
+      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted"><%= label %></p>
+    </div>
+    <div class="flex flex-col gap-3">
+      <% rows.each do |row| %>
+        <%= render Orders::LedgerRow::LedgerRowComponent.new(row:, selected: row.id == open_order&.id) %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% if authored.any? %>
+    <section data-controller="my-requests"
+             data-my-requests-pubkey-value="<%= current_user.pubkey %>"
+             data-my-requests-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+             class="mt-8">
+      <div class="mb-2.5">
+        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">posted requests</p>
+      </div>
+      <div class="flex flex-col gap-3">
+        <% authored.each do |request| %>
+          <%= render Requests::MyRequest::MyRequestComponent.new(request: request) %>
+        <% end %>
+      </div>
+    </section>
+  <% end %>
+<% end %>

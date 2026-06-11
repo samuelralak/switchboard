@@ -1,5 +1,5 @@
-<a href="<%= order_path %>"
-	class="group flex w-full items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+<a href="<%= order_path %>" <%= "aria-current=\"page\"".html_safe if selected? %>
+	class="group flex w-full items-center gap-4 rounded-2xl border p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= selected? ? "border-border-strong bg-surface-2" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2" %>">
 	<div class="grid size-12 shrink-0 place-items-center rounded-lg border border-border bg-inset">
 		<%= render Shared::Icon::IconComponent.new(name: "package", color: "text-ink-faint") %>
 	</div>

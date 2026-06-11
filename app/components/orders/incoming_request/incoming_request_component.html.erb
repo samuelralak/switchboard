@@ -1,0 +1,17 @@
+<%# Provider-side: the client's request, decrypted client-side by the `messages` controller (own = provider,
+    verified against the order's known consumer). Content is written textContent-only; the runtime never sees it. %>
+<div class="mt-5 border-t border-border pt-5"
+	data-controller="messages"
+	data-messages-own-value="<%= order.provider_pubkey %>"
+	data-messages-relays-value="<%= dm_relays_json %>"
+	data-messages-order-id-value="<%= order.id %>"
+	data-messages-consumer-value="<%= order.consumer_pubkey %>">
+	<div class="mb-4 flex items-start gap-2">
+		<%= render Shared::Icon::IconComponent.new(name: "package", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+		<p class="text-sm leading-relaxed text-ink-secondary">What the client asked for, sealed to you end to end.</p>
+	</div>
+	<div data-messages-target="request"></div>
+	<p data-messages-target="status" role="status" class="text-sm text-ink-muted">Decrypting the client's request…</p>
+	<button type="button" data-messages-target="unlock" data-action="messages#unlock"
+		class="mt-3 hidden text-xs font-medium text-copper hover:text-copper-bright">Unlock your signer to view</button>
+</div>

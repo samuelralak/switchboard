@@ -7,7 +7,16 @@ class OrdersController < ApplicationController
 	include RedirectsOnError
 
 	before_action :require_login
-	rate_limit to: 20, within: 1.minute, by: -> { current_user&.pubkey }
+	# Limit only the mutating/money actions; the hub + order pages are GETs browsed freely (tab switches and
+	# order selections are page loads, so limiting them 429s normal browsing).
+	rate_limit to: 20, within: 1.minute, by: -> { current_user&.pubkey }, only: %i[create fund deliver release settle]
+
+	# The order activity hub: a tabbed ledger of everything the signed-in user is BUYING (orders they placed +
+	# requests they posted) and SELLING (orders they provide on). Replaces the separate My-requests + Messages
+	# index pages; rows open the order's drawer / its thread. Reuses the existing ledger + provider-inbox queries.
+	def index
+		@hub = Orders::Ui::State.hub(pubkey: current_user.pubkey, tab: params[:tab], order_id: params[:order_id])
+	end
 
 	def show
 		@order = Order.involving(current_user.pubkey).find(params.expect(:id))

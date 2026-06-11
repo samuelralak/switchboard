@@ -15,12 +15,10 @@ class RequestsController < ApplicationController
 	# Fields the form posts to #preview; shape the draft. The shared CARRY_KEYS come from PublishesInBrowser.
 	PREVIEW_KEYS = %i[title description capability budget delivery_value delivery_unit claim_value claim_unit].freeze
 
-	# "My requests" is the consumer's ledger: the orders they placed/claimed (Orders::Ledger) plus the
-	# requests they posted (Requests::AuthoredRequests, which keeps withdrawn ones so they can be re-posted).
+	# "My requests" folded into the unified order hub's Buying tab; this just redirects (the composer below
+	# stays at /requests/new + /requests/edit). Kept as a controller action so require_login still applies.
 	def index
-		@orders = Orders::Ledger.call(pubkey: current_user.pubkey)
-		@authored = Requests::AuthoredRequests.call(pubkey: current_user.pubkey)
-		@open_order = @orders.find { |row| row.id == params[:order_id] } # ?order_id opens that order's drawer
+		redirect_to orders_path(tab: "buying")
 	end
 
 	def new
@@ -44,8 +42,11 @@ class RequestsController < ApplicationController
 
 	private
 
-	# Request edits/publishes happen on My requests, so a recoverable error lands back there, not on the catalog.
-	def error_redirect_fallback = requests_path
+	# Request edits/publishes belong to the consumer's Buying activity, so a recoverable error lands on the
+	# orders hub's Buying tab (directly, not via the /requests redirect).
+	def error_redirect_fallback
+		orders_path(tab: "buying")
+	end
 
 	def draft_params = preview_params(*PREVIEW_KEYS)
 end

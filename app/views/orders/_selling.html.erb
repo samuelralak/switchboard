@@ -1,0 +1,19 @@
+<%# The Selling tab: orders you provide on, grouped by what they need from you. Each row opens its thread. %>
+<% section_labels = { needs_you: "Needs you", in_progress: "In progress", done: "Done" } %>
+<% if conversations.any? %>
+  <% conversations.group_by(&:section).each do |section, group| %>
+    <div class="mb-2.5 flex items-center gap-2">
+      <p class="text-xs font-medium uppercase tracking-wider <%= section == :needs_you ? "text-ink-secondary" : "text-ink-faint" %>"><%= section_labels.fetch(section, section.to_s) %></p>
+      <span class="text-xs text-ink-faint"><%= group.size %></span>
+    </div>
+    <div class="mb-6 flex flex-col gap-2">
+      <% group.each do |conversation| %>
+        <%= render Messages::ConversationRow::ConversationRowComponent.new(
+              conversation:, href: orders_path(tab: "selling", order_id: conversation.id),
+              selected: conversation.id == open_order&.id) %>
+      <% end %>
+    </div>
+  <% end %>
+<% else %>
+  <p class="py-12 text-center text-sm text-ink-faint">No orders to fulfill yet.</p>
+<% end %>

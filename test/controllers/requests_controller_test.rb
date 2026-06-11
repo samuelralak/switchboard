@@ -14,31 +14,12 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to root_path
 	end
 
-	test "My requests renders only the signed-in user's own requests" do
+	test "My requests redirects to the orders hub's Buying tab (the consumer ledger folded in)" do
 		sign_in
-		request_event(title: "My diagnose request", pubkey: @session_pubkey)
-		request_event(title: "Someone else's request", pubkey: "b" * 64)
 
 		get requests_url
 
-		assert_response :success
-		assert_select "h1", text: "My requests"
-		assert_includes response.body, "My diagnose request"
-		assert_not_includes response.body, "Someone else's request"
-	end
-
-	test "My requests lists the poster's own requests with a d-tag-keyed edit link, including withdrawn ones" do
-		sign_in
-		request_event(title: "Open need", pubkey: @session_pubkey, d_tag: "open")
-		request_event(title: "Withdrawn need", pubkey: @session_pubkey, d_tag: "gone", status: "inactive")
-
-		get requests_url
-
-		assert_response :success
-		assert_includes response.body, "Open need"
-		assert_includes response.body, "Withdrawn need" # kept so the poster can re-post it
-		assert_select "a[href=?]", edit_request_path(d: "open")
-		assert_select "a[href=?]", edit_request_path(d: "gone")
+		assert_redirected_to orders_path(tab: "buying")
 	end
 
 	test "edit prefills the form for the poster's own request, carrying its d-tag and status" do
@@ -60,7 +41,7 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 
 		get edit_request_url(d: "theirs")
 
-		assert_redirected_to requests_path
+		assert_redirected_to orders_path(tab: "buying")
 	end
 
 	test "edit redirects when the coordinate now holds a service listing, not an open request" do
@@ -70,38 +51,7 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 
 		get edit_request_url(d: "shared")
 
-		assert_redirected_to requests_path
-	end
-
-	test "My requests shows the consumer's placed orders, opening each in the order drawer" do
-		sign_in
-		listing = classified_event(pubkey: SecureRandom.hex(32), marker: Catalog::Listing.marker, price: 2_000)
-		order = build_order(consumer_pubkey: @session_pubkey, listing_coordinate: coordinate_for(listing))
-
-		get requests_url
-
-		assert_response :success
-		assert_select "a[href=?]", requests_path(order_id: order.id) # the row opens the URL-driven drawer
-		assert_includes response.body, "Svc" # the joined listing title
-	end
-
-	test "?order_id opens the order drawer with a lazy frame to the order detail" do
-		sign_in
-		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
-
-		get requests_url(order_id: order.id)
-
-		assert_response :success
-		assert_select "turbo-frame[src=?]", order_path(order) # the drawer lazy-loads the detail
-	end
-
-	test "?order_id for an order that isn't yours renders no drawer" do
-		sign_in
-
-		get requests_url(order_id: build_order.id) # someone else's order
-
-		assert_response :success
-		assert_select "turbo-frame", false
+		assert_redirected_to orders_path(tab: "buying")
 	end
 
 	test "new renders the composer, the section rail, and the preview drawer" do

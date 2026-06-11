@@ -5,6 +5,73 @@ require "test_helper"
 class OrdersControllerTest < ActionDispatch::IntegrationTest
 	MINT = "http://127.0.0.1:3338"
 
+	test "the orders hub requires a signed-in session" do
+		get orders_url
+		assert_redirected_to root_path
+	end
+
+	test "the hub defaults to Buying and lists the signed-in user's placed orders, scoped to them" do
+		sign_in
+		mine = build_order(consumer_pubkey: @session_pubkey)
+		build_order # neither party is the signed-in user
+
+		get orders_url
+
+		assert_response :success
+		assert_select "h1", text: "Orders"
+		assert_select "[role=tab][aria-selected='true']", text: /Buying/
+		assert_includes response.body, mine.id.first(8) # the ledger row for my order
+	end
+
+	test "the Selling tab lists orders the signed-in user provides on" do
+		sign_in
+		build_order(provider_pubkey: @session_pubkey)
+
+		get orders_url(tab: "selling")
+
+		assert_response :success
+		assert_select "[role=tab][aria-selected='true']", text: /Selling/
+	end
+
+	test "?order_id opens the order drawer with a lazy frame to the detail" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
+
+		get orders_url(order_id: order.id)
+
+		assert_response :success
+		assert_select "turbo-frame[src=?]", order_path(order) # the drawer lazy-loads the order detail
+	end
+
+	test "an order_id that isn't the signed-in user's renders no drawer" do
+		sign_in
+
+		get orders_url(order_id: build_order.id) # someone else's order
+
+		assert_response :success
+		assert_select "turbo-frame", false
+	end
+
+	test "the Selling tab shows the empty state with no provider orders" do
+		sign_in
+
+		get orders_url(tab: "selling")
+
+		assert_response :success
+		assert_match(/No orders to fulfill yet/, response.body)
+	end
+
+	test "the order detail surfaces the incoming request to the provider (so they can fulfill from the hub)" do
+		sign_in
+		order = build_order(provider_pubkey: @session_pubkey, consumer_pubkey: SecureRandom.hex(32),
+			entry_point: Orders::EntryPoints::CATALOG_ORDER)
+
+		get order_url(order)
+
+		assert_response :success
+		assert_select "[data-controller='messages'][data-messages-own-value=?]", @session_pubkey
+	end
+
 	test "placing an order requires a signed-in session" do
 		post orders_url, params: order_params("x")
 

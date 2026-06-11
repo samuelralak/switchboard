@@ -7,7 +7,11 @@
 class MessagesController < ApplicationController
 	before_action :require_login
 
+	# The inbox is folded into the order hub's Selling tab; without a thread id this just redirects there. With
+	# an id it still renders the order's thread (reached from a Selling row) until messaging moves inline.
 	def index
+		return redirect_to orders_path(tab: "selling") unless params[:id]
+
 		@state = Messages::Ui::State.index(pubkey: current_user.pubkey, selected_id: params[:id])
 		@open_order = @state.conversations.find { |conversation| conversation.id == params[:order_id] }
 	end

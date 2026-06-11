@@ -13,7 +13,7 @@
   </div>
 
   <div class="mt-5 flex flex-wrap gap-2.5">
-    <%= render Shared::Button::ButtonComponent.new(tag: :a, href: requests_path, variant: :primary, icon: "package") do %>View my requests<% end %>
+    <%= render Shared::Button::ButtonComponent.new(tag: :a, href: orders_path(tab: "buying"), variant: :primary, icon: "package") do %>View orders<% end %>
     <%= render Shared::Button::ButtonComponent.new(variant: :ghost, icon: "add-01", data: { action: "request-form#publishAnother" }) do %>Post another<% end %>
   </div>
 </div>

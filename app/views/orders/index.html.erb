@@ -1,0 +1,51 @@
+<% content_for :title, "Orders" %>
+
+<%# Your order activity as a two-pane inbox (mirroring messages): the role-tabbed list on the left, the open
+    order's detail on the right. URL is state -- ?order_id selects (else the first opens on wide screens).
+    Unifies the former My-requests + Messages pages; messaging lives inside the order detail. %>
+<header class="mb-6">
+  <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Orders</h1>
+  <p class="mt-0.5 text-sm text-ink-muted">Everything you're buying and selling.</p>
+</header>
+
+<div class="flex items-start gap-x-6">
+  <%# list (primary on narrow screens) %>
+  <div class="w-full shrink-0 lg:w-[26rem] <%= "hidden lg:block" if @hub.selected %>">
+    <div class="mb-5 flex items-center border-b border-border">
+      <div class="flex items-center gap-6" role="tablist">
+        <% [ [ "buying", "Buying", @hub.buying_count ], [ "selling", "Selling", @hub.selling_count ] ].each do |key, label, count| %>
+          <%= link_to orders_path(tab: key), role: "tab", "aria-selected": (@hub.tab == key).to_s,
+                class: "-mb-px flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright #{@hub.tab == key ? "border-copper text-ink" : "border-transparent text-ink-muted hover:text-ink"}" do %>
+            <%= label %><span class="font-mono text-xs text-ink-faint"><%= count %></span>
+          <% end %>
+        <% end %>
+      </div>
+
+      <% if @hub.buying? %>
+        <%= link_to new_request_path, class: "-mb-px ml-auto flex items-center gap-1.5 pb-3 text-sm font-medium text-copper transition-colors hover:text-copper-bright focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright" do %>
+          <i class="hgi-stroke hgi-add-01 text-base" aria-hidden="true"></i>Post a request
+        <% end %>
+      <% end %>
+    </div>
+
+    <% if @hub.buying? %>
+      <%= render "orders/buying", orders: @hub.buying_orders, authored: @hub.buying_requests, open_order: @hub.open_order %>
+    <% else %>
+      <%= render "orders/selling", conversations: @hub.selling, open_order: @hub.open_order %>
+    <% end %>
+  </div>
+
+  <%# the open order's detail (shown on narrow screens once one is picked) %>
+  <div class="min-w-0 flex-1 <%= "hidden lg:block" unless @hub.selected %>">
+    <% if @hub.open_order %>
+      <%= link_to orders_path(tab: @hub.tab), class: "mb-5 inline-flex items-center gap-1.5 rounded text-xs text-ink-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright lg:hidden" do %>
+        <%= render Shared::Icon::IconComponent.new(name: "arrow-left-01") %>orders
+      <% end %>
+      <%= turbo_frame_tag order_detail_frame(@hub.open_order.id), src: order_path(@hub.open_order.id), loading: :lazy do %>
+        <p class="text-sm text-ink-muted" role="status">Loading order…</p>
+      <% end %>
+    <% else %>
+      <p class="hidden py-20 text-center text-sm text-ink-faint lg:block">Select an order to see its detail.</p>
+    <% end %>
+  </div>
+</div>

@@ -8,15 +8,31 @@ module Orders
 		class LedgerRowComponent < ApplicationComponent
 			attr_reader :row
 
-			def initialize(row:)
+			def initialize(row:, selected: false)
 				@row = row
+				@selected = selected
 			end
 
-			def status = @status ||= helpers.status_presentation(row.state, delivered: row.delivered)
-			# Opens the order drawer via the URL (?order_id); refresh keeps it open, the backdrop/Esc close it.
-			def order_path = helpers.requests_path(order_id: row.id)
-			def awaiting? = row.state == Orders::States::AWAITING_FUNDING
-			def funding_left = helpers.distance_of_time_in_words(Time.current, row.funding_deadline_at)
+			def selected?
+				@selected
+			end
+
+			def status
+				@status ||= helpers.status_presentation(row.state, delivered: row.delivered)
+			end
+
+			# Selects this order in the hub's right pane via the URL (?order_id); refresh keeps it open.
+			def order_path
+				helpers.orders_path(tab: "buying", order_id: row.id)
+			end
+
+			def awaiting?
+				row.state == Orders::States::AWAITING_FUNDING
+			end
+
+			def funding_left
+				helpers.distance_of_time_in_words(Time.current, row.funding_deadline_at)
+			end
 		end
 	end
 end
