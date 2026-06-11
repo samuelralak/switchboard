@@ -1,0 +1,6 @@
+<%# Broadcast on a state change (Orders::Ui::Update) to replace the order_detail_frame with a fresh src-frame
+    so each open client re-fetches its OWN viewer-specific order detail -- the consumer's fund/release panels
+    and the provider's deliver/redeem panels differ, so a shared broadcast cannot render both. %>
+<%= turbo_frame_tag order_detail_frame(order.id), src: order_path(order.id), loading: :eager do %>
+  <p class="text-sm text-ink-muted" role="status">Updating…</p>
+<% end %>

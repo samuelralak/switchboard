@@ -1,7 +1,10 @@
-<%# The Selling tab: orders you provide on, grouped by what they need from you. Each row opens its thread. %>
+<%# The Selling tab: orders you provide on, grouped by what they need from you -- in-progress (needs you, then
+    in progress) at the top, done last. Each row opens the order. %>
 <% section_labels = { needs_you: "Needs you", in_progress: "In progress", done: "Done" } %>
 <% if conversations.any? %>
-  <% conversations.group_by(&:section).each do |section, group| %>
+  <% grouped = conversations.group_by(&:section) %>
+  <% grouped.keys.sort_by { |section| section_labels.keys.index(section) || section_labels.size }.each do |section| %>
+    <% group = grouped[section] %>
     <div class="mb-2.5 flex items-center gap-2">
       <p class="text-xs font-medium uppercase tracking-wider <%= section == :needs_you ? "text-ink-secondary" : "text-ink-faint" %>"><%= section_labels.fetch(section, section.to_s) %></p>
       <span class="text-xs text-ink-faint"><%= group.size %></span>

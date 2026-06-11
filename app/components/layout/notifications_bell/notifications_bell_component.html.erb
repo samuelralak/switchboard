@@ -5,10 +5,13 @@
 
   <el-dropdown class="relative">
     <button type="button" data-action="notifications#open"
-            class="relative -m-2.5 p-2.5 text-ink-faint hover:text-ink focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+            class="-m-2.5 p-2.5 text-ink-faint hover:text-ink focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
       <span class="sr-only">Notifications</span>
-      <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
-      <%= render "notifications/badge", count: unseen_count %>
+      <%# relative wrapper hugging the icon, so the badge anchors to the icon corner, not the padded button. %>
+      <span class="relative inline-block">
+        <i class="hgi-stroke hgi-notification-02 text-xl" aria-hidden="true"></i>
+        <%= render "notifications/badge", count: unseen_count %>
+      </span>
     </button>
 
     <el-menu anchor="bottom end" popover class="w-80 origin-top-right rounded-xl border border-border bg-surface-2 shadow-panel transition transition-discrete [--anchor-gap:--spacing(2.5)] data-closed:scale-95 data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in">

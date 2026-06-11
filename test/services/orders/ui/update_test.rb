@@ -5,14 +5,16 @@ require "test_helper"
 module Orders
 	module Ui
 		class UpdateTest < ActiveSupport::TestCase
-			test "broadcasts the lifecycle and the status strip to the order's own stream" do
+			test "broadcasts the status strip and a detail-frame reload to the order's own stream" do
 				order = build_order
-				chain = Orders::Ui::State.lifecycle(order:)
 				strip = Orders::Ui::State.strip(order:)
+				detail = Orders::Ui::State.detail(order:)
 
 				actions = recording_turbo_actions { Orders::Ui::Update.call(order:) }
 
-				assert_equal [ [ chain.stream, chain.target ], [ strip.stream, strip.target ] ], actions
+				# detail re-fetches the frame so each viewer re-renders its own action panels (strip stays for the
+				# compact form on other surfaces).
+				assert_equal [ [ strip.stream, strip.target ], [ detail.stream, detail.target ] ], actions
 			end
 
 			private

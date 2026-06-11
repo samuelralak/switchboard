@@ -27,11 +27,12 @@ module NotificationsHelper
 	def notification_headline(notification) = HEADLINES.fetch(notification.notification_type, "Order update.")
 	def notification_icon(notification) = ICONS.fetch(notification.notification_type, "hgi-notification-02")
 
-	# The order a notification points at, or the notifications feed when the order id is absent. Named to avoid
-	# shadowing Rails' notification_path route helper (the row link destination is an ORDER, not a notification).
+	# Where a notification points: the order opened IN the orders hub (orders_path, NOT the deprecated single
+	# /orders/:id page), or the notifications feed when the order id is absent. The hub resolves the tab from
+	# the order id (Orders::Ui::State.hub), so a notification recipient lands on the right Buying/Selling side.
 	def notification_order_path(notification)
 		order_id = notification.metadata["order_id"]
-		order_id.present? ? order_path(order_id) : notifications_path
+		order_id.present? ? orders_path(order_id:) : notifications_path
 	end
 
 	# Stimulus data wiring the per-row mark-as-read on click. Only UNREAD rows get it, so an already-read row

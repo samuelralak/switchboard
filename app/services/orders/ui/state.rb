@@ -19,6 +19,16 @@ module Orders
 				def broadcast = { target:, partial: "orders/lifecycle", locals: { order: } }
 			end
 
+			# A whole-detail reload pushed on a state change: replace the order_detail_frame with a fresh src-frame
+			# so each client re-fetches its OWN viewer-specific order page. The action panels differ for consumer
+			# vs provider (fund/release vs deliver/redeem), so a single shared broadcast cannot render both -- the
+			# re-fetch lets each browser render its own. Supersedes the lifecycle broadcast on the order page.
+			Detail = Data.define(:order) do
+				def stream = "order_#{order.id}"
+				def target = "order_#{order.id}_detail"
+				def broadcast = { target:, partial: "orders/detail_frame", locals: { order: } }
+			end
+
 			# The order activity hub (OrdersController#index): a two-pane surface like the messages inbox -- the
 			# signed-in user's orders by role (Buying = consumer, Selling = provider) on the left, the open order's
 			# detail on the right. `open_order` is the ?order_id row or, on wide screens, the first; `selected` is
@@ -44,11 +54,22 @@ module Orders
 
 			def self.strip(order:) = Strip.new(order:)
 			def self.lifecycle(order:) = Chain.new(order:)
+			def self.detail(order:) = Detail.new(order:)
+
+			# The active tab: an explicit tab wins (the row links pass tab + order_id); otherwise, when an
+			# order_id is given (a notification link carries no tab), open the side whose list holds that order --
+			# the recipient may be the consumer (Buying) or the provider (Selling).
+			def self.active_tab(tab:, order_id:, selling:)
+				return tab if %w[buying selling].include?(tab)
+				return "selling" if order_id.present? && selling.any? { |conversation| conversation.id == order_id }
+
+				"buying"
+			end
 
 			def self.hub(pubkey:, tab: nil, order_id: nil)
-				active = tab == "selling" ? "selling" : "buying"
 				buying_orders = Orders::Ledger.call(pubkey:)
 				selling = Messages::ProviderInbox.call(pubkey:)
+				active = active_tab(tab:, order_id:, selling:)
 				selectable = active == "selling" ? selling : buying_orders
 				# A given order_id must match one of YOUR own orders; an unknown/foreign id shows nothing (no
 				# fallback to the first, so a bad/stale id never silently opens an unrelated order). With no id,
