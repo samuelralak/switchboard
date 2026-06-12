@@ -14,6 +14,12 @@ module Orders
 			transition(from:, to:)
 		end
 
+		# Only a Tier-2 (arbiter) order can be disputed; a Tier-1 HTLC order has no mediator, so it must never
+		# enter the disputed state even though the funded->disputed edge exists in the shared transition table.
+		guard_transition(to: States::DISPUTED) do |order, _transition|
+			order.tier2?
+		end
+
 		# Cache the ledger head. save(validate: false) skips validations because this runs inside statesman's
 		# transition savepoint, where the ledger is already the source of truth.
 		after_transition do |order, transition|
@@ -21,12 +27,21 @@ module Orders
 			order.save!(validate: false)
 		end
 
-		# One settlement per order; UNIQUE(order_id) on order_effects makes a second physically impossible.
+		# One settlement per order, whether it lands from the funded path (happy / timeout) or from an
+		# arbiter-ruled dispute (Tier-2); UNIQUE(order_id) on order_effects makes a second physically impossible.
 		after_transition(from: States::FUNDED, to: States::RELEASED) do |order, _t|
 			order.effects.create!(kind: States::RELEASED)
 		end
 
 		after_transition(from: States::FUNDED, to: States::REFUNDED) do |order, _t|
+			order.effects.create!(kind: States::REFUNDED)
+		end
+
+		after_transition(from: States::DISPUTED, to: States::RELEASED) do |order, _t|
+			order.effects.create!(kind: States::RELEASED)
+		end
+
+		after_transition(from: States::DISPUTED, to: States::REFUNDED) do |order, _t|
 			order.effects.create!(kind: States::REFUNDED)
 		end
 	end

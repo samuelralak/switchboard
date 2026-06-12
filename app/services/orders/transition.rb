@@ -17,8 +17,9 @@ module Orders
 				txn.after_commit { broadcast_and_notify } if advanced
 			end
 			order
-		rescue Statesman::TransitionFailedError
-			raise IllegalTransitionError, "order #{order.id}: no transition #{order.current_state} -> #{to}"
+		rescue Statesman::TransitionFailedError, Statesman::GuardFailedError
+			# no path (TransitionFailed) or a tier/role guard rejected it (GuardFailed): both are illegal here.
+			raise IllegalTransitionError, "order #{order.id}: cannot transition #{order.current_state} -> #{to}"
 		rescue ActiveRecord::RecordNotUnique
 			order.reload # settlement effect already recorded: a settlement landed concurrently
 		end

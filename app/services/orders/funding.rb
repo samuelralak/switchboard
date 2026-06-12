@@ -7,7 +7,7 @@ module Orders
 	class Funding < BaseService
 		option :order
 		option :mint_url, type: Types::Strict::String
-		option :hashlock, type: Types::Strict::String
+		option :hashlock, type: Types::Strict::String.optional, default: -> { } # absent for a Tier-2 P2PK lock
 		option :locktime
 		option :lock_pubkey, type: Types::Strict::String
 		option :refund_pubkey, type: Types::Strict::String
@@ -20,6 +20,7 @@ module Orders
 			return idempotent_result! if order.current_state == Orders::States::FUNDED
 
 			ensure_awaiting_funding!
+			ensure_tier_available!
 			validate!
 			verify_unspent!
 			Order.transaction { record_lock_and_fund! }
@@ -34,6 +35,15 @@ module Orders
 			return if order.current_state == Orders::States::AWAITING_FUNDING
 
 			raise IllegalTransitionError, "cannot fund a #{order.current_state} order"
+		end
+
+		# A Tier-2 order can only be funded once the platform arbiter key is provisioned (the lock is built
+		# against it; without it a dispute could never be ruled).
+		def ensure_tier_available!
+			return unless order.tier2?
+			return if Escrow::ArbiterSigner.configured?
+
+			raise ValidationError, { tier: [ "tier-2 arbiter escrow is not available" ] }
 		end
 
 		# A re-report (or a concurrent winner) is idempotent ONLY if the order is funded with exactly the
@@ -80,7 +90,8 @@ module Orders
 		def proof_ys = reported_proofs.pluck(:y)
 		def proofs_sum = reported_proofs.sum { |p| p[:amount].to_i }
 
-		# The HTLC lock terms, shared by the contract check and the persisted OrderLock.
+		# The lock terms, shared by the contract check and the persisted OrderLock. Tier-1 carries a hashlock +
+		# no arbiter; Tier-2 carries the arbiter + no hashlock (the absent field is nil here).
 		def lock_terms
 			{
 				mint_url:, hashlock:, lock_pubkey:, refund_pubkey:, locktime: locktime_at,
@@ -88,7 +99,15 @@ module Orders
 			}
 		end
 
-		def contract_input = lock_terms.compact
+		# Pass the FULL terms (nils included) so the per-tier contract rules fire on a missing hashlock/arbiter
+		# rather than silently skipping a dropped key. The Tier-2 arbiter is VALIDATED (== the platform key, in
+		# both FundingContract and the OrderLock model invariant), not injected: the lock already exists at the
+		# mint, so overwriting the reported key with the platform key would only HIDE a mismatch (an honestly
+		# reported wrong arbiter must be rejected, not silently rewritten). The provider independently verifies
+		# the real on-mint lock before working, which is the ultimate backstop. See docs/tier2-arbiter-escrow.md.
+		def contract_input
+			lock_terms
+		end
 
 		# locktime arrives as a Time (Ruby callers) or unix-seconds (the funding form sends an integer string).
 		def locktime_at = @locktime_at ||= unix_locktime? ? Time.at(locktime.to_i).utc : locktime

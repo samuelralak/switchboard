@@ -65,6 +65,37 @@ module ActiveSupport
 			[ order.reload, preimage, hashlock ]
 		end
 
+		# A fixed test arbiter key (NEVER a real key). Provisions the platform arbiter for Tier-2 tests.
+		TEST_ARBITER_PRIVKEY = "22" * 32
+
+		# Run the block with the platform arbiter key provisioned in ENV (Tier-2 enabled), then restore.
+		def with_arbiter_key(privkey = TEST_ARBITER_PRIVKEY)
+			previous = ENV.fetch("ESCROW_TIER2_ARBITER_PRIVKEY", nil)
+			ENV["ESCROW_TIER2_ARBITER_PRIVKEY"] = privkey
+			yield
+		ensure
+			ENV["ESCROW_TIER2_ARBITER_PRIVKEY"] = previous
+		end
+
+		# The compressed arbiter pubkey for the test key (derived directly, independent of ENV).
+		def platform_arbiter_pubkey(privkey = TEST_ARBITER_PRIVKEY)
+			Escrow::ArbiterSigner.new(private_key: privkey).pubkey
+		end
+
+		# Fund a Tier-2 (2-of-3 arbiter) order via Orders::Funding; returns the reloaded order. The locktime
+		# clears the Tier-2 min-lead and the amount sits under the Tier-2 cap.
+		def fund_tier2_order(order = nil, locktime: 4.days.from_now)
+			order ||= build_order(tier: Orders::Tiers::TIER2_ARBITER, amount_sats: 1_000)
+			point = -> { "02#{SecureRandom.hex(32)}" }
+			params = {
+				mint_url: order.mint_url, locktime:, lock_pubkey: point.call, refund_pubkey: point.call,
+				arbiter_pubkey: platform_arbiter_pubkey, required_signatures: 2,
+				proofs: [ { y: point.call, amount: order.amount_sats } ]
+			}
+			with_arbiter_key { with_unspent_checkstate { Orders::Funding.call(order:, **params) } }
+			order.reload
+		end
+
 		# A kind-30402 listing/request event by a specific author, carrying a NIP-99 price/budget tag.
 		def classified_event(pubkey:, marker:, price: 1_000, currency: "sat", d: SecureRandom.hex(4), extra_tags: [])
 			tags = [ [ "d", d ], [ "title", "Svc" ], [ "t", marker ], [ "price", price.to_s, currency ] ] + extra_tags

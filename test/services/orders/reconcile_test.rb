@@ -27,5 +27,16 @@ module Orders
 			assert_nothing_raised { Orders::Reconcile.call(order:) }
 			assert_equal Orders::States::FUNDED, order.reload.current_state
 		end
+
+		test "settles a disputed tier-2 order from the mint checkstate" do
+			order = fund_tier2_order
+			Orders::Transition.call(order:, to: Orders::States::DISPUTED)
+			y = order.proofs.first.proof_y
+			states = [ Cashu::ProofState.new(y:, state: "SPENT", witness: { signatures: [ "aa" ] }.to_json) ]
+
+			with_checkstate(states) { Orders::Reconcile.call(order:) }
+
+			assert_equal Orders::States::REFUNDED, order.reload.current_state
+		end
 	end
 end

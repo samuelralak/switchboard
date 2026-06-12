@@ -43,6 +43,14 @@ class Order < ApplicationRecord
 	def terminal? = Orders::States.terminal?(current_state)
 	def settled? = Orders::States.settlement?(current_state)
 
+	def tier1?
+		tier == Orders::Tiers::TIER1_HTLC
+	end
+
+	def tier2?
+		tier == Orders::Tiers::TIER2_ARBITER
+	end
+
 	private
 
 	def consumer_differs_from_provider
@@ -56,7 +64,7 @@ class Order < ApplicationRecord
 	end
 
 	def amount_within_cap
-		errors.add(:amount_sats, "exceeds the per-order cap") if amount_sats && amount_sats > Orders::Policy.max_order_sats
+		errors.add(:amount_sats, "exceeds the per-order cap") if amount_sats && amount_sats > Orders::Policy.cap_for(tier)
 	end
 
 	def current_state_matches_ledger

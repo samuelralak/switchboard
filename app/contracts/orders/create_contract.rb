@@ -4,7 +4,8 @@ require "dry/validation"
 
 module Orders
 	# Validates a new escrow order: known entry_point/tier, hex parties that differ, an allowlisted mint, and a
-	# positive amount within the per-order cap. The DB still enforces these as hard constraints.
+	# positive amount within the per-order cap (Tier-2 has its own lower cap). The DB still enforces these as
+	# hard constraints.
 	class CreateContract < ApplicationContract
 		params do
 			required(:entry_point).filled(:string)
@@ -26,10 +27,11 @@ module Orders
 		rule(:funding_deadline_at) { key.failure("must be in the future") unless value > Time.current }
 
 		rule(:amount_sats) do
+			cap = Orders::Policy.cap_for(values[:tier])
 			if value <= 0
 				key.failure("must be positive")
-			elsif value > Orders::Policy.max_order_sats
-				key.failure("exceeds the #{Orders::Policy.max_order_sats} sat cap")
+			elsif value > cap
+				key.failure("exceeds the #{cap} sat cap")
 			end
 		end
 

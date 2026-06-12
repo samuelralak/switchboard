@@ -5,19 +5,24 @@ module Orders
 	module States
 		AWAITING_FUNDING = "awaiting_funding"
 		FUNDED           = "funded"
+		DISPUTED         = "disputed"
 		RELEASED         = "released"
 		REFUNDED         = "refunded"
 		EXPIRED          = "expired"
 
-		ALL         = [ AWAITING_FUNDING, FUNDED, RELEASED, REFUNDED, EXPIRED ].freeze
-		ACTIVE      = [ AWAITING_FUNDING, FUNDED ].freeze
+		ALL         = [ AWAITING_FUNDING, FUNDED, DISPUTED, RELEASED, REFUNDED, EXPIRED ].freeze
+		ACTIVE      = [ AWAITING_FUNDING, FUNDED, DISPUTED ].freeze
 		TERMINAL    = [ RELEASED, REFUNDED, EXPIRED ].freeze
 		SETTLEMENTS = [ RELEASED, REFUNDED ].freeze
+		# Orders whose proofs may have moved at the mint and need reconciling: funded, plus a disputed order
+		# the arbiter ruled on. The reconcile sweep + Settlement scan this set (Tier-2 Slice 3).
+		SETTLEABLE  = [ FUNDED, DISPUTED ].freeze
 
 		# from => allowed to-states
 		TRANSITIONS = {
 			AWAITING_FUNDING => [ FUNDED, EXPIRED ],
-			FUNDED => [ RELEASED, REFUNDED ]
+			FUNDED => [ RELEASED, REFUNDED, DISPUTED ],
+			DISPUTED => [ RELEASED, REFUNDED ]
 		}.freeze
 
 		module_function

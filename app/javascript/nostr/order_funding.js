@@ -1,4 +1,4 @@
-import { ensureMintSupports, lockHtlc, proofState } from "nostr/cashu_escrow"
+import { ensureMintSupports, lockHtlc, lockP2PK2of3, proofState } from "nostr/cashu_escrow"
 import { RelaySet } from "nostr/relay_set"
 import { buildRumor, wrapMessage, unwrap, Kind } from "nostr/nip17"
 import { idbGet, idbPut } from "nostr/escrow_store"
@@ -18,12 +18,44 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
   return Promise.race([ promise, sleep(ms).then(() => { throw new Error(message) }) ])
 }
 
-// Mint -> lock -> report. Returns { payload, token, preimage, lockedProofs }; payload matches the Rails
-// Orders::Funding contract (mint_url, hashlock, locktime, lock/refund pubkeys, proofs[{y,amount,keyset_id}]).
-// onInvoice(bolt11, quoteId) surfaces the invoice to pay; onStatus(stage) drives the UI; signal cancels.
+// Tier-1 (HTLC) mint -> lock -> report. Returns { payload, token, preimage, lockedProofs }; payload matches
+// the Rails Orders::Funding contract (mint_url, hashlock, locktime, lock/refund pubkeys, proofs[{y,amount,
+// keyset_id}]). onInvoice(bolt11, quoteId) surfaces the invoice to pay; onStatus(stage) drives the UI;
+// signal cancels.
 export async function mintLockAndReport({
   wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, onInvoice, onStatus, signal,
 }) {
+  const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
+
+  onStatus?.("locking")
+  const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
+  const payload = await reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey })
+
+  return { payload, token: lock.token, preimage: lock.preimage, lockedProofs: lock.lockedProofs }
+}
+
+// Tier-2 (2-of-3 arbiter) mint -> lock -> report. No hashlock; the payload carries the arbiter pubkey and
+// n_sigs=2. arbiterPubkey is the PLATFORM key (advertised by Rails); Rails rejects any other arbiter.
+export async function mintLockAndReportTier2({
+  wallet, mintUrl, amount, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
+  onInvoice, onStatus, signal,
+}) {
+  const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
+
+  onStatus?.("locking")
+  const lock = await lockP2PK2of3({
+    wallet, amount, proofs, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
+  })
+  const payload = reportProofs(await proofState({ wallet, proofs: lock.lockedProofs }), lock.lockedProofs, {
+    mint_url: mintUrl, locktime: String(locktime), lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
+    arbiter_pubkey: arbiterPubkey, required_signatures: 2,
+  })
+
+  return { payload, token: lock.token, lockedProofs: lock.lockedProofs }
+}
+
+// Mint `amount` sats via the bolt11 flow: assert the mint, surface the invoice, wait for payment, return proofs.
+async function mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal }) {
   await ensureMintSupports(wallet)
 
   onStatus?.("invoice")
@@ -33,24 +65,22 @@ export async function mintLockAndReport({
 
   onStatus?.("minting")
   const minted = await withTimeout(wallet.mintProofsBolt11(amount, quote.quote), "the mint did not issue the ecash")
-  const proofs = minted?.proofs ?? minted
-
-  onStatus?.("locking")
-  const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
-  const payload = await reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey })
-
-  return { payload, token: lock.token, preimage: lock.preimage, lockedProofs: lock.lockedProofs }
+  return minted?.proofs ?? minted
 }
 
 // Only observable data: the proof Y values (one-way from the secret), hashlock, locktime, P2PK pubkeys.
 async function reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey }) {
-  const states = await proofState({ wallet, proofs: lock.lockedProofs })
-  const proofs = lock.lockedProofs.map((proof, i) => ({ y: states[i].Y, amount: Number(proof.amount), keyset_id: proof.id }))
-
-  return {
+  return reportProofs(await proofState({ wallet, proofs: lock.lockedProofs }), lock.lockedProofs, {
     mint_url: mintUrl, hashlock: lock.hash, locktime: String(locktime),
-    lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey, proofs,
-  }
+    lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
+  })
+}
+
+// Attach the reportable proofs (Y + amount + keyset, never the spendable secret/C) to the lock-term fields.
+function reportProofs(states, lockedProofs, fields) {
+  const proofs = lockedProofs.map((proof, i) => ({ y: states[i].Y, amount: Number(proof.amount), keyset_id: proof.id }))
+
+  return { ...fields, proofs }
 }
 
 // Poll the mint until the invoice is PAID (or already ISSUED on a re-entry); honor an AbortSignal.

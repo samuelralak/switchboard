@@ -72,10 +72,61 @@ module Orders
 			assert_equal [ 10, 20 ], order.order_transitions.order(:sort_key).pluck(:sort_key)
 		end
 
+		test "a funded tier-2 order can move to disputed without settling" do
+			order = funded_tier2
+
+			Orders::Transition.call(order:, to: Orders::States::DISPUTED)
+
+			assert_equal Orders::States::DISPUTED, order.reload.current_state
+			assert_empty order.effects # a dispute is not yet a settlement
+		end
+
+		test "a tier-1 order cannot be disputed (it has no mediator)" do
+			order = funded_order
+
+			assert_raises(IllegalTransitionError) { Orders::Transition.call(order:, to: Orders::States::DISPUTED) }
+			assert_equal Orders::States::FUNDED, order.reload.current_state
+		end
+
+		test "a disputed order releases with one settlement effect" do
+			order = disputed_order
+
+			Orders::Transition.call(order:, to: Orders::States::RELEASED)
+
+			assert_equal Orders::States::RELEASED, order.reload.current_state
+			assert_equal [ Orders::States::RELEASED ], order.effects.pluck(:kind)
+		end
+
+		test "a disputed order refunds with one settlement effect" do
+			order = disputed_order
+
+			Orders::Transition.call(order:, to: Orders::States::REFUNDED)
+
+			assert_equal [ Orders::States::REFUNDED ], order.effects.pluck(:kind)
+		end
+
+		test "a disputed order cannot return to funded" do
+			order = disputed_order
+
+			assert_raises(IllegalTransitionError) { Orders::Transition.call(order:, to: Orders::States::FUNDED) }
+			assert_equal Orders::States::DISPUTED, order.reload.current_state
+		end
+
 		private
 
 		def funded_order
 			build_order.tap { |order| Orders::Transition.call(order:, to: Orders::States::FUNDED) }
+		end
+
+		# A funded Tier-2 order (only Tier-2 may be disputed). No lock is needed for these state-machine tests.
+		def funded_tier2
+			order = build_order(tier: Orders::Tiers::TIER2_ARBITER)
+			Orders::Transition.call(order:, to: Orders::States::FUNDED)
+			order
+		end
+
+		def disputed_order
+			funded_tier2.tap { |order| Orders::Transition.call(order:, to: Orders::States::DISPUTED) }
 		end
 	end
 end

@@ -17,7 +17,7 @@ module Cashu
 				parsed = witness.is_a?(String) ? JSON.parse(witness) : witness
 				return none unless parsed.is_a?(Hash) # a non-object witness carries no preimage
 
-				{ preimage: parsed["preimage"], signatures: parsed["signatures"] || [] }
+				{ preimage: parsed["preimage"], signatures: signatures(parsed) }
 			rescue JSON::ParserError => e
 				Rails.logger.warn("[Cashu] unparseable witness: #{e.message}")
 				none
@@ -26,6 +26,12 @@ module Cashu
 			private
 
 			def none = { preimage: nil, signatures: [] }
+
+			# signatures MUST be an array: a misbehaving/hostile mint could return a scalar, which settlement
+			# counts, so coerce a non-array to empty (it can never be mistaken for a valid multi-sig spend).
+			def signatures(parsed)
+				parsed["signatures"].is_a?(Array) ? parsed["signatures"] : []
+			end
 		end
 	end
 end

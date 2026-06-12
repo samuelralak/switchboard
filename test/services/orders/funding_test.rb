@@ -85,6 +85,57 @@ module Orders
 			assert_nil order.reload.lock
 		end
 
+		test "funds a tier-2 order with the platform arbiter and no hashlock" do
+			order = tier2_order
+
+			with_arbiter_key { fund_tier2(order) }
+
+			assert_equal Orders::States::FUNDED, order.reload.current_state
+			assert_equal platform_arbiter_pubkey, order.lock.arbiter_pubkey
+			assert_nil order.lock.hashlock
+			assert_equal 2, order.lock.required_signatures
+		end
+
+		test "rejects a tier-2 lock whose arbiter is not the platform key (anti-bypass)" do
+			order = tier2_order
+
+			error = with_arbiter_key do
+				assert_raises(ValidationError) { fund_tier2(order, arbiter_pubkey: "02#{SecureRandom.hex(32)}") }
+			end
+
+			assert error.errors.key?(:arbiter_pubkey)
+			assert_nil order.reload.lock
+		end
+
+		test "rejects a tier-2 lock that carries a hashlock" do
+			order = tier2_order
+
+			error = with_arbiter_key do
+				assert_raises(ValidationError) { fund_tier2(order, hashlock: SecureRandom.hex(32)) }
+			end
+
+			assert error.errors.key?(:hashlock)
+		end
+
+		test "rejects a tier-2 locktime below the dispute-window minimum" do
+			order = tier2_order
+
+			error = with_arbiter_key do
+				assert_raises(ValidationError) { fund_tier2(order, locktime: 1.hour.from_now) }
+			end
+
+			assert error.errors.key?(:locktime)
+		end
+
+		test "rejects tier-2 funding when no arbiter key is configured" do
+			order = tier2_order
+
+			# no with_arbiter_key -> the platform arbiter is unprovisioned
+			error = assert_raises(ValidationError) { fund_tier2(order) }
+
+			assert error.errors.key?(:tier)
+		end
+
 		private
 
 		def refund!(order)
@@ -98,6 +149,19 @@ module Orders
 			defaults = {
 				mint_url: order.mint_url, hashlock: SecureRandom.hex(32), locktime: 1.hour.from_now,
 				lock_pubkey: point, refund_pubkey: point, proofs: [ { y: point, amount: order.amount_sats } ]
+			}
+			with_unspent_checkstate { Orders::Funding.call(order:, **defaults.merge(overrides)) }
+		end
+
+		def tier2_order = build_order(tier: Orders::Tiers::TIER2_ARBITER, amount_sats: 1_000)
+
+		# A Tier-2 funding report (2-of-3, no hashlock); caller wraps in with_arbiter_key when the platform
+		# arbiter must be provisioned. Defaults to the matching platform arbiter key + a min-lead locktime.
+		def fund_tier2(order, **overrides)
+			defaults = {
+				mint_url: order.mint_url, locktime: 4.days.from_now, lock_pubkey: point, refund_pubkey: point,
+				arbiter_pubkey: platform_arbiter_pubkey, required_signatures: 2,
+				proofs: [ { y: point, amount: order.amount_sats } ]
 			}
 			with_unspent_checkstate { Orders::Funding.call(order:, **defaults.merge(overrides)) }
 		end

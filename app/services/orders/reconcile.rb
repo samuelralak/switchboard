@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
 module Orders
-	# Re-derive a funded order's state from the mint (NUT-07, authoritative) and settle it if the proofs have
-	# moved. A no-op for non-funded orders. Cashu::MintError propagates so the caller retries.
+	# Re-derive a settleable order's state from the mint (NUT-07, authoritative) and settle it if the proofs
+	# have moved. A no-op for non-settleable orders (funded or, for a Tier-2 dispute, disputed). Cashu::MintError
+	# propagates so the caller retries.
 	class Reconcile < BaseService
 		option :order
 
 		def call
-			return order unless order.current_state == Orders::States::FUNDED
+			return order unless Orders::States::SETTLEABLE.include?(order.current_state)
 			return order if order.lock.blank? || order.proofs.empty? # nothing observable to reconcile
 
 			settle_from_mint

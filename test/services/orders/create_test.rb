@@ -34,6 +34,14 @@ module Orders
 			assert error.errors.key?(:amount_sats)
 		end
 
+		test "rejects a tier-2 amount over the lower tier-2 cap" do
+			over_tier2 = Orders::Policy.tier2_max_order_sats + 1
+			error = assert_raises(ValidationError) { create(tier: Orders::Tiers::TIER2_ARBITER, amount_sats: over_tier2) }
+
+			assert error.errors.key?(:amount_sats)
+			assert create(amount_sats: over_tier2).persisted? # the same amount is fine for tier-1 (higher cap)
+		end
+
 		test "rejects a consumer equal to the provider" do
 			pk = SecureRandom.hex(32)
 

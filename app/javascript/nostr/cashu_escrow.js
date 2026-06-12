@@ -82,6 +82,49 @@ export async function refund({ wallet, token, consumerRefundPrivkey }) {
   return { proofs: await wallet.receive(token, { privkey: consumerRefundPrivkey }) }
 }
 
+// --- Tier 2: arbiter-mediated 2-of-3 P2PK (NO hashlock) -------------------------------------------------
+// Lock `amount` to a NUT-11 P2PK 2-of-3 over {consumer, provider, arbiter}: the consumer key is the secret
+// `data` (one of the signers), the provider + arbiter keys are the `pubkeys` tag, n_sigs = 2, and the refund
+// pathway is the consumer alone after the locktime. Any two of the three release pre-locktime (happy =
+// consumer+provider; dispute = arbiter+either); the arbiter is 1-of-3 so never sufficient alone, and is not
+// in the refund set. No preimage: the delivery gate is the arbiter, not a hashlock. See
+// docs/tier2-arbiter-escrow.md. The first addLockPubkey becomes `data`; the spike asserts the built shape.
+export async function lockP2PK2of3({
+  wallet, amount, proofs, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
+}) {
+  assertFutureLocktime(locktime)
+
+  const builder = new P2PKBuilder()
+    .addLockPubkey(consumerPubkey)         // first lock key => secret.data, a signer in the 2-of-3
+    .addLockPubkey(providerPubkey)         // => pubkeys tag
+    .addLockPubkey(arbiterPubkey)          // => pubkeys tag
+    .requireLockSignatures(2)              // any 2 of {consumer, provider, arbiter} before locktime
+    .addRefundPubkey(consumerRefundPubkey) // consumer alone, after locktime (n_sigs_refund defaults to 1)
+    .lockUntil(locktime)                   // refund keys REQUIRE a locktime (builder enforces)
+
+  const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize
+  const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
+  const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
+
+  return { token, lockedProofs: send, change: keep, locktime }
+}
+
+// Append ONE key holder's signature to each proof's witness. The 2-of-3 release gathers these across two
+// holders (a party's browser + the platform arbiter); chain it once per signer, then redeem2of3 submits.
+export function coSignProofs(proofs, privkey) {
+  return proofs.map((proof) => signP2PKProof(proof, privkey))
+}
+
+// Submit proofs that already carry >= n_sigs signatures as a low-level swap into fresh proofs. The mint
+// verifies the multisig threshold; a short witness (1 of the 2-of-3, or a pre-locktime refund) is rejected.
+export async function redeem2of3({ wallet, signedProofs }) {
+  const inputs = signedProofs.map((proof) => ({
+    ...proof, witness: typeof proof.witness === "string" ? proof.witness : JSON.stringify(proof.witness),
+  }))
+
+  return swapInputs(wallet, inputs)
+}
+
 // NUT-07 proof states + the witness on a spent proof: the runtime's authoritative settlement signal. A
 // SPENT HTLC proof's witness reveals the preimage (= the release path was taken). Returns the raw states.
 export async function proofState({ wallet, proofs }) {

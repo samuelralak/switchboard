@@ -36,6 +36,26 @@ class OrderTest < ActiveSupport::TestCase
 		assert build_order(entry_point: Orders::EntryPoints::REQUEST_CLAIM, listing_coordinate: coord).persisted?
 	end
 
+	test "a disputed catalog order still blocks a re-order (the active index includes disputed)" do
+		coord = "30402:#{SecureRandom.hex(32)}:svc"
+		consumer = SecureRandom.hex(32)
+		build_order(listing_coordinate: coord, consumer_pubkey: consumer, current_state: Orders::States::DISPUTED)
+
+		assert_raises(ActiveRecord::RecordNotUnique) do
+			build_order(listing_coordinate: coord, consumer_pubkey: consumer)
+		end
+	end
+
+	test "a tier-2 order's amount is capped below tier-1" do
+		amount = Orders::Policy.tier2_max_order_sats + 1
+		tier2 = Order.new(**order_defaults, tier: Orders::Tiers::TIER2_ARBITER, amount_sats: amount)
+		tier1 = Order.new(**order_defaults, tier: Orders::Tiers::TIER1_HTLC, amount_sats: amount)
+
+		assert_not tier2.valid?(:create)
+		assert_includes tier2.errors[:amount_sats], "exceeds the per-order cap"
+		assert tier1.valid?(:create) # the same amount is fine for tier-1 (under the higher cap)
+	end
+
 	test "rejects a non-hex pubkey" do
 		order = build_order
 		order.consumer_pubkey = "nothex"
@@ -44,12 +64,13 @@ class OrderTest < ActiveSupport::TestCase
 		assert order.errors.of_kind?(:consumer_pubkey, :invalid)
 	end
 
-	test "active scope selects awaiting_funding and funded" do
+	test "active scope selects awaiting_funding, funded, and disputed" do
 		a = build_order
 		b = build_order(current_state: Orders::States::FUNDED)
+		c = build_order(current_state: Orders::States::DISPUTED)
 		build_order(current_state: Orders::States::RELEASED)
 
-		assert_equal [ a.id, b.id ].sort, Order.active.pluck(:id).sort
+		assert_equal [ a.id, b.id, c.id ].sort, Order.active.pluck(:id).sort
 	end
 
 	test "funding_due selects awaiting_funding past the deadline" do
