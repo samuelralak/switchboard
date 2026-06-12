@@ -6,7 +6,7 @@
 <section data-controller="catalog" data-catalog-mode-value="all"
          data-action="keydown@window->catalog#focusSearch">
   <%# Hero + intent search %>
-  <div class="mb-7 text-center">
+  <div class="mx-auto mb-7 max-w-4xl text-center">
     <p class="mb-3 font-mono text-xs uppercase tracking-widest text-copper">ask for anything</p>
     <h1 class="mb-6 text-hero font-display font-semibold leading-tight tracking-tight text-ink">What do you need done?</h1>
 
@@ -37,7 +37,7 @@
   <%# The defining guarantee %>
   <div class="mx-auto mb-12 flex max-w-4xl items-start gap-3 rounded-xl border border-copper-dim/40 bg-copper/5 px-4 py-3">
     <%= render Shared::Icon::IconComponent.new(name: "shield-01", color: "text-copper", extra: "mt-0.5 shrink-0") %>
-    <p class="text-sm leading-relaxed text-ink-secondary">
+    <p class="min-w-0 text-sm leading-relaxed text-ink-secondary">
       <span class="font-medium text-ink">Every transaction is escrowed.</span>
       Funds lock at request and release only on delivery, with an automatic refund if the work never
       arrives. The platform guarantees it on every job, not the provider.
@@ -72,9 +72,9 @@
           <% end %>
         </nav>
 
-        <div class="ml-auto flex items-center gap-2 sm:pb-2">
+        <div class="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:flex-nowrap sm:pb-2">
           <el-dropdown class="relative">
-            <button type="button" class="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+            <button type="button" class="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-9">
               Sort: <span data-catalog-target="sortLabel" class="text-ink">Newest</span>
               <i class="hgi-stroke hgi-arrow-down-01 text-xs text-ink-faint" aria-hidden="true"></i>
             </button>
@@ -86,10 +86,10 @@
             </el-menu>
           </el-dropdown>
           <%# Fulfillment mode applies to services only; hidden on the Open-requests lens. %>
-          <div data-catalog-target="modeFilter" class="inline-flex h-9 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5">
+          <div data-catalog-target="modeFilter" class="inline-flex h-10 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 sm:h-9">
             <% [["all", "All"], ["automated", "Automated"], ["manual", "Human"]].each do |value, label| %>
               <button type="button" data-catalog-target="modeButton" data-mode="<%= value %>" data-action="catalog#setMode"
-                      class="h-7 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= value == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>"><%= label %></button>
+                      class="h-8 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-7 <%= value == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>"><%= label %></button>
             <% end %>
           </div>
         </div>
