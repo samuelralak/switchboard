@@ -11,6 +11,8 @@ class Order < ApplicationRecord
 	# The consumer's observable release assertion (preimage revealed; current_state stays funded until the
 	# mint confirms the spend).
 	has_one :release, class_name: "OrderRelease", dependent: :destroy, inverse_of: :order
+	# The Tier-2 dispute (a party opened it -> current_state disputed; the platform arbiter rules it).
+	has_one :dispute, class_name: "OrderDispute", dependent: :destroy, inverse_of: :order
 
 	validates :entry_point, inclusion: { in: Orders::EntryPoints::ALL }
 	validates :tier, inclusion: { in: Orders::Tiers::ALL }

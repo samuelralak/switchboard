@@ -52,6 +52,32 @@ module Catalog
 				assert_text "inputs this service expects"
 				assert_text "Source text"
 			end
+
+			def test_offers_the_tier_2_escrow_choice_when_the_arbiter_is_configured
+				event = build_event(title: "T", d: "t2a", extra_tags: [ %w[price 1500 sat] ])
+
+				with_arbiter_key { render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event))) }
+
+				assert_selector "input[name='order[tier]'][value='#{Orders::Tiers::TIER2_ARBITER}']", visible: :all
+				assert_text "Mediated escrow"
+			end
+
+			def test_hides_the_tier_2_choice_when_the_arbiter_is_unconfigured
+				event = build_event(title: "T", d: "t2b", extra_tags: [ %w[price 1500 sat] ])
+
+				render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event))) # no arbiter key in ENV
+
+				assert_no_selector "input[name='order[tier]']", visible: :all
+				assert_selector "button", text: /Order this service/ # still orderable, tier-1 by default
+			end
+
+			def test_hides_the_tier_2_choice_above_the_tier_2_cap
+				event = build_event(title: "T", d: "t2c", extra_tags: [ %w[price 50000 sat] ]) # > 25k tier-2 cap, < 100k tier-1
+
+				with_arbiter_key { render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event))) }
+
+				assert_no_selector "input[name='order[tier]']", visible: :all
+			end
 		end
 	end
 end

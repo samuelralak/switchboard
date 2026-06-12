@@ -96,6 +96,24 @@ module ActiveSupport
 			order.reload
 		end
 
+		# Fund a Tier-2 order whose proof Ys are the NUT-00 points of `secrets`, so the arbiter binding is
+		# exercised against genuine secret -> Y mappings rather than random Ys. Optionally pin the parties.
+		def fund_tier2_order_with_secrets(secrets, provider: nil, consumer: nil)
+			attrs = { tier: Orders::Tiers::TIER2_ARBITER, amount_sats: secrets.size }
+			attrs[:provider_pubkey] = provider if provider
+			attrs[:consumer_pubkey] = consumer if consumer
+			order = build_order(**attrs)
+			point = -> { "02#{SecureRandom.hex(32)}" }
+			params = {
+				mint_url: order.mint_url, locktime: 4.days.from_now, lock_pubkey: point.call, refund_pubkey: point.call,
+				arbiter_pubkey: platform_arbiter_pubkey, required_signatures: 2,
+				proofs: secrets.map { |secret| { y: Cashu::Actions::HashToCurve.call(secret:), amount: 1 } }
+			}
+			with_arbiter_key { with_unspent_checkstate { Orders::Funding.call(order:, **params) } }
+
+			order.reload
+		end
+
 		# A kind-30402 listing/request event by a specific author, carrying a NIP-99 price/budget tag.
 		def classified_event(pubkey:, marker:, price: 1_000, currency: "sat", d: SecureRandom.hex(4), extra_tags: [])
 			tags = [ [ "d", d ], [ "title", "Svc" ], [ "t", marker ], [ "price", price.to_s, currency ] ] + extra_tags
@@ -133,9 +151,9 @@ module ActiveSupport
 			}
 		end
 
-		# A NIP-98 (kind 27235) HTTP-auth event with a fresh keypair. Shared by the auth tests.
-		def sign_nip98(tags:, created_at: Time.now.to_i, kind: Events::Kinds::HTTP_AUTH, content: "")
-			sign_event(kind:, tags:, content:, created_at:)
+		# A NIP-98 (kind 27235) HTTP-auth event. A fresh keypair by default; pass one to sign as a known pubkey.
+		def sign_nip98(tags:, created_at: Time.now.to_i, kind: Events::Kinds::HTTP_AUTH, content: "", keypair: Nostr::Keygen.new.generate_key_pair)
+			sign_event(kind:, tags:, content:, created_at:, keypair:)
 		end
 
 		# NIP-98 u/method tags, plus an optional `challenge` (session path) or `payload` hash.

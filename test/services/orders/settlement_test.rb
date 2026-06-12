@@ -90,13 +90,13 @@ module Orders
 			assert_equal [ Orders::States::RELEASED ], order.effects.pluck(:kind)
 		end
 
-		test "tier-2 does NOT release on a padded two-sig spend without a release assertion" do
-			order = fund_tier2_order # no release on record
-			states = [ spent(order, witness: { signatures: %w[aa bb] }.to_json) ]
+		test "tier-2 releases on a two-sig spend with no ruling (only consumer+provider can reach a quorum pre-ruling)" do
+			order = fund_tier2_order # no release record, no dispute -- the happy path
 
-			Orders::Settlement.call(order:, states:)
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: %w[aa bb] }.to_json) ])
 
-			assert_equal Orders::States::REFUNDED, order.reload.current_state # a mint cannot fake the consumer's release
+			# the platform arbiter signs ONLY after a ruling, so a 2-sig spend with no ruling is consumer+provider
+			assert_equal Orders::States::RELEASED, order.reload.current_state
 		end
 
 		test "tier-2 refunds on a single-signature refund-path spend" do
@@ -134,6 +134,50 @@ module Orders
 			assert_equal Orders::States::RELEASED, order.reload.current_state
 		end
 
+		test "a dispute ruled for the provider releases on a 2-sig spend with no consumer release" do
+			order = disputed_order(Orders::DisputeStatuses::RULED_FOR_PROVIDER)
+
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: %w[aa bb] }.to_json) ])
+
+			assert_equal Orders::States::RELEASED, order.reload.current_state
+			assert_equal [ Orders::States::RELEASED ], order.effects.pluck(:kind)
+		end
+
+		test "a dispute ruled for the consumer refunds on a 2-sig spend" do
+			order = disputed_order(Orders::DisputeStatuses::RULED_FOR_CONSUMER)
+
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: %w[aa bb] }.to_json) ])
+
+			assert_equal Orders::States::REFUNDED, order.reload.current_state
+		end
+
+		test "a single-sig timeout spend refunds even after a ruling for the provider" do
+			order = disputed_order(Orders::DisputeStatuses::RULED_FOR_PROVIDER)
+
+			# the consumer reclaimed via the post-locktime refund (one signature); the money moved back, so the
+			# label follows the money, not the ruling.
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: [ "aa" ] }.to_json) ])
+
+			assert_equal Orders::States::REFUNDED, order.reload.current_state
+		end
+
+		test "an unruled dispute that reaches a two-sig spend releases (only consumer+provider could have signed)" do
+			order = disputed_order(Orders::DisputeStatuses::OPEN)
+
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: %w[aa bb] }.to_json) ])
+
+			# the arbiter cannot co-sign an unruled dispute, so a 2-sig spend is the consumer authorizing the provider
+			assert_equal Orders::States::RELEASED, order.reload.current_state
+		end
+
+		test "a single-sig timeout spend still refunds on an unruled dispute" do
+			order = disputed_order(Orders::DisputeStatuses::OPEN)
+
+			Orders::Settlement.call(order:, states: [ spent(order, witness: { signatures: [ "aa" ] }.to_json) ])
+
+			assert_equal Orders::States::REFUNDED, order.reload.current_state
+		end
+
 		test "a concurrent terminalization makes settlement a clean no-op rather than raising" do
 			order, preimage, = fund_order
 			# a competing settlement won the lock first, so this order's transition is now illegal
@@ -149,6 +193,15 @@ module Orders
 		end
 
 		private
+
+		# A funded Tier-2 order moved to `disputed` with a dispute record at the given status.
+		def disputed_order(status)
+			order = fund_tier2_order
+			Orders::Transition.call(order:, to: Orders::States::DISPUTED)
+			order.create_dispute!(opened_by_pubkey: order.consumer_pubkey, status:)
+
+			order
+		end
 
 		def spent(order, witness:)
 			proof_state(order.proofs.first.proof_y, "SPENT", witness)

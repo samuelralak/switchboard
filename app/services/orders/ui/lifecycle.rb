@@ -12,12 +12,14 @@ module Orders
 			# "delivered" is the only non-state node (the order.delivery assertion); it sits between funded and
 			# released and renders future until a delivery exists.
 			DELIVERED = "delivered"
+			# "disputed" is a real state (S::DISPUTED) but renders as its own terminal-ish node off funded.
+			DISPUTED = "disputed"
 			CHAIN = [ S::AWAITING_FUNDING, S::FUNDED, DELIVERED, S::RELEASED ].freeze
 
 			LABELS = {
 				S::AWAITING_FUNDING => "Awaiting funding", S::FUNDED => "Funded, in escrow",
 				DELIVERED => "Delivered, awaiting release", S::RELEASED => "Released to provider",
-				S::REFUNDED => "Refunded to you", S::EXPIRED => "Expired, unfunded"
+				S::REFUNDED => "Refunded to you", S::EXPIRED => "Expired, unfunded", DISPUTED => "In dispute"
 			}.freeze
 
 			NOTES = {
@@ -28,7 +30,8 @@ module Orders
 					"Review it, then release the escrow.",
 				S::RELEASED => "The escrow released to the provider. Money in, data out.",
 				S::REFUNDED => "The escrow refunded to you after the lock expired without a release.",
-				S::EXPIRED => "The funding window passed before the escrow was funded."
+				S::EXPIRED => "The funding window passed before the escrow was funded.",
+				DISPUTED => "Escalated to the platform arbiter, who reviews it and co-signs the release to the ruled side."
 			}.freeze
 
 			Node = Data.define(:key, :label, :status, :at, :note, :countdown)
@@ -44,6 +47,7 @@ module Orders
 				when S::RELEASED then released_chain
 				when S::REFUNDED then fault_chain(S::REFUNDED)
 				when S::EXPIRED  then fault_chain(S::EXPIRED)
+				when S::DISPUTED then disputed_chain
 				else active_chain
 				end
 			end
@@ -88,6 +92,16 @@ module Orders
 				reached << DELIVERED if state == S::REFUNDED && order.delivery.present?
 
 				reached.map { |key| node(key, "done") } + [ node(state, "fault") ]
+			end
+
+			# A disputed order: the happy chain is done through funded (+ delivered if recorded), with a current
+			# dispute node. The label/note reflect whether the arbiter has ruled yet; the order leaves this state
+			# (to released/refunded) only once the on-mint spend settles it.
+			def disputed_chain
+				reached = [ S::AWAITING_FUNDING, S::FUNDED ]
+				reached << DELIVERED if order.delivery.present?
+
+				reached.map { |key| node(key, "done") } + [ node(DISPUTED, "current") ]
 			end
 
 			def node(key, status)

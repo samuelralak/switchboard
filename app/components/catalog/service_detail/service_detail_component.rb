@@ -26,6 +26,13 @@ module Catalog
 			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
 			def orderable? = Orders::Policy.default_mint.present? && !listing.per_hour? && listing.whole_sat_price?
 
+			# Offer the Tier-2 (arbiter-mediated) escrow choice only when the platform arbiter is provisioned AND
+			# the price sits under the lower Tier-2 cap; otherwise the buyer would place an unfundable order
+			# (Orders::Funding#ensure_tier_available! + the per-tier cap reject it). Tier-1 stays the default.
+			def tier2_offered?
+				Escrow::ArbiterSigner.pubkey.present? && listing.price_amount.to_i <= Orders::Policy.tier2_max_order_sats
+			end
+
 			# The pricing-basis caption under the price (the PriceTag carries the amount + currency).
 			def price_basis_label = listing.per_hour? ? "per hour" : "per request"
 

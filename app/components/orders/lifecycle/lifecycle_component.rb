@@ -48,6 +48,7 @@ module Orders
 			CHIP = {
 				Orders::States::AWAITING_FUNDING => { tone: :live, label: "awaiting funding" },
 				Orders::States::FUNDED => { tone: :copper, label: "in escrow" },
+				Orders::States::DISPUTED => { tone: :copper, label: "in dispute" },
 				Orders::States::RELEASED => { tone: :settled, label: "released" },
 				Orders::States::REFUNDED => { tone: :fault, label: "refunded" },
 				Orders::States::EXPIRED => { tone: :fault, label: "expired" }

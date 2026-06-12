@@ -19,6 +19,9 @@ Rails.application.routes.draw do
 	# Stateless NIP-98 API auth for non-browser / nsec clients (per-request Authorization header).
 	namespace :api do
 		get "identity", to: "identity#show"
+		# The winning party of a ruled Tier-2 dispute fetches the arbiter's signatures to finish the 2-of-3
+		# spend; data endpoint (JSON), kept off the Turbo OrdersController.
+		post "orders/:order_id/arbiter_signatures", to: "arbiter_signatures#create", as: :order_arbiter_signatures
 	end
 
 	# Opaque NIP-17 inbox cache: anonymous deposit (POST, like a relay accepting an EVENT) +
@@ -78,6 +81,14 @@ Rails.application.routes.draw do
 	post "orders/:id/delivery", to: "orders#deliver", as: :order_delivery # provider records the delivery assertion
 	post "orders/:id/release", to: "orders#release", as: :order_release # consumer records the release assertion
 	post "orders/:id/settle", to: "orders#settle", as: :settle_order # re-derive state from the mint after a spend
+	post "orders/:id/dispute", to: "orders#dispute", as: :order_dispute # either party escalates to the arbiter (tier-2)
+
+	# Platform operator surface for Tier-2 dispute rulings (OPERATOR_PUBKEYS-gated; a Nostr login, not a role).
+	namespace :admin do
+		resources :disputes, only: %i[index] do
+			member { post :rule }
+		end
+	end
 
 	# Defines the root path route ("/")
 	root "pages#home"

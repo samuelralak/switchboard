@@ -137,6 +137,15 @@ This is the standard 2-of-3 escrow trust model (cf. Bitcoin escrow, `cashu-escro
    … **In addition** the Proof can be spent" by the refund key), so post-locktime both the 2-of-3 and the
    1-of-1 refund are live (first-spend-wins). Enforce a generous minimum locktime lead so a dispute has time
    to resolve before the consumer's unilateral refund window opens.
+
+   **Accepted limitation (post-ruling front-run).** Because the consumer is always the sole post-locktime
+   refund key, a consumer who LOSES a `ruled_for_provider` dispute can still reclaim the funds with a 1-of-1
+   refund **once the locktime passes** — the provider must redeem (provider+arbiter 2-of-3) BEFORE then. This
+   is the trust model, not a settlement bug: `Settlement#arbiter_outcome` labels a 1-sig spend REFUNDED even
+   after a ruling, which correctly tracks where the money actually went. The mitigation is operational, not
+   cryptographic: the min-locktime-lead must comfortably exceed the operator-rule-to-provider-redeem window,
+   and the provider is driven to redeem promptly after a ruling. A cryptographic fix (gating the refund on an
+   arbiter co-sign once disputed) is a lock-design change deferred post-MVP.
 4. **The `disputed` state + an arbiter ruling/signing interface.** Neither exists today; this is the bulk of
    the new build (Slices 1 and 4).
 

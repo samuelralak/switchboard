@@ -30,5 +30,17 @@ module Escrow
 
 			assert_nil ArbiterSigner.pubkey
 		end
+
+		test "sign produces a 128-hex BIP-340 signature over the secret" do
+			sig = ArbiterSigner.new(private_key: "33" * 32).sign(%q{["P2PK",{"nonce":"a","data":"02ab"}]})
+
+			assert_match(/\A[0-9a-f]{128}\z/, sig)
+		end
+
+		test "signing is deterministic for a given key and secret" do
+			signer = ArbiterSigner.new(private_key: "33" * 32)
+
+			assert_equal signer.sign("the-secret"), signer.sign("the-secret")
+		end
 	end
 end

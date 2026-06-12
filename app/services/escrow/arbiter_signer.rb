@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "ecdsa_ext"
+require "schnorr"
+require "digest"
 
 module Escrow
 	# The platform's Tier-2 arbiter key: a DEDICATED secp256k1 Cashu key (not R_op, not a Nostr key) that the
@@ -39,6 +41,21 @@ module Escrow
 		# getPubKeyFromPrivKey for the same key (cross-language tested).
 		def pubkey
 			@pubkey ||= ECDSA::Format::PointOctetString.encode(public_point, compression: true).unpack1("H*")
+		end
+
+		# A BIP-340 Schnorr signature over SHA256(secret) -- the witness signature the mint verifies for a 2-of-3
+		# spend, returned as the 128-hex string the winning party appends to its proof witness at ruling time.
+		# Matches cashu-ts signP2PKProof (which signs sha256(secret) the same way; the mint accepts any valid
+		# BIP-340 sig over the right message + key). Signs the secret string ONLY -- it never sees the spendable
+		# proof's C, and is 1-of-3, so this is signing, not custody (brief 6.3).
+		#
+		# The message MUST be the 32-byte BINARY digest and the key the 64-HEX string: bip-schnorr's sign hex-
+		# detects its inputs, so a binary key whose bytes are all ASCII hex (e.g. 0x33 = "3") would be re-parsed
+		# as hex and mangled to the wrong scalar. Passing hex-key + binary-message sidesteps that ambiguity.
+		def sign(secret)
+			signature = Schnorr.sign(Digest::SHA256.digest(secret), private_key)
+
+			signature.encode.unpack1("H*")
 		end
 
 		private

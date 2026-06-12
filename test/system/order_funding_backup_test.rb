@@ -36,6 +36,36 @@ class OrderFundingBackupTest < ApplicationSystemTestCase
 		assert_equal ("ab" * 32), data.dig("fromRelay", "preimage"), "the self-DM restores the preimage"
 	end
 
+	# Funds-safety (round-2 review): restore must reject a backup it did not author itself. An attacker who
+	# knows the orderId + the victim's pubkey can gift-wrap a forged {orderId, proofs} to the victim; without
+	# the self-author + subject pin that forged record would feed bogus proofs into dispute recovery and block
+	# the rightful winner's claim. unwrap authenticates rumor.pubkey (the seal signer), so the pin holds.
+	test "restore rejects a backup gift-wrapped by someone other than the owner" do
+		result = evaluate_async_script(<<~JS)
+		  const done = arguments[arguments.length - 1]
+		  const { NsecSigner, orderFunding: of, buildRumor, wrapMessage, RelaySet, installMockRelays } = window.NostrCryptoTest
+		  ;(async () => {
+		  	installMockRelays([{ url: "wss://e.test", authRequired: false }])
+		  	const relays = ["wss://e.test"]
+		  	const victim = NsecSigner.generate(), attacker = NsecSigner.generate()
+		  	const victimPub = victim.getPublicKey()
+		  	// the attacker authors a backup-shaped, backup-subject wrap p-tagged to the victim
+		  	const rumor = buildRumor({ authorPubkey: attacker.getPublicKey(),
+		  		content: JSON.stringify({ orderId: "order-x", token: "FORGED", proofs: [{ secret: "evil" }] }),
+		  		recipients: [victimPub], subject: "switchboard-escrow-backup" })
+		  	const { toRecipient } = await wrapMessage(rumor, attacker, victimPub)
+		  	const set = new RelaySet(relays, { signer: attacker })
+		  	await set.publishToMany(toRecipient)
+		  	set.close()
+		  	const restored = await of.restoreSecretsFromRelay({ signer: victim, ownPubkey: victimPub, relays, orderId: "order-x" })
+		  	return JSON.stringify({ restored })
+		  })().then(done).catch((e) => done("ERR: " + (e && e.message)))
+		JS
+		assert_no_match(/\AERR:/, result, "forged-backup test errored: #{result}")
+
+		assert_nil JSON.parse(result)["restored"], "a backup the owner did not author is rejected"
+	end
+
 	# Funds-safety: a relay-failed backup must keep the local copy (with its report payload) so a retry
 	# resumes from the existing lock instead of re-minting and overwriting it.
 	test "a relay-failed backup still keeps the local copy for a safe resume" do

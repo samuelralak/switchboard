@@ -2,6 +2,7 @@ import * as cashu from "@cashu/cashu-ts"
 import { Wallet, createRandomSecretKey, getPubKeyFromPrivKey } from "@cashu/cashu-ts"
 import * as escrow from "nostr/cashu_escrow"
 import { mintLockAndReport, mintLockAndReportTier2 } from "nostr/order_funding"
+import * as orderFunding from "nostr/order_funding"
 import * as settlement from "nostr/order_settlement"
 
 // Test-only bridge: confirms @cashu/cashu-ts loads under the import map + CSP and drives the escrow module's
@@ -319,6 +320,151 @@ const scenarios = {
     })
 
     return { amount, payload, arbiterPubkey, tokenOk: /^cashu/.test(token) }
+  },
+
+  // SERVER-ARBITER-SIGN SPIKE phase 1: lock a 2-of-3 to {consumer, provider, FIXED arbiter "33"*32}, the
+  // PROVIDER co-signs (one of the two required sigs), and return the partially-signed proofs + their secrets
+  // so the RUBY test can produce the arbiter's signature. The arbiter privkey lives only in Ruby (the server).
+  async tier2ServerSignBuild(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const consumerKp = newKeypair(), providerKp = newKeypair()
+    const arbiterSk = "33".repeat(32)
+    const arbiterPubkey = toHex(getPubKeyFromPrivKey(new Uint8Array(arbiterSk.match(/../g).map((h) => parseInt(h, 16)))))
+    const locktime = Math.floor(Date.now() / 1000) + 3600
+
+    const proofs = await mintTestSats(consumer, 32)
+    const lock = await escrow.lockP2PK2of3({
+      wallet: consumer, amount: 32, proofs, consumerPubkey: consumerKp.pkHex, providerPubkey: providerKp.pkHex,
+      arbiterPubkey, consumerRefundPubkey: consumerKp.pkHex, locktime,
+    })
+    const signed = escrow.coSignProofs(lock.lockedProofs, providerKp.skHex) // the provider's signature (1 of 2)
+
+    return {
+      proofs: signed.map((p) => ({ ...p, witness: typeof p.witness === "string" ? p.witness : JSON.stringify(p.witness) })),
+      secrets: signed.map((p) => p.secret),
+    }
+  },
+
+  // SERVER-ARBITER-SIGN SPIKE phase 2: append the Ruby-produced arbiter signatures to each proof's witness and
+  // redeem the 2-of-3 at the real mint. If the proofs end SPENT, the server-side Ruby signature was accepted.
+  async tier2ServerSignRedeem(mint, args) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+
+    const signed = args.proofs.map((proof, i) => {
+      const existing = escrow.parseWitness(proof.witness).signatures || []
+      return { ...proof, witness: JSON.stringify({ signatures: [ ...existing, args.arbiterSigs[i] ] }) }
+    })
+    const redeemed = await escrow.redeem2of3({ wallet: consumer, signedProofs: signed })
+    const after = await escrow.proofState({ wallet: consumer, proofs: signed })
+
+    return { redeemedTotal: totalOf(redeemed.proofs), spent: after.every((s) => s.state === "SPENT") }
+  },
+
+  // The order_settlement.js settlement layer (not the raw cashu_escrow primitives): verifyTier2Lock accepts a
+  // genuine lock and rejects a wrong amount / a key not in the signer set; the happy path co-signs via
+  // partySign (consumer then provider) and spends via redeemTier2.
+  async tier2SettlementHelpers(mint) {
+    const locktime = Math.floor(Date.now() / 1000) + 3600
+    const { consumer, consumerKp, providerKp, arbiterKp, lock } = await tier2Lock(mint, 32, locktime)
+
+    const verify = (overrides = {}) => settlement.verifyTier2Lock({
+      wallet: consumer, proofs: lock.lockedProofs, providerPubkey: providerKp.pkHex,
+      arbiterPubkey: arbiterKp.pkHex, amount: 32, expectedLocktime: locktime, ...overrides })
+    const verified = await verify()
+    const wrongAmount = await verify({ amount: 31 })
+    const stranger = await verify({ providerPubkey: newKeypair().pkHex })
+    const wrongLocktime = await verify({ expectedLocktime: locktime + 1 }) // a mismatched on-mint locktime
+
+    let signed = settlement.partySign({ proofs: lock.lockedProofs, privkey: consumerKp.skHex })
+    signed = settlement.partySign({ proofs: signed, privkey: providerKp.skHex })
+    const redeemed = await settlement.redeemTier2({ wallet: consumer, signedProofs: signed })
+    const after = await escrow.proofState({ wallet: consumer, proofs: lock.lockedProofs })
+
+    return {
+      verifyOk: verified.ok,
+      wrongAmountRejected: !wrongAmount.ok,
+      strangerRejected: !stranger.ok,
+      wrongLocktimeRejected: !wrongLocktime.ok,
+      redeemedTotal: totalOf(redeemed.proofs),
+      spent: after.every((s) => s.state === "SPENT"),
+    }
+  },
+
+  // Dispute redeem via order_settlement helpers, phase 1: lock to {consumer, provider, FIXED arbiter "33"*32};
+  // the WINNER (provider) co-signs via partySign; return its proofs + secrets for Ruby to arbiter-sign.
+  async tier2DisputeRedeemBuild(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const consumerKp = newKeypair(), providerKp = newKeypair()
+    const arbiterSk = "33".repeat(32)
+    const arbiterPubkey = toHex(getPubKeyFromPrivKey(new Uint8Array(arbiterSk.match(/../g).map((h) => parseInt(h, 16)))))
+
+    const proofs = await mintTestSats(consumer, 32)
+    const lock = await escrow.lockP2PK2of3({
+      wallet: consumer, amount: 32, proofs, consumerPubkey: consumerKp.pkHex, providerPubkey: providerKp.pkHex,
+      arbiterPubkey, consumerRefundPubkey: consumerKp.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600,
+    })
+    const signed = settlement.partySign({ proofs: lock.lockedProofs, privkey: providerKp.skHex })
+
+    return {
+      proofs: signed.map((p) => ({ ...p, witness: typeof p.witness === "string" ? p.witness : JSON.stringify(p.witness) })),
+      secrets: signed.map((p) => p.secret),
+    }
+  },
+
+  // Phase 2: applyArbiterSignatures merges the Ruby arbiter sigs into the provider's witness, then redeemTier2
+  // spends. Spent => the provider+arbiter 2-of-3 completes end to end through the order_settlement helpers.
+  async tier2DisputeRedeemApply(mint, args) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+
+    const quorum = settlement.applyArbiterSignatures(args.proofs, args.arbiterSigs)
+    const redeemed = await settlement.redeemTier2({ wallet: consumer, signedProofs: quorum })
+    const after = await escrow.proofState({ wallet: consumer, proofs: args.proofs })
+
+    return { redeemedTotal: totalOf(redeemed.proofs), spent: after.every((s) => s.state === "SPENT") }
+  },
+
+  // Crash-safety (review finding): mintLockAndReportTier2 persists a LOCAL marker the instant funds lock,
+  // BEFORE the report round-trip, so a crash there cannot orphan the lock. After it runs, IndexedDB holds a
+  // marker with the token + proofs + lock fields (but no payload yet -- the full backup writes that), and
+  // reportFromSaved re-derives the same report Ys from it. This is what lets the resume guard never re-mint.
+  async tier2FundingCrashMarker(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const me = newKeypair(), providerKp = newKeypair()
+    const arbiterSk = "33".repeat(32)
+    const arbiterPubkey = toHex(getPubKeyFromPrivKey(new Uint8Array(arbiterSk.match(/../g).map((h) => parseInt(h, 16)))))
+    const orderId = `crash-${toHex(createRandomSecretKey())}`
+
+    const result = await mintLockAndReportTier2({
+      wallet: consumer, mintUrl: mint, amount: 4, consumerPubkey: me.pkHex, providerPubkey: providerKp.pkHex,
+      arbiterPubkey, consumerRefundPubkey: me.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600, orderId,
+    })
+    const marker = await orderFunding.loadSecrets(orderId)
+    const reReported = await orderFunding.reportFromSaved(consumer, marker)
+    const ys = (proofs) => JSON.stringify(proofs.map((p) => p.y).sort())
+
+    return {
+      markerHasToken: !!marker?.token,
+      markerHasProofs: (marker?.proofs || []).length > 0,
+      markerHasNoPayload: !marker?.payload, // the crash marker precedes the full (with-payload) backup
+      markerHasArbiterField: marker?.fields?.arbiter_pubkey === arbiterPubkey,
+      reReportMatches: ys(reReported.proofs) === ys(result.payload.proofs),
+    }
+  },
+
+  // Build a NIP-98 Authorization header with nip98.js (the client the dispute redeem uses), for the Ruby side
+  // to feed through the real server verifier -- proves the client emits a server-acceptable kind-27235 event.
+  async buildNip98Header(_mint, args) {
+    const { NsecSigner } = await import("nostr/signer")
+    const { nip98AuthHeader } = await import("nostr/nip98")
+    const signer = NsecSigner.fromHex(args.privkey)
+    const header = await nip98AuthHeader(signer, { url: args.url, method: args.method, body: args.body })
+
+    return { header, pubkey: signer.getPublicKey() }
   },
 }
 

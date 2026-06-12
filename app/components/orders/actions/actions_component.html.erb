@@ -7,11 +7,14 @@
 			data-funding-provider-value="<%= order.provider_pubkey %>"
 			data-funding-consumer-value="<%= order.consumer_pubkey %>"
 			data-funding-relays-value="<%= relays_json %>"
-			data-funding-locktime-seconds-value="<%= locktime_seconds %>">
+			data-funding-locktime-seconds-value="<%= locktime_seconds %>"
+			data-funding-tier-value="<%= order.tier %>"
+			data-funding-arbiter-value="<%= arbiter_pubkey %>">
 			<div class="flex items-start gap-2">
 				<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
 				<p class="text-sm leading-relaxed text-ink-secondary">
 					Lock <%= number_with_delimiter(order.amount_sats) %> sat over Lightning to fund the escrow.
+					<% if order.tier2? %>You can escalate a dispute to the platform arbiter, who can co-sign a release to either side but can never move the funds alone.<% end %>
 				</p>
 			</div>
 
@@ -33,9 +36,10 @@
 
 			<p data-funding-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
 
+			<%# tier-specific lock terms (hashlock for tier-1; arbiter_pubkey + required_signatures for tier-2) are
+			    appended by the controller from the report payload, so no fixed hidden input for them here. %>
 			<%= form_with url: order_funding_path(order), method: :post, data: { funding_target: "form" }, class: "hidden" do %>
 				<input type="hidden" name="order[mint_url]" data-funding-target="mintUrl">
-				<input type="hidden" name="order[hashlock]" data-funding-target="hashlock">
 				<input type="hidden" name="order[locktime]" data-funding-target="locktime">
 				<input type="hidden" name="order[lock_pubkey]" data-funding-target="lockPubkey">
 				<input type="hidden" name="order[refund_pubkey]" data-funding-target="refundPubkey">
@@ -50,7 +54,8 @@
 			data-settlement-peer-value="<%= order.provider_pubkey %>"
 			data-settlement-settle-url-value="<%= settle_order_path(order) %>"
 			data-settlement-release-url-value="<%= order_release_path(order) %>"
-			data-settlement-locktime-value="<%= order.lock&.locktime&.to_i %>">
+			data-settlement-locktime-value="<%= order.lock&.locktime&.to_i %>"
+			data-settlement-tier-value="<%= order.tier %>">
 			<% if released? %>
 				<p class="text-sm leading-relaxed text-ink-secondary">
 					You released the escrow. The provider can now redeem; the order settles once they do. You can
@@ -116,9 +121,12 @@
 			data-settlement-amount-value="<%= order.amount_sats %>"
 			data-settlement-hashlock-value="<%= order.lock&.hashlock %>"
 			data-settlement-lock-pubkey-value="<%= order.lock&.lock_pubkey %>"
-			data-settlement-settle-url-value="<%= settle_order_path(order) %>">
+			data-settlement-locktime-value="<%= order.lock&.locktime&.to_i %>"
+			data-settlement-settle-url-value="<%= settle_order_path(order) %>"
+			data-settlement-tier-value="<%= order.tier %>"
+			data-settlement-arbiter-pubkey-value="<%= order.lock&.arbiter_pubkey %>">
 			<p class="text-sm leading-relaxed text-ink-secondary">
-				Verify the locked budget, then redeem once the client approves and releases.
+				<% if order.tier2? %>Verify the 2-of-3 budget, then redeem once the client releases with their co-signature (or after the arbiter rules a dispute your way).<% else %>Verify the locked budget, then redeem once the client approves and releases.<% end %>
 			</p>
 			<div class="mt-4 flex flex-wrap gap-2">
 				<%= render Shared::Button::ButtonComponent.new(variant: :ghost, icon: "shield-01",
@@ -128,6 +136,47 @@
 			</div>
 			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
 			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+	<% elsif redeem_after_ruling? %>
+		<%# the party the arbiter ruled for completes the 2-of-3 spend with the platform's co-signature. The
+		    NIP-98 call to the arbiter endpoint is authed by the LOGIN key (own); the proofs are co-signed by
+		    the escrow key. %>
+		<div data-controller="settlement"
+			data-settlement-order-id-value="<%= order.id %>"
+			data-settlement-mint-value="<%= order.mint_url %>"
+			data-settlement-relays-value="<%= relays_json %>"
+			data-settlement-own-value="<%= viewer.pubkey %>"
+			data-settlement-peer-value="<%= viewer.pubkey == order.provider_pubkey ? order.consumer_pubkey : order.provider_pubkey %>"
+			data-settlement-tier-value="<%= order.tier %>"
+			data-settlement-settle-url-value="<%= settle_order_path(order) %>"
+			data-settlement-arbiter-url-value="<%= arbiter_signatures_url %>">
+			<div class="flex items-start gap-2">
+				<%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					The platform arbiter ruled this dispute in your favour. Claim the escrow with the arbiter's co-signature.
+				</p>
+			</div>
+			<div class="mt-4">
+				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
+					data: { settlement_target: "disputeRedeem", action: "settlement#disputeRedeem" }) do %>Claim with arbiter co-signature<% end %>
+			</div>
+			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
+			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+	<% end %>
+
+	<%# either party can escalate a funded tier-2 order to the platform arbiter (Turbo form, no money path) %>
+	<% if dispute? %>
+		<div class="mt-5 border-t border-border pt-5">
+			<p class="text-sm leading-relaxed text-ink-secondary">
+				Work gone wrong? Escalate to the platform arbiter, who reviews the dispute and co-signs a release to the side they rule for.
+			</p>
+			<%= form_with url: order_dispute_path(order), method: :post, class: "mt-3 space-y-2" do %>
+				<textarea name="dispute[reason]" rows="2" placeholder="What went wrong? (optional)"
+					class="w-full resize-y rounded-lg border border-border bg-surface p-2 text-sm text-ink placeholder:text-ink-faint"></textarea>
+				<%= render Shared::Button::ButtonComponent.new(variant: :ghost, type: "submit",
+					extra: "border border-border", data: { turbo_confirm: "Open a dispute? The platform arbiter will review and rule." }) do %>Open a dispute<% end %>
+			<% end %>
 		</div>
 	<% end %>
 </div>

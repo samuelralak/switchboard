@@ -82,4 +82,71 @@ class CashuTier2EscrowTest < ApplicationSystemTestCase
 		assert_equal result["arbiterPubkey"], order.lock.arbiter_pubkey, "the platform arbiter is recorded"
 		assert_equal 2, order.lock.required_signatures
 	end
+
+	# Slice-4 merge gate: a Ruby-produced (server-side) arbiter signature completes a 2-of-3 spend at the real
+	# mint. The browser builds the lock + provider-signs; Ruby's Escrow::ArbiterSigner signs the secrets; the
+	# browser appends them and redeems. If the mint SPENDS the proofs, server-side arbiter signing is viable.
+	test "a Ruby-produced arbiter signature completes a 2-of-3 spend at the mint" do
+		build = run_scenario("tier2ServerSignBuild")
+		arbiter = Escrow::ArbiterSigner.new(private_key: "33" * 32)
+		arbiter_sigs = build["secrets"].map { |secret| arbiter.sign(secret) }
+
+		result = run_scenario_args("tier2ServerSignRedeem", { proofs: build["proofs"], arbiterSigs: arbiter_sigs })
+
+		assert result["spent"], "the mint must accept the Ruby arbiter signature in the 2-of-3 witness"
+		assert_equal 32, result["redeemedTotal"], "the full amount must move (fees off)"
+	end
+
+	# Slice B7: the order_settlement.js settlement layer (the code the order page actually runs) verifies a
+	# tier-2 lock and completes the happy-path co-sign redeem at the real mint.
+	test "the order_settlement helpers verify a tier-2 lock and complete the happy-path redeem" do
+		r = run_scenario("tier2SettlementHelpers")
+
+		assert r["verifyOk"], "verifyTier2Lock accepts a genuine 2-of-3 locked to the provider + arbiter"
+		assert r["wrongAmountRejected"], "verifyTier2Lock rejects a wrong amount"
+		assert r["strangerRejected"], "verifyTier2Lock rejects a lock that does not carry the caller's key"
+		assert r["wrongLocktimeRejected"], "verifyTier2Lock rejects an on-mint locktime != the recorded one"
+		assert_equal 32, r["redeemedTotal"], "consumer + provider co-sign releases the full amount"
+		assert r["spent"], "the locked proofs read SPENT after the helper redeem"
+	end
+
+	# Slice B7: the winning party's dispute redeem, end to end through order_settlement -- the provider
+	# co-signs (partySign), Ruby's arbiter signs, applyArbiterSignatures merges to the 2-of-3, redeemTier2 spends.
+	test "a Ruby arbiter signature merged via applyArbiterSignatures completes the dispute redeem" do
+		build = run_scenario("tier2DisputeRedeemBuild")
+		arbiter = Escrow::ArbiterSigner.new(private_key: "33" * 32)
+		arbiter_sigs = build["secrets"].map { |secret| arbiter.sign(secret) }
+
+		result = run_scenario_args("tier2DisputeRedeemApply", { proofs: build["proofs"], arbiterSigs: arbiter_sigs })
+
+		assert result["spent"], "applyArbiterSignatures + redeemTier2 complete the provider + arbiter 2-of-3"
+		assert_equal 32, result["redeemedTotal"], "the full amount must move (fees off)"
+	end
+
+	# Crash-safety (review finding): funding writes a local recovery marker the instant funds lock, before the
+	# report round-trip, so a crash there cannot orphan the lock (the resume guard keys on the token, never re-mints).
+	test "tier-2 funding persists a crash-safe local marker before the report, and it re-derives the report" do
+		r = run_scenario("tier2FundingCrashMarker")
+
+		assert r["markerHasToken"], "the marker holds the spendable token the instant funds lock"
+		assert r["markerHasProofs"], "the marker holds the locked proofs"
+		assert r["markerHasNoPayload"], "the crash marker precedes the full (with-payload) backup"
+		assert r["markerHasArbiterField"], "the marker carries the lock fields needed to re-report"
+		assert r["reReportMatches"], "reportFromSaved re-derives the same report Ys from the marker"
+	end
+
+	# Slice B7: the NIP-98 client (nip98.js) the dispute redeem uses to authenticate the arbiter-signatures call
+	# emits a header the server's real verifier (Events::VerifyHttpAuth: canonical id + BIP-340 sig + tags) accepts.
+	test "nip98.js builds an Authorization header the server NIP-98 verifier accepts" do
+		privkey = "44" * 32
+		url = "#{Rails.application.config.x.canonical_origin}/api/orders/#{SecureRandom.uuid}/arbiter_signatures"
+		body = %q({"secrets":["abc"]})
+
+		built = run_scenario_args("buildNip98Header", { privkey:, url:, method: "POST", body: })
+		event = JSON.parse(Base64.strict_decode64(built["header"].split(" ", 2).last))
+
+		verified = Events::VerifyHttpAuth.call(event_data: event, http_method: "POST", url:, body:)
+		assert_equal Events::Kinds::HTTP_AUTH, verified["kind"]
+		assert_equal built["pubkey"], event["pubkey"], "the header is signed by the caller's login key"
+	end
 end

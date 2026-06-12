@@ -5,6 +5,7 @@ module OrdersHelper
 	ORDER_STATUS = {
 		Orders::States::AWAITING_FUNDING => { tone: :copper, label: "Awaiting funding" },
 		Orders::States::FUNDED => { tone: :live, label: "Funded, in escrow" },
+		Orders::States::DISPUTED => { tone: :copper, label: "In dispute" },
 		Orders::States::RELEASED => { tone: :settled, label: "Released to provider" },
 		Orders::States::REFUNDED => { tone: :muted, label: "Refunded" },
 		Orders::States::EXPIRED => { tone: :fault, label: "Expired, unfunded" }

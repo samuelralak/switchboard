@@ -31,6 +31,14 @@ module CashuBridge
 	    .catch((e) => done(JSON.stringify({ ok: false, error: String((e && e.message) || e) })))
 	JS
 
+	RUN_SCENARIO_ARGS_JS = <<~JS
+	  const [name, mint, argsJson] = arguments
+	  const done = arguments[arguments.length - 1]
+	  window.CashuEscrowTest.scenarios[name](mint, JSON.parse(argsJson))
+	    .then((r) => done(JSON.stringify({ ok: true, value: r })))
+	    .catch((e) => done(JSON.stringify({ ok: false, error: String((e && e.message) || e) })))
+	JS
+
 	def load_cashu_bridge(global = "CashuEscrowTest")
 		execute_script(INJECT_JS)
 		20.times do
@@ -44,6 +52,16 @@ module CashuBridge
 	# Run a named escrow scenario (defined in cashu_test_support.js) against the mint; returns its result Hash.
 	def run_scenario(name)
 		raw = evaluate_async_script(RUN_SCENARIO_JS, name, MINT_URL)
+		parsed = JSON.parse(raw)
+		flunk("scenario #{name} failed: #{parsed['error']}") unless parsed["ok"]
+
+		parsed["value"]
+	end
+
+	# As run_scenario, but passes a Ruby Hash/Array to the scenario as its second argument (JSON round-tripped).
+	# Lets a multi-step flow hand intermediate state JS -> Ruby -> JS (e.g. the server-arbiter-signing spike).
+	def run_scenario_args(name, args)
+		raw = evaluate_async_script(RUN_SCENARIO_ARGS_JS, name, MINT_URL, args.to_json)
 		parsed = JSON.parse(raw)
 		flunk("scenario #{name} failed: #{parsed['error']}") unless parsed["ok"]
 

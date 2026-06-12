@@ -90,10 +90,39 @@ module Orders
 				assert_equal %w[done done fault], nodes.map(&:status)
 			end
 
+			test "disputed: the chain ends in a current dispute node timestamped by the dispute" do
+				order = disputed(Orders::DisputeStatuses::OPEN)
+				nodes = Orders::Ui::Lifecycle.nodes(order:)
+
+				assert_equal %w[awaiting_funding funded disputed], nodes.map(&:key)
+				assert_equal %w[done done current], nodes.map(&:status)
+				assert_equal "In dispute", nodes.last.label
+				assert_not_nil nodes.last.at, "the dispute node is timestamped by the funded->disputed transition"
+			end
+
+			test "a delivered order that is then disputed keeps the delivered step in the chain" do
+				order = build_order(tier: Orders::Tiers::TIER2_ARBITER)
+				funded(order)
+				deliver(order)
+				Orders::Transition.call(order:, to: Orders::States::DISPUTED)
+				order.create_dispute!(opened_by_pubkey: order.consumer_pubkey, status: Orders::DisputeStatuses::OPEN)
+
+				assert_equal %w[awaiting_funding funded delivered disputed], Orders::Ui::Lifecycle.nodes(order:).map(&:key)
+			end
+
 			private
 
 			def funded(order)
 				order.state_machine.transition_to!(Orders::States::FUNDED)
+				order
+			end
+
+			def disputed(status)
+				order = build_order(tier: Orders::Tiers::TIER2_ARBITER)
+				funded(order)
+				Orders::Transition.call(order:, to: Orders::States::DISPUTED)
+				order.create_dispute!(opened_by_pubkey: order.consumer_pubkey, status:)
+
 				order
 			end
 

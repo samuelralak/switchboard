@@ -23,22 +23,28 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
 // keyset_id}]). onInvoice(bolt11, quoteId) surfaces the invoice to pay; onStatus(stage) drives the UI;
 // signal cancels.
 export async function mintLockAndReport({
-  wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, onInvoice, onStatus, signal,
+  wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal,
 }) {
   const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
 
   onStatus?.("locking")
   const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
-  const payload = await reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey })
+  const lockedProofs = cleanProofs(lock.lockedProofs)
+  const fields = {
+    mint_url: mintUrl, hashlock: lock.hash, locktime: String(locktime),
+    lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
+  }
+  await persistLockedMarker(orderId, { token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, preimage: lock.preimage, fields })
+  const payload = reportProofs(await proofState({ wallet, proofs: lockedProofs }), lockedProofs, fields)
 
-  return { payload, token: lock.token, preimage: lock.preimage, lockedProofs: lock.lockedProofs }
+  return { payload, token: lock.token, preimage: lock.preimage, lockedProofs }
 }
 
 // Tier-2 (2-of-3 arbiter) mint -> lock -> report. No hashlock; the payload carries the arbiter pubkey and
 // n_sigs=2. arbiterPubkey is the PLATFORM key (advertised by Rails); Rails rejects any other arbiter.
 export async function mintLockAndReportTier2({
   wallet, mintUrl, amount, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
-  onInvoice, onStatus, signal,
+  orderId, onInvoice, onStatus, signal,
 }) {
   const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
 
@@ -46,12 +52,34 @@ export async function mintLockAndReportTier2({
   const lock = await lockP2PK2of3({
     wallet, amount, proofs, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
   })
-  const payload = reportProofs(await proofState({ wallet, proofs: lock.lockedProofs }), lock.lockedProofs, {
-    mint_url: mintUrl, locktime: String(locktime), lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
-    arbiter_pubkey: arbiterPubkey, required_signatures: 2,
-  })
+  const lockedProofs = cleanProofs(lock.lockedProofs)
+  const fields = {
+    mint_url: mintUrl, locktime: String(locktime), lock_pubkey: providerPubkey,
+    refund_pubkey: consumerRefundPubkey, arbiter_pubkey: arbiterPubkey, required_signatures: 2,
+  }
+  await persistLockedMarker(orderId, { token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, fields })
+  const payload = reportProofs(await proofState({ wallet, proofs: lockedProofs }), lockedProofs, fields)
 
-  return { payload, token: lock.token, lockedProofs: lock.lockedProofs }
+  return { payload, token: lock.token, lockedProofs }
+}
+
+// Reduce a locked proof to the minimal spendable shape the backup + redeem + the NIP-17 cosign message need:
+// drop the dleq (the mint's offline-verification proof, whose BigInts break JSON serialization and structured
+// clone in ways that corrupt the amount) and coerce the amount to a plain number. The dleq is not needed to
+// spend, so a swap with these proofs still redeems at the mint.
+const cleanProofs = (proofs) => proofs.map((p) => ({ id: p.id, amount: Number(p.amount), secret: p.secret, C: p.C }))
+
+// Crash-safety: persist a LOCAL marker the instant funds lock -- BEFORE the report round-trip below -- so a
+// crash there cannot orphan the lock. The resume guard keys on `token` (never re-mints) and re-derives the
+// report from `proofs` + `fields` (reportFromSaved). The full backup (with payload) overwrites this shortly.
+async function persistLockedMarker(orderId, record) {
+  if (orderId) await idbPut("escrow_secrets", orderId, { orderId, savedAt: Math.floor(Date.now() / 1000), ...record })
+}
+
+// Re-derive the report payload from a crash-saved marker whose proofs were locked but whose report never
+// landed (a resume that finds `token` but no `payload`). The Y values come from a fresh proofState.
+export async function reportFromSaved(wallet, saved) {
+  return reportProofs(await proofState({ wallet, proofs: saved.proofs }), saved.proofs, saved.fields)
 }
 
 // Mint `amount` sats via the bolt11 flow: assert the mint, surface the invoice, wait for payment, return proofs.
@@ -66,14 +94,6 @@ async function mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal }) {
   onStatus?.("minting")
   const minted = await withTimeout(wallet.mintProofsBolt11(amount, quote.quote), "the mint did not issue the ecash")
   return minted?.proofs ?? minted
-}
-
-// Only observable data: the proof Y values (one-way from the secret), hashlock, locktime, P2PK pubkeys.
-async function reportPayload({ wallet, lock, mintUrl, locktime, providerPubkey, consumerRefundPubkey }) {
-  return reportProofs(await proofState({ wallet, proofs: lock.lockedProofs }), lock.lockedProofs, {
-    mint_url: mintUrl, hashlock: lock.hash, locktime: String(locktime),
-    lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
-  })
 }
 
 // Attach the reportable proofs (Y + amount + keyset, never the spendable secret/C) to the lock-term fields.
@@ -128,13 +148,21 @@ export function loadSecrets(orderId) {
 }
 
 // Disaster recovery: the order's unlock material from the encrypted self-DM backup on relays, or null.
+// The backup is a SELF-DM, so accept ONLY a wrap THIS signer's own key authored (unwrap authenticates
+// rumor.pubkey as the verified seal signer, so an attacker cannot forge one as ownPubkey) carrying the
+// backup subject. Anyone can gift-wrap a forged {orderId, proofs} p-tagged to ownPubkey; without the
+// self-author + subject pin a losing party could plant bogus proofs and disable the winner's recovery.
 export async function restoreSecretsFromRelay({ signer, ownPubkey, relays, orderId }) {
   const set = new RelaySet(relays, { signer })
 
   try {
     for (const wrap of await collectWraps(set, ownPubkey)) {
       try {
-        const record = JSON.parse((await unwrap(wrap, signer)).content)
+        const rumor = await unwrap(wrap, signer)
+        if (rumor.pubkey !== ownPubkey) continue
+        if (!rumor.tags.some(([ key, value ]) => key === "subject" && value === BACKUP_SUBJECT)) continue
+
+        const record = JSON.parse(rumor.content)
         if (record.orderId === orderId) return record
       } catch {
         // skip a wrap this signer cannot read or that is not an escrow backup

@@ -8,12 +8,13 @@ module Orders
 		option :coordinate, type: Types::Strict::String
 		option :mint_url, type: Types::Strict::String
 		option :dedupe_key, type: Types::Strict::String
+		option :tier, type: Types::Coercible::String, default: -> { Orders::Tiers::TIER1_HTLC }
 		option :actor # the signed-in User
 
 		def call
-			Orders::Create.call(
-				**order_attributes(locate!), mint_url:, dedupe_key:, funding_deadline_at: Orders::Policy.funding_window.from_now
-			)
+			deadline = Orders::Policy.funding_window.from_now
+
+			Orders::Create.call(**order_attributes(locate!), mint_url:, dedupe_key:, tier:, funding_deadline_at: deadline)
 		end
 
 		private

@@ -36,4 +36,33 @@ class EscrowMessagesTest < ApplicationSystemTestCase
 		assert data["fromConsumer"], "each message is attributed to the consumer's pubkey"
 		assert_equal ("ab" * 32), data["revealed"], "the latest preimage-reveal carries the preimage"
 	end
+
+	# The Tier-2 happy-path wire contract: doReleaseTier2 ships the consumer-co-signed proofs to the provider as
+	# a 'cosign' message; doRedeemTier2 reads them back via latestEscrowMessage(type 'cosign'). Lock the shape
+	# (the proofs array, witnesses intact) so a field-name/round-trip regression cannot ship silently.
+	test "a cosign message round-trips the consumer's signed proofs to the provider" do
+		result = evaluate_async_script(<<~JS)
+		  const done = arguments[arguments.length - 1]
+		  const { NsecSigner, escrowMessages: em, installMockRelays } = window.NostrCryptoTest
+		  ;(async () => {
+		  	installMockRelays([{ url: "wss://e.test", authRequired: false }])
+		  	const relays = ["wss://e.test"]
+		  	const consumer = NsecSigner.generate(), provider = NsecSigner.generate()
+		  	const cPub = consumer.getPublicKey(), pPub = provider.getPublicKey()
+		  	const proofs = [{ id: "00ad", amount: 4, secret: "s1", C: "02c1", witness: JSON.stringify({ signatures: ["aa"] }) }]
+		  	await em.sendEscrowMessage({ signer: consumer, ownPubkey: cPub, peerPubkey: pPub, relays, orderId: "ord-1", type: "cosign", data: { proofs } })
+		  	const got = await em.latestEscrowMessage({ signer: provider, ownPubkey: pPub, relays, orderId: "ord-1", type: "cosign", from: cPub })
+		  	const p = got && got.data && got.data.proofs && got.data.proofs[0]
+		  	return JSON.stringify({ type: got && got.type, n: got && got.data && got.data.proofs.length, amount: p && p.amount, witness: p && p.witness, secret: p && p.secret })
+		  })().then(done).catch((e) => done("ERR: " + (e && e.message)))
+		JS
+		assert_no_match(/\AERR:/, result, "cosign round-trip failed: #{result}")
+		data = JSON.parse(result)
+
+		assert_equal "cosign", data["type"]
+		assert_equal 1, data["n"], "the provider reads back the proofs array"
+		assert_equal 4, data["amount"], "the proof amount survives the round-trip (numeric, not corrupted)"
+		assert_equal "s1", data["secret"], "the proof secret survives"
+		assert_equal({ "signatures" => [ "aa" ] }.to_json, data["witness"], "the consumer's witness signature survives")
+	end
 end

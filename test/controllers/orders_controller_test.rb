@@ -101,6 +101,15 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_equal Orders::EntryPoints::REQUEST_CLAIM, order.entry_point
 	end
 
+	test "a chosen tier-2 flows through place_params to the created order" do
+		sign_in
+		listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 2_000)
+
+		post orders_url, params: order_params(coordinate_for(listing)).deep_merge(order: { tier: Orders::Tiers::TIER2_ARBITER })
+
+		assert_equal Orders::Tiers::TIER2_ARBITER, Order.find_by(consumer_pubkey: @session_pubkey).tier
+	end
+
 	test "a coordinate that resolves to nothing redirects with a flash error" do
 		sign_in
 
@@ -272,7 +281,45 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to root_path # the involving scope hides it -> RecordNotFound -> redirect
 	end
 
+	test "a party opens a Tier-2 dispute on a funded order" do
+		sign_in
+		order = funded_tier2(consumer: @session_pubkey)
+
+		post order_dispute_url(order), params: { dispute: { reason: "Work not delivered" } }
+
+		assert_redirected_to order_path(order)
+		assert_equal Orders::States::DISPUTED, order.reload.current_state
+		assert_equal "Work not delivered", order.dispute.reason
+	end
+
+	test "a dispute on a tier-1 order is rejected with a flash redirect" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32))
+		with_unspent_checkstate { Orders::Funding.call(order:, **funding_payload) }
+
+		post order_dispute_url(order)
+
+		assert_redirected_to root_path # ValidationError -> RedirectsOnError; no dispute recorded
+		assert_nil order.reload.dispute
+	end
+
+	test "a non-party cannot open a dispute" do
+		order = funded_tier2(consumer: SecureRandom.hex(32))
+		sign_in
+
+		post order_dispute_url(order)
+
+		assert_redirected_to root_path # the involving scope hides it
+		assert_nil order.reload.dispute
+	end
+
 	private
+
+	def funded_tier2(consumer: SecureRandom.hex(32), provider: SecureRandom.hex(32))
+		order = build_order(tier: Orders::Tiers::TIER2_ARBITER, amount_sats: 1_000,
+			consumer_pubkey: consumer, provider_pubkey: provider)
+		fund_tier2_order(order)
+	end
 
 	def order_params(coordinate)
 		{ order: { coordinate:, mint_url: MINT, dedupe_key: SecureRandom.hex(16) } }

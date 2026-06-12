@@ -56,17 +56,30 @@ module Orders
 			spent.any? { |s| preimage_matches?(witness(s)[:preimage], hashlock) }
 		end
 
-		# A release needs BOTH the consumer's release assertion (the mint cannot forge it) AND a main-path
-		# 2-of-3 spend (every proof carries the two required signatures). Anything else -- the single-signature
-		# timeout refund, a mixed/short witness, or a spend with no release on record -- is a refund. This is
-		# conservative: it never credits a release the consumer did not assert, so a padded witness cannot
-		# steal. (The label settles the order; the funds already moved at the mint either way.)
+		# A Tier-2 direction follows the signature count + who COULD have signed (the mint reports HOW MANY
+		# signed, not WHO), anchored on the one fact Rails owns: the platform arbiter signs ONLY after a ruling
+		# (Orders::ArbiterSign gates on dispute.ruled?), so its signature is unobtainable until then.
+		#   - A single-signature spend is the consumer's timeout refund -- always a REFUND, even after a ruling,
+		#     because the funds demonstrably moved back to the consumer (the loser front-running a ruling is the
+		#     documented locktime-lead limitation; the label still tracks where the money went).
+		#   - A quorum (2-of-3) spend on a RULED dispute is the arbiter co-signing for the ruled side (for the
+		#     provider -> RELEASED; for the consumer -> REFUNDED).
+		#   - A quorum spend with NO ruling can only be consumer + provider (the arbiter could not have signed),
+		#     i.e. the consumer co-signed to authorize the provider: a RELEASE. (A dispute cannot be opened once
+		#     a release is recorded, so a ruling never collides with an already-authorized release.)
 		def arbiter_outcome(spent)
-			released_by_consumer?(spent) ? Orders::States::RELEASED : Orders::States::REFUNDED
+			return Orders::States::REFUNDED unless quorum_spent?(spent)
+			return ruling_outcome if order.dispute&.ruled?
+
+			Orders::States::RELEASED
 		end
 
-		def released_by_consumer?(spent)
-			order.release.present? && spent.all? { |s| witness(s)[:signatures].size >= 2 }
+		def quorum_spent?(spent)
+			spent.all? { |s| witness(s)[:signatures].size >= 2 }
+		end
+
+		def ruling_outcome
+			order.dispute.ruled_for_provider? ? Orders::States::RELEASED : Orders::States::REFUNDED
 		end
 
 		def witness(state)

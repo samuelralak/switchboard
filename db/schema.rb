@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_11_210832) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_12_052458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -91,6 +91,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_210832) do
     t.index ["order_id"], name: "index_order_deliveries_on_order_id", unique: true
     t.check_constraint "content_hash::text ~ '^[a-f0-9]{64}$'::text", name: "order_deliveries_content_hash_hex"
     t.check_constraint "delivery_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "order_deliveries_event_id_hex"
+  end
+
+  create_table "order_disputes", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "opened_by_pubkey", limit: 64, null: false
+    t.uuid "order_id", null: false
+    t.text "reason"
+    t.datetime "ruled_at"
+    t.string "status", limit: 32, default: "open", null: false
+    t.datetime "updated_at", null: false
+    t.index ["order_id"], name: "index_order_disputes_on_order_id", unique: true
+    t.check_constraint "opened_by_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "order_disputes_opened_by_hex"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'ruled_for_provider'::character varying, 'ruled_for_consumer'::character varying]::text[])", name: "order_disputes_status"
   end
 
   create_table "order_effects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -246,6 +259,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_11_210832) do
   end
 
   add_foreign_key "order_deliveries", "orders"
+  add_foreign_key "order_disputes", "orders"
   add_foreign_key "order_effects", "orders"
   add_foreign_key "order_locks", "orders"
   add_foreign_key "order_proofs", "orders"

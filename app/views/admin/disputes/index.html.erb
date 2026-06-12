@@ -1,0 +1,52 @@
+<% content_for :title, "Dispute rulings" %>
+
+<div class="mx-auto max-w-3xl">
+  <div class="mb-5">
+    <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Dispute rulings</h1>
+    <p class="mt-0.5 text-sm text-ink-muted">Open Tier-2 disputes awaiting the platform arbiter. Ruling sets the direction; the winning party completes the on-mint spend.</p>
+  </div>
+
+  <% if @disputes.any? %>
+    <div class="flex flex-col gap-3">
+      <% @disputes.each do |dispute| %>
+        <% order = dispute.order %>
+        <div class="rounded-lg border border-border bg-surface p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="truncate font-mono text-xs text-ink-secondary"><%= order.listing_coordinate %></p>
+              <p class="mt-1 text-sm text-ink-muted">Opened <%= time_ago_in_words(dispute.created_at) %> ago by the <%= dispute.opened_by_pubkey == order.provider_pubkey ? "provider" : "consumer" %></p>
+            </div>
+            <%= render Shared::PriceTag::PriceTagComponent.new(amount: order.amount_sats, size: :sm, tone: :ink) %>
+          </div>
+
+          <dl class="mt-3 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+            <div class="flex gap-1.5">
+              <dt class="text-ink-faint">Provider</dt>
+              <dd class="truncate font-mono text-ink-secondary" title="<%= order_npub(order.provider_pubkey) %>"><%= order_npub(order.provider_pubkey).truncate(22) %></dd>
+            </div>
+            <div class="flex gap-1.5">
+              <dt class="text-ink-faint">Consumer</dt>
+              <dd class="truncate font-mono text-ink-secondary" title="<%= order_npub(order.consumer_pubkey) %>"><%= order_npub(order.consumer_pubkey).truncate(22) %></dd>
+            </div>
+          </dl>
+
+          <% if dispute.reason.present? %>
+            <p class="mt-3 rounded-md bg-canvas p-2.5 text-sm text-ink"><%= dispute.reason %></p>
+          <% end %>
+
+          <div class="mt-4 flex gap-2">
+            <%= button_to "Rule for provider", rule_admin_dispute_path(dispute), params: { winner: "provider" },
+                  form: { data: { turbo_confirm: "Rule for the PROVIDER? The funds release to them. This cannot be undone." } },
+                  class: "rounded-md bg-ink px-3 py-1.5 text-sm font-medium text-surface hover:bg-ink-secondary" %>
+            <%= button_to "Rule for consumer", rule_admin_dispute_path(dispute), params: { winner: "consumer" },
+                  form: { data: { turbo_confirm: "Rule for the CONSUMER? The funds return to them. This cannot be undone." } },
+                  class: "rounded-md border border-border px-3 py-1.5 text-sm font-medium text-ink hover:bg-canvas" %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <%= render Shared::EmptyState::EmptyStateComponent.new(
+          title: "No open disputes", body: "Tier-2 disputes awaiting a ruling will appear here.", icon: "scale") %>
+  <% end %>
+</div>

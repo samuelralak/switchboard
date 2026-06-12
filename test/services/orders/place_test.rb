@@ -43,6 +43,23 @@ module Orders
 			assert_raises(NotFoundError) { place("#{Events::Kinds::CLASSIFIED}:#{'c' * 64}:missing", actor) }
 		end
 
+		test "defaults to tier-1 when no tier is chosen" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 2_000)
+
+			assert_equal Orders::Tiers::TIER1_HTLC, place(coordinate_for(listing), actor).tier
+		end
+
+		test "forwards the chosen tier-2 to the created order" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 2_000)
+
+			order = Orders::Place.call(coordinate: coordinate_for(listing), mint_url: MINT,
+				dedupe_key: SecureRandom.hex(16), tier: Orders::Tiers::TIER2_ARBITER, actor:)
+
+			assert_equal Orders::Tiers::TIER2_ARBITER, order.tier
+		end
+
 		test "rejects a coordinate that is not kind-30402" do
 			actor = User.create!(pubkey: SecureRandom.hex(32))
 

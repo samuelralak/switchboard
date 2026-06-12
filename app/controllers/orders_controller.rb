@@ -9,7 +9,8 @@ class OrdersController < ApplicationController
 	before_action :require_login
 	# Limit only the mutating/money actions; the hub + order pages are GETs browsed freely (tab switches and
 	# order selections are page loads, so limiting them 429s normal browsing).
-	rate_limit to: 20, within: 1.minute, by: -> { current_user&.pubkey }, only: %i[create fund deliver release settle]
+	rate_limit to: 20, within: 1.minute, by: -> { current_user&.pubkey },
+		only: %i[create fund deliver release settle dispute]
 
 	# The order activity hub: a tabbed ledger of everything the signed-in user is BUYING (orders they placed +
 	# requests they posted) and SELLING (orders they provide on). Replaces the separate My-requests + Messages
@@ -66,10 +67,19 @@ class OrdersController < ApplicationController
 		head :accepted # the mint is unreachable right now; the reconcile sweep will retry
 	end
 
+	# Either party escalates a funded Tier-2 order to the platform arbiter. Moves it to `disputed`; the consumer
+	# keeps the post-locktime refund backstop throughout. OpenDispute rejects tier-1, non-parties, non-funded.
+	def dispute
+		order = Order.involving(current_user.pubkey).find(params.expect(:id))
+		Orders::OpenDispute.call(order:, opened_by_pubkey: current_user.pubkey, reason: dispute_reason)
+
+		redirect_to order_path(order), notice: "Dispute opened. The platform arbiter will review it."
+	end
+
 	private
 
 	def place_params
-		params.expect(order: %i[coordinate mint_url dedupe_key]).to_h.symbolize_keys
+		params.expect(order: %i[coordinate mint_url dedupe_key tier]).to_h.symbolize_keys
 	end
 
 	def funding_params
@@ -83,5 +93,10 @@ class OrdersController < ApplicationController
 
 	def release_params
 		params.expect(release: %i[reveal_event_id released_at]).to_h.symbolize_keys
+	end
+
+	# Reason is optional; a bare dispute (no params) is allowed.
+	def dispute_reason
+		params.fetch(:dispute, {}).permit(:reason)[:reason]
 	end
 end
