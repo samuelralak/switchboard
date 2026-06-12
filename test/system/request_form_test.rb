@@ -14,9 +14,11 @@ class RequestFormTest < ApplicationSystemTestCase
 		assert_text "Post an open request"
 	end
 
-	test "the funding model is shown as coming soon (escrow + fee land with payments)" do
-		assert_text "COMING SOON" # the funding panel pill (CSS-uppercased)
-		assert_text "deposited into escrow"
+	test "the funding panel states the fund-at-claim model, with only the posting fee marked coming soon" do
+		assert_text "claims it, you lock the budget to them" # fund-at-claim, not fund-at-post
+		assert_no_text "deposited into escrow up front" # the superseded reservation wording is gone
+		assert_text "non-refundable posting fee"
+		assert_text "COMING SOON" # the pill, now scoped to the fee (CSS-uppercased "Fee coming soon")
 	end
 
 	test "strict validation blocks an empty post and lists the problems" do

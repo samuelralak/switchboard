@@ -41,10 +41,10 @@ module Requests
 				request.claim_window.presence && "claim within #{request.claim_window}"
 			end
 
-			# The funded-bounty guarantee (brief §10.2). Posting deposits the budget into escrow up front and
-			# pays a separate non-refundable posting fee; the deposit binds to the provider who claims and
-			# releases on delivery, or refunds if it goes unclaimed/undelivered. Currently informational: the
-			# escrow + fee mechanics land with the payments work, so a request is publish-and-browse for now.
+			# The funded-bounty guarantee (brief §10.2), fund-at-claim: a request posts UNFUNDED (a declaration +
+			# a non-refundable posting fee); when a provider claims, the poster funds by locking the budget to
+			# that provider, and it releases on delivery or refunds if undelivered / the claim lapses. The
+			# at-claim escrow is live via the order flow; only the posting fee lands later with the payments work.
 			def funding_explainer
 				"Claiming opens a funding window: the poster locks the budget to you in escrow (key-locked Cashu " \
 					"with a timelock refund), and the delivery clock starts. It releases to you on delivery, or " \

@@ -191,15 +191,16 @@
         </fieldset>
       <% end %>
 
-      <%# Coming-soon: the funded-bounty mechanics (escrow deposit + posting fee) land with payments. Shown
-          as a non-interactive panel so the model reads, but nothing is collected yet. %>
+      <%# Fund-at-claim: a request posts UNFUNDED (a declaration); the budget is locked to the provider only
+          once they CLAIM, on the order page. That escrow flow is live, so the coming-soon note is scoped to
+          the posting FEE alone (the one piece still to land with payments), not the escrow. %>
       <div class="relative rounded-xl border border-dashed border-border bg-inset/50 p-4">
-        <span class="absolute right-3 top-3 rounded-full bg-surface-2 px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider text-ink-muted">Coming soon</span>
+        <span class="absolute right-3 top-3 rounded-full bg-surface-2 px-2 py-0.5 text-[0.5625rem] font-medium uppercase tracking-wider text-ink-muted">Fee coming soon</span>
         <div class="flex items-start gap-2.5">
           <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
           <div class="text-sm leading-relaxed text-ink-secondary">
-            <p>When you post, your <span class="font-medium text-ink">budget is deposited into escrow up front</span> (locked to your keys, with a timelock refund), so a claiming provider sees committed sats. It releases on delivery, or refunds if the request goes unclaimed or undelivered.</p>
-            <p class="mt-2">Posting also charges a <span class="font-medium text-ink">small non-refundable fee</span> paid directly to the platform. Escrow and the fee arrive with payments; for now, posting publishes the request.</p>
+            <p>Posting publishes your request as an open declaration. When a provider <span class="font-medium text-ink">claims it, you lock the budget to them</span> in escrow (key-locked to you, with a timelock refund). It releases on delivery, or refunds to you if they never deliver or the claim lapses.</p>
+            <p class="mt-2">A <span class="font-medium text-ink">small non-refundable posting fee</span> (about $1, or 1.5% of the budget) paid to the platform arrives with payments; for now, posting is free.</p>
           </div>
         </div>
       </div>

@@ -7,8 +7,9 @@ import { RelaySet } from "nostr/relay_set"
 // relays, where the server ingest routes it to the request board by its marker. The tag shape MUST
 // match Requests::Draft / Requests::OpenRequest exactly -- that is the read contract.
 //
-// NOTE: this publishes the request EVENT only. The funded-bounty mechanics (the budget escrow deposit
-// and the non-refundable posting fee, brief §10.2) land with escrow; until then a request is publish-only.
+// NOTE: this publishes the request EVENT only -- a fund-at-claim declaration. The budget is escrowed later,
+// when a provider claims and the poster funds the order; the one piece still unbuilt is the non-refundable
+// posting fee (brief §10.2), which lands with the Lightning payments work.
 const CLASSIFIED = 30402 // NIP-99
 
 // Build the kind-30402 template from the composer form `data` and the server `config`
