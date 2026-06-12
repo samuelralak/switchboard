@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
-# Simple Form skinned to the Switchboard prototype (dark canvas, copper accent,
-# JetBrains Mono labels). Text inputs, textareas, and selects share one field
-# style; numeric/URL fields add font-mono; the invalid state forces a
-# lamp-fault border, all matching the prototype. No @tailwindcss/forms plugin,
-# so the asset build stays Node-free.
+# Simple Form skinned to the Switchboard prototype (dark canvas, copper accent).
+# Text inputs, textareas, and selects share one field style; numeric/URL/identifier
+# fields add font-mono (mono is for DATA values only -- labels, hints, and errors
+# stay sans); the invalid state forces a lamp-fault border. No @tailwindcss/forms
+# plugin, so the asset build stays Node-free.
 
 # Let Simple Form own error styling via :error_class instead of Rails' default
 # field_with_errors wrapper, which injects a div that breaks the layout.
@@ -19,14 +19,14 @@ SimpleForm.setup do |config|
 					"placeholder:text-ink-faint transition-colors hover:border-border-strong #{focus}"
 	field_mono = "#{field} font-mono" # numeric / URL / identifier fields
 
-	# Field label: mono + uppercase, with the required/optional marker pushed to
-	# the right (the marker text/colour comes from config.label_text below).
-	label_class = "flex items-baseline justify-between gap-2 font-mono text-xs uppercase " \
+	# Field label: sans + uppercase (mono is reserved for data, never labels), with the
+	# required/optional marker pushed to the right (marker text/colour from config.label_text below).
+	label_class = "flex items-baseline justify-between gap-2 text-xs uppercase " \
 								"tracking-wider text-ink-muted mb-2"
 
 	error_input = "!border-lamp-fault"
-	error_text  = "mt-1.5 font-mono text-xs text-lamp-fault"
-	hint_text   = "mt-1.5 font-mono text-xs text-ink-faint"
+	error_text  = "mt-1.5 text-xs text-lamp-fault"
+	hint_text   = "mt-1.5 text-xs text-ink-faint"
 
 	# Default wrapper: string / email / password / text / select.
 	config.wrappers :switchboard, class: "mb-5" do |b|

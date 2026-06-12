@@ -8,7 +8,7 @@ module Shared
 			def test_renders_content_with_base_classes
 				render_inline(EyebrowComponent.new.with_content("reference service"))
 
-				assert_selector "p.font-mono.text-xs.uppercase.tracking-widest.text-copper"
+				assert_selector "p.text-xs.font-medium.uppercase.tracking-widest.text-copper"
 				assert_text "reference service"
 			end
 

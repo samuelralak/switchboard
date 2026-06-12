@@ -30,10 +30,10 @@ module Shared
 				assert_selector "i.hgi-arrow-left-02"
 			end
 
-			def test_has_mono_and_transition_classes
+			def test_has_label_and_transition_classes
 				render_inline(BackLinkComponent.new(label: "catalog"))
 
-				assert_selector "a.font-mono.text-xs.text-ink-muted.transition-colors"
+				assert_selector "a.font-medium.text-xs.text-ink-muted.transition-colors"
 			end
 		end
 	end

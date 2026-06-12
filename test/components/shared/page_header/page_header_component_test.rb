@@ -27,7 +27,7 @@ module Shared
 			def test_eyebrow_renders_when_present
 				render_inline(PageHeaderComponent.new(eyebrow: "ledger", title: "My requests"))
 
-				assert_selector "p.font-mono.uppercase.text-copper", text: "ledger"
+				assert_selector "p.font-medium.uppercase.text-copper", text: "ledger"
 			end
 
 			def test_eyebrow_omitted_when_absent

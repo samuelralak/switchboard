@@ -3,7 +3,7 @@
     <% i = idx + 1 %>
     <span class="inline-flex items-center gap-2">
       <span class="grid place-items-center h-5 w-5 rounded-full font-mono text-xs <%= circle_class(i) %>"><%= mark_for(i) %></span>
-      <span class="font-mono text-xs <%= label_class(i) %>"><%= label %></span>
+      <span class="text-xs font-medium <%= label_class(i) %>"><%= label %></span>
     </span>
     <% unless last_step?(i) %>
       <span class="h-px w-5 <%= connector_class(i) %>"></span>
