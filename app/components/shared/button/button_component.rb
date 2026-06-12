@@ -17,7 +17,10 @@ module Shared
 
 			VARIANTS = {
 				primary: "bg-copper text-canvas hover:bg-copper-bright active:translate-y-px",
-				ghost: "border border-border text-ink-secondary hover:text-ink hover:border-border-strong hover:bg-surface"
+				# A translucent light wash lifts the ghost on hover regardless of the surface it sits on (canvas, a
+				# card, or a surface-2 dialog); a solid step is invisible on a matching surface and inverts on a
+				# lighter one.
+				ghost: "border border-border text-ink-secondary hover:text-ink hover:border-border-strong hover:bg-ink/5"
 			}.freeze
 
 			SIZES = {

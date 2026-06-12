@@ -17,7 +17,7 @@
 
   <% page.with_actions do %>
     <button type="button" command="show-modal" commandfor="studio-preview-drawer" data-action="studio#previewAsBuyer"
-            class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-surface hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+            class="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:bg-ink/5 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
       <%= render Shared::Icon::IconComponent.new(name: "view", size: :sm) %>
       Preview as buyer
     </button>
