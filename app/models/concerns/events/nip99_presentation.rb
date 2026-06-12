@@ -36,7 +36,14 @@ module Events
 
 		def title = event.tag("title").presence || self.class::DEFAULT_TITLE
 		def summary = event.tag("summary").presence || description.truncate(140)
-		def description = event.content.to_s
+
+		# NIP-99 content is the human-readable (Markdown) description. Some upstream sources (e.g. Conduit) put
+		# the serialized event JSON in content instead; never render that raw -- fall back to the summary tag
+		# (clean text) when the content reads as a JSON blob.
+		def description
+			content = event.content.to_s
+			json_blob?(content) ? event.tag("summary").to_s : content
+		end
 		def status = event.tag("status").presence || "active"
 		# Original publish time (NIP-99); carried through edits so it is not reset on re-publish.
 		def published_at = event.tag("published_at")
@@ -106,6 +113,15 @@ module Events
 
 		# A url only if it is http(s); otherwise nil (keeps javascript:/data: urls out of <img src>).
 		def http_url(url) = url.to_s.match?(%r{\Ahttps?://}i) ? url : nil
+
+		# Heuristic: does the content read as serialized JSON (an object, or an array whose first element is a
+		# string/array/object) rather than Markdown prose? Catches a serialized event or tag set without
+		# clobbering a Markdown link, which starts "[text](...".
+		def json_blob?(text)
+			stripped = text.lstrip
+
+			stripped.start_with?("{") || stripped.match?(/\A\[\s*["\[{]/)
+		end
 
 		def imeta_tag(url)
 			event.tags.find { |t| t.is_a?(Array) && t[0] == "imeta" && t.include?("url #{url}") }

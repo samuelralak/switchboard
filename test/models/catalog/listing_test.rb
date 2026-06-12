@@ -93,5 +93,25 @@ module Catalog
 			assert_equal meta, listing.image_meta("https://host/a.png")
 			assert_empty listing.image_meta("https://host/missing.png")
 		end
+
+		test "serialized-JSON content never renders raw; it falls back to the summary tag" do
+			array_blob = Event.new(
+				content: '[["id","30402:abc"],["title","x"]]',
+				tags: [ [ "title", "Sound Coffee" ], [ "summary", "Single-origin pour-over, delivered." ] ]
+			)
+			object_blob = Event.new(content: '{"id":"abc","kind":30402}', tags: [ [ "title", "X" ], [ "summary", "Clean blurb." ] ])
+
+			array_listing = Catalog::Listing.new(array_blob)
+			assert_equal "Single-origin pour-over, delivered.", array_listing.description
+			assert_equal "Single-origin pour-over, delivered.", array_listing.summary
+			assert_not_includes array_listing.search_text, "30402", "the raw JSON never reaches the search haystack"
+			assert_equal "Clean blurb.", Catalog::Listing.new(object_blob).description
+		end
+
+		test "a Markdown description that opens with a link is not mistaken for JSON" do
+			event = Event.new(content: "[my site](https://x.test) handles the rest", tags: [ [ "title", "X" ] ])
+
+			assert_equal "[my site](https://x.test) handles the rest", Catalog::Listing.new(event).description
+		end
 	end
 end
