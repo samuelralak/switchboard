@@ -35,6 +35,14 @@ module Requests
 			assert_not_includes names, "claim_window"
 		end
 
+		test "emits the escrow_tier tag only for a recognized non-default tier" do
+			mediated = tags_for(title: "T", escrow_tier: Orders::Tiers::TIER2_ARBITER)
+
+			assert_includes mediated, [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ]
+			assert_not_includes tags_for(title: "T").map(&:first), "escrow_tier" # absent -> previews as tier-1
+			assert_not_includes tags_for(title: "T", escrow_tier: "tier9_nonsense").map(&:first), "escrow_tier"
+		end
+
 		test "emits image and imeta tags for picked images" do
 			tags = tags_for(title: "T", images: [ { url: "https://h/a.png", m: "image/png", x: "abc", dim: "800x450" } ])
 

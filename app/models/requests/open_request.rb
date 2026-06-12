@@ -35,5 +35,15 @@ module Requests
 		# post-claim turnaround the consumer asks for. Microstandard form e.g. "7d" / "48h".
 		def claim_window = event.tag("claim_window")
 		def delivery_window = event.tag("delivery_window")
+
+		# The escrow tier the poster opted into when authoring. A catalog buyer picks the tier at order time,
+		# but a request is funded by its poster, so the choice rides on the event and the claiming provider
+		# cannot change it (Orders::Place stamps this onto the claim order). Clamps an absent/unrecognized tag
+		# to tier-1 (self-custodial), the safe default.
+		def escrow_tier
+			tier = event.tag("escrow_tier")
+
+			Orders::Tiers::ALL.include?(tier) ? tier : Orders::Tiers::TIER1_HTLC
+		end
 	end
 end

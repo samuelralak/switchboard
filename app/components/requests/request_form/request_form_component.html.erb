@@ -167,6 +167,30 @@
         <p class="mt-0.5 text-xs text-ink-faint">How an open request gets funded. Escrow follows automatically.</p>
       </div>
 
+      <%# Escrow type: the one funding choice collected today. You fund the request, so the tier is yours to
+          set (a claiming provider inherits it; Orders::Place reads it off the event). Offered only when the
+          platform arbiter is provisioned; the mediated radio carries the Tier-2 cap so the composer can
+          reject a budget that would publish an unclaimable request. %>
+      <% if tier2_offered? %>
+        <fieldset class="mb-4 space-y-2">
+          <legend class="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-faint">Escrow type</legend>
+          <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
+            <input type="radio" name="escrow_tier" value="<%= Orders::Tiers::TIER1_HTLC %>" <%= "checked" if escrow_tier == Orders::Tiers::TIER1_HTLC %> class="mt-0.5 accent-copper">
+            <span class="text-sm">
+              <span class="font-medium text-ink">Standard escrow</span>
+              <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">The claiming provider releases on your approval, or you reclaim the budget after the timelock. Fully self-custodial.</span>
+            </span>
+          </label>
+          <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
+            <input type="radio" name="escrow_tier" value="<%= Orders::Tiers::TIER2_ARBITER %>" data-cap="<%= tier2_cap %>" <%= "checked" if escrow_tier == Orders::Tiers::TIER2_ARBITER %> class="mt-0.5 accent-copper">
+            <span class="text-sm">
+              <span class="font-medium text-ink">Mediated escrow</span>
+              <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">If the work goes wrong, a platform arbiter can co-sign the release to either side. The arbiter alone can never move or seize the funds. Lower budget limit, longer lock.</span>
+            </span>
+          </label>
+        </fieldset>
+      <% end %>
+
       <%# Coming-soon: the funded-bounty mechanics (escrow deposit + posting fee) land with payments. Shown
           as a non-interactive panel so the model reads, but nothing is collected yet. %>
       <div class="relative rounded-xl border border-dashed border-border bg-inset/50 p-4">

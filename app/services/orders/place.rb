@@ -1,9 +1,11 @@
 # frozen_string_literal: true
 
 module Orders
-	# Open an escrow order from a kind-30402 coordinate, placed by the signed-in actor. The amount and the
-	# counterparty are read from the listing/request EVENT, never trusted from the client: ordering a listing
-	# makes the actor the consumer; claiming a request makes the actor the provider. Escrow locks whole sats.
+	# Open an escrow order from a kind-30402 coordinate, placed by the signed-in actor. The amount, the
+	# counterparty, AND the escrow tier are read from the listing/request EVENT, never trusted from the
+	# client: ordering a listing makes the actor the consumer and honours the buyer's chosen tier; claiming
+	# a request makes the actor the provider and inherits the tier the poster funded for (the claimer cannot
+	# change it). Escrow locks whole sats.
 	class Place < BaseService
 		option :coordinate, type: Types::Strict::String
 		option :mint_url, type: Types::Strict::String
@@ -14,7 +16,7 @@ module Orders
 		def call
 			deadline = Orders::Policy.funding_window.from_now
 
-			Orders::Create.call(**order_attributes(locate!), mint_url:, dedupe_key:, tier:, funding_deadline_at: deadline)
+			Orders::Create.call(**order_attributes(locate!), mint_url:, dedupe_key:, funding_deadline_at: deadline)
 		end
 
 		private
@@ -38,25 +40,30 @@ module Orders
 			request ? claim_attributes(event) : listing_order_attributes(event)
 		end
 
-		# Claiming an open request: the actor becomes the provider; the request author funds.
+		# Claiming an open request: the actor becomes the provider; the request author funds. The tier comes
+		# from the request event (the poster opted in when authoring), so the claiming provider's POSTed tier
+		# is ignored -- only the funder's choice can move money into arbiter mediation.
 		def claim_attributes(event)
 			request = Requests::OpenRequest.new(event)
 			raise NotFoundError, "request is not open" unless request.open?
 
 			{
 				entry_point: EntryPoints::REQUEST_CLAIM, consumer_pubkey: event.pubkey, provider_pubkey: actor.pubkey,
-				listing_coordinate: coordinate, amount_sats: whole_sats!(request.budget_amount, request.whole_sat_budget?)
+				listing_coordinate: coordinate, amount_sats: whole_sats!(request.budget_amount, request.whole_sat_budget?),
+				tier: request.escrow_tier
 			}
 		end
 
-		# Ordering a catalog listing: the actor becomes the consumer; the listing author is the provider.
+		# Ordering a catalog listing: the actor becomes the consumer; the listing author is the provider. The
+		# consumer is the funder here, so the buyer's chosen tier (gated by ServiceDetail#tier2_offered?) stands.
 		def listing_order_attributes(event)
 			listing = Catalog::Listing.new(event)
 			raise NotFoundError, "not an active service listing" unless listing.conforms? && listing.active?
 
 			{
 				entry_point: EntryPoints::CATALOG_ORDER, consumer_pubkey: actor.pubkey, provider_pubkey: event.pubkey,
-				listing_coordinate: coordinate, amount_sats: whole_sats!(listing.price_amount, listing.whole_sat_price?)
+				listing_coordinate: coordinate, amount_sats: whole_sats!(listing.price_amount, listing.whole_sat_price?),
+				tier: tier
 			}
 		end
 

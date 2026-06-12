@@ -23,7 +23,7 @@ module Requests
 		private
 
 		def body_tags_order
-			%i[capability_tag budget_tag delivery_window_tag claim_window_tag]
+			%i[capability_tag budget_tag delivery_window_tag claim_window_tag escrow_tier_tag]
 		end
 
 		# The funded budget reuses NIP-99's price tag; a bounty is a single fixed amount (brief §10.2: one
@@ -37,6 +37,13 @@ module Requests
 		# Both windows are emitted unconditionally (no fulfillment gate, unlike the listing).
 		def delivery_window_tag = window_tag("delivery_window", :delivery_value, :delivery_unit)
 		def claim_window_tag = window_tag("claim_window", :claim_value, :claim_unit)
+
+		# The poster's escrow-tier choice, so the preview reads the same tier the publisher will sign. Only a
+		# recognized non-default tier is emitted; an absent tag previews as tier-1 (OpenRequest#escrow_tier).
+		def escrow_tier_tag
+			tier = field(:escrow_tier)
+			[ "escrow_tier", tier ] if Orders::Tiers::ALL.include?(tier)
+		end
 
 		def window_tag(name, value_key, unit_key)
 			value = field(value_key)

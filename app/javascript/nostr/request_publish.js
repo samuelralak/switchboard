@@ -40,6 +40,9 @@ function requestTags(data, dTag, config, now) {
   if (data.budget) tags.push(["price", String(data.budget), "sat"])
   if (data.deliveryWindow) tags.push(["delivery_window", data.deliveryWindow])
   if (data.claimWindow) tags.push(["claim_window", data.claimWindow])
+  // The escrow tier the poster opts into (Requests::OpenRequest#escrow_tier reads it back). Absent =>
+  // tier-1; the composer only emits it when the platform arbiter is provisioned.
+  if (data.escrowTier) tags.push(["escrow_tier", data.escrowTier])
   for (const image of data.images || []) {
     if (!image.url) continue
     tags.push(["image", image.url])

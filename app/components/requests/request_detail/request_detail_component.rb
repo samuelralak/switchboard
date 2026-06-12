@@ -50,6 +50,22 @@ module Requests
 					"with a timelock refund), and the delivery clock starts. It releases to you on delivery, or " \
 					"refunds to the poster if you never deliver. Verify the locked budget before doing the work."
 			end
+
+			# Extra line shown only on a mediated request: how a dispute resolves through the platform arbiter,
+			# so the claiming provider knows the trust model before taking the work. nil for standard escrow.
+			def arbiter_note
+				return unless mediated_escrow?
+
+				"If you and the poster disagree, either side can escalate to the platform arbiter, who can co-sign " \
+					"the release to one party but can never move the funds alone."
+			end
+
+			# The poster opted into arbiter-mediated escrow (vs the self-custodial default), so the claiming
+			# provider sees how a dispute would resolve before taking the work.
+			def mediated_escrow? = request.escrow_tier == Orders::Tiers::TIER2_ARBITER
+
+			# The escrow type, surfaced as a small pill beside the funded-bounty label.
+			def escrow_label = mediated_escrow? ? "mediated escrow" : "standard escrow"
 		end
 	end
 end

@@ -43,8 +43,16 @@
     <div class="flex items-start gap-2">
       <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
       <div>
-        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">funded bounty · escrow</p>
+        <p class="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-muted">
+          funded bounty · escrow
+          <% if mediated_escrow? %>
+            <span class="rounded-full bg-copper/10 px-2 py-0.5 text-[0.5625rem] font-medium normal-case tracking-normal text-copper"><%= escrow_label %></span>
+          <% end %>
+        </p>
         <p class="mt-1 text-sm leading-relaxed text-ink-secondary"><%= funding_explainer %></p>
+        <% if arbiter_note %>
+          <p class="mt-2 text-sm leading-relaxed text-ink-secondary"><%= arbiter_note %></p>
+        <% end %>
       </div>
     </div>
   <% end %>

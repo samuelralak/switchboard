@@ -51,6 +51,38 @@ class RequestBuildEventsTest < ApplicationSystemTestCase
 		assert_equal({ url: "https://h/a.png", m: "image/png", x: "abc", dim: "800x450" }, request.image_meta("https://h/a.png"))
 	end
 
+	test "the poster's escrow tier rides on the event and reads back through OpenRequest" do
+		json = evaluate_async_script(<<~JS, Requests::OpenRequest.marker, Catalog::Listing::CAPABILITY_NAMESPACE, Orders::Tiers::TIER2_ARBITER)
+		  const [marker, capabilityNamespace, tier] = arguments
+		  const done = arguments[arguments.length - 1]
+		  const { NsecSigner, buildRequestEvent } = window.NostrCryptoTest
+		  const data = { title: "T", capability: "c", budget: "5000", deliveryWindow: "24h", claimWindow: "3d", dTag: "d", escrowTier: tier }
+		  const { request } = buildRequestEvent(data, { marker, capabilityNamespace })
+		  Promise.resolve(NsecSigner.generate().signEvent(request))
+		    .then((s) => done(JSON.stringify(s))).catch((e) => done("ERR:" + e.message))
+		JS
+		assert_no_match(/\AERR:/, json, "buildRequestEvent/sign failed: #{json}")
+
+		assert_equal Orders::Tiers::TIER2_ARBITER, request_from(json).escrow_tier
+	end
+
+	test "a request with no escrow tier omits the tag and reads back as tier-1" do
+		json = evaluate_async_script(<<~JS, Requests::OpenRequest.marker, Catalog::Listing::CAPABILITY_NAMESPACE)
+		  const [marker, capabilityNamespace] = arguments
+		  const done = arguments[arguments.length - 1]
+		  const { NsecSigner, buildRequestEvent } = window.NostrCryptoTest
+		  const data = { title: "T", capability: "c", budget: "5000", deliveryWindow: "24h", claimWindow: "3d", dTag: "d" }
+		  const { request } = buildRequestEvent(data, { marker, capabilityNamespace })
+		  Promise.resolve(NsecSigner.generate().signEvent(request))
+		    .then((s) => done(JSON.stringify(s))).catch((e) => done("ERR:" + e.message))
+		JS
+		assert_no_match(/\AERR:/, json, "buildRequestEvent/sign failed: #{json}")
+		event = event_from(json)
+
+		assert_not_includes event.tags.map(&:first), "escrow_tier"
+		assert_equal Orders::Tiers::TIER1_HTLC, Requests::OpenRequest.new(event).escrow_tier
+	end
+
 	test "the budget carries no frequency and the request is never read as a service listing" do
 		json = evaluate_async_script(<<~JS, Requests::OpenRequest.marker, Catalog::Listing::CAPABILITY_NAMESPACE)
 		  const [marker, capabilityNamespace] = arguments
@@ -175,7 +207,67 @@ class RequestComposerPublishTest < ApplicationSystemTestCase
 		assert_text "30402:" # the coordinate is shown on the receipt
 	end
 
+	test "choosing mediated escrow publishes a request carrying the tier-2 tag" do
+		with_arbiter_key do
+			sign_in_with_nsec
+			click_link "Post a request" # Turbo nav -> the composer re-renders with the arbiter provisioned
+			assert_text "Post an open request"
+
+			execute_script(<<~JS)
+			  window.NostrCryptoTest.installMockRelays([
+			    { url: "wss://relay.damus.io" }, { url: "wss://relay.nostr.band" }, { url: "wss://nos.lol" }
+			  ])
+			JS
+
+			fill_in "title", with: "Diagnose an engine"
+			fill_in "capability", with: "diagnosis"
+			fill_in "budget", with: "5000"
+			fill_in "claim_value", with: "3"
+			fill_in "delivery_value", with: "24"
+			find("input[name='escrow_tier'][value='#{Orders::Tiers::TIER2_ARBITER}']").click
+			click_button "Sign & post request"
+			assert_text "Request posted"
+
+			assert_includes published_request_tags, [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ]
+		end
+	end
+
+	test "a mediated request above the tier-2 cap is blocked before signing" do
+		with_arbiter_key do
+			sign_in_with_nsec
+			click_link "Post a request"
+			assert_text "Post an open request"
+
+			fill_in "title", with: "Big job"
+			fill_in "capability", with: "diagnosis"
+			fill_in "budget", with: (Orders::Policy.tier2_max_order_sats + 1).to_s
+			fill_in "claim_value", with: "3"
+			fill_in "delivery_value", with: "24"
+			find("input[name='escrow_tier'][value='#{Orders::Tiers::TIER2_ARBITER}']").click
+			click_button "Sign & post request"
+
+			assert_text "Mediated escrow is limited to"
+			assert_no_text "Request posted"
+		end
+	end
+
 	private
+
+	# The tags of the kind-30402 the composer just broadcast, read back from the per-context mock relay.
+	def published_request_tags
+		json = evaluate_async_script(<<~JS)
+		  const done = arguments[arguments.length - 1]
+		  const { RelaySet } = window.NostrCryptoTest
+		  const set = new RelaySet(["wss://relay.damus.io"])
+		  let tags = []
+		  new Promise((resolve) => {
+		    set.subscribeMany([{ kinds: [30402] }], { onevent: (e) => { tags = e.tags }, oneose: resolve })
+		    setTimeout(resolve, 800)
+		  }).then(() => { set.close(); done(JSON.stringify(tags)) }).catch((e) => done("ERR:" + e.message))
+		JS
+		assert_no_match(/\AERR:/, json, "relay read failed: #{json}")
+		JSON.parse(json)
+	end
 
 	def sign_in_with_nsec
 		click_button "Sign in"

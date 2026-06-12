@@ -54,6 +54,18 @@ module Requests
 			assert_equal({ url: "https://h/a.png", m: "image/png", dim: "800x450" }, request.image_meta("https://h/a.png"))
 		end
 
+		test "escrow_tier reads a recognized tier tag" do
+			request = OpenRequest.new(request_event(extra_tags: [ [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ] ]))
+
+			assert_equal Orders::Tiers::TIER2_ARBITER, request.escrow_tier
+		end
+
+		test "escrow_tier defaults to tier-1 when absent or unrecognized" do
+			assert_equal Orders::Tiers::TIER1_HTLC, OpenRequest.new(request_event).escrow_tier
+			junk = OpenRequest.new(request_event(extra_tags: [ %w[escrow_tier tier9_nonsense] ]))
+			assert_equal Orders::Tiers::TIER1_HTLC, junk.escrow_tier
+		end
+
 		test "open? tracks the status tag" do
 			assert_predicate OpenRequest.new(request_event), :open?
 			assert_not_predicate OpenRequest.new(request_event(extra_tags: [ %w[status inactive] ])), :open?

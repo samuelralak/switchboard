@@ -175,8 +175,14 @@ export default class extends Controller {
       budget: v("budget"),
       deliveryWindow: deliveryValue ? `${deliveryValue}${v("delivery_unit") === "days" ? "d" : "h"}` : "",
       claimWindow: claimValue ? `${claimValue}${v("claim_unit") === "hours" ? "h" : "d"}` : "",
+      escrowTier: this.selectedTier()?.value || "", // empty when the arbiter isn't offered -> publishes as tier-1
       images: this.collectImages(),
     }
+  }
+
+  // The checked escrow-tier radio, or null when the Funding section offers no choice (arbiter unprovisioned).
+  selectedTier() {
+    return this.formTarget.querySelector('[name="escrow_tier"]:checked')
   }
 
   // Read the image picker's cards (rendered by the nested image-upload controller, inside this root) into
@@ -236,6 +242,13 @@ export default class extends Controller {
     if (!this.isPositiveInt(v("budget"))) errors.push("Set a budget in sats (a whole number above zero).")
     if (!this.isPositiveInt(v("claim_value"))) errors.push("Set a claim window.")
     if (!this.isPositiveInt(v("delivery_value"))) errors.push("Set a delivery window.")
+
+    // Mediated escrow carries a lower per-order cap; a budget above it would publish an unclaimable request
+    // (Orders::Create rejects the claim). Block it here. cap lives on the tier-2 radio (data-cap).
+    const cap = Number(this.selectedTier()?.dataset.cap)
+    if (cap > 0 && Number(v("budget")) > cap) {
+      errors.push(`Mediated escrow is limited to ${cap.toLocaleString("en-US")} sat. Lower the budget or choose standard escrow.`)
+    }
 
     return [ ...new Set(errors) ]
   }

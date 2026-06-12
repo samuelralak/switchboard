@@ -60,6 +60,33 @@ module Orders
 			assert_equal Orders::Tiers::TIER2_ARBITER, order.tier
 		end
 
+		test "a request claim inherits the poster's tier-2 escrow choice from the event" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			request = classified_event(pubkey: "b" * 64, marker: Requests::OpenRequest.marker, price: 3_000,
+				extra_tags: [ [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ] ])
+
+			assert_equal Orders::Tiers::TIER2_ARBITER, place(coordinate_for(request), actor).tier
+		end
+
+		test "a request claim defaults to tier-1 when the request declares no escrow tier" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			request = classified_event(pubkey: "b" * 64, marker: Requests::OpenRequest.marker, price: 3_000)
+
+			assert_equal Orders::Tiers::TIER1_HTLC, place(coordinate_for(request), actor).tier
+		end
+
+		test "a request claim honours the poster's tier and ignores the claimer's posted tier" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			# The poster funded for mediated escrow; a claimer cannot downgrade it by posting tier-1.
+			request = classified_event(pubkey: "b" * 64, marker: Requests::OpenRequest.marker, price: 3_000,
+				extra_tags: [ [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ] ])
+
+			order = Orders::Place.call(coordinate: coordinate_for(request), mint_url: MINT,
+				dedupe_key: SecureRandom.hex(16), tier: Orders::Tiers::TIER1_HTLC, actor:)
+
+			assert_equal Orders::Tiers::TIER2_ARBITER, order.tier
+		end
+
 		test "rejects a coordinate that is not kind-30402" do
 			actor = User.create!(pubkey: SecureRandom.hex(32))
 

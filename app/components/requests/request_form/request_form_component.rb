@@ -23,6 +23,8 @@ module Requests
 
 			attr_reader :request, :pubkey, :d_tag
 
+			delegate :escrow_tier, to: :request # the poster's current tier, so edit re-selects the right radio
+
 			def initialize(request:, pubkey: nil, d_tag: nil)
 				@request = request
 				@pubkey = pubkey
@@ -44,6 +46,15 @@ module Requests
 			def delivery_unit = request.delivery_window.to_s.end_with?("d") ? "days" : "hours"
 			def claim_value = request.claim_window.to_s[/\A(\d+)/, 1]
 			def claim_unit = request.claim_window.to_s.end_with?("h") ? "hours" : "days"
+
+			# Offer the mediated (arbiter) escrow choice only when the platform arbiter is provisioned. Unlike
+			# the catalog (fixed price), a request budget is user-input, so the Tier-2 cap can't be pre-checked
+			# at render; the composer enforces it client-side and Orders::Create backstops it at claim time.
+			def tier2_offered? = Escrow::ArbiterSigner.pubkey.present?
+
+			# The Tier-2 per-order sat cap, rendered onto the mediated radio so the composer can reject a budget
+			# that would publish an unclaimable request.
+			def tier2_cap = Orders::Policy.tier2_max_order_sats
 		end
 	end
 end

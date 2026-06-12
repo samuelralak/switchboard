@@ -66,6 +66,22 @@ module Requests
 
 				assert_text "No budget set"
 			end
+
+			test "a mediated request surfaces the escrow pill and the arbiter explainer" do
+				req = request(extra_tags: [ %w[price 5000 sat], [ "escrow_tier", Orders::Tiers::TIER2_ARBITER ] ])
+
+				render_inline(RequestDetailComponent.new(request: req))
+
+				assert_text "mediated escrow"
+				assert_text "platform arbiter"
+			end
+
+			test "a standard request shows no mediated pill and a self-custodial explainer" do
+				render_inline(RequestDetailComponent.new(request: request(extra_tags: [ %w[price 5000 sat] ])))
+
+				assert_no_text "mediated escrow"
+				assert_no_text "platform arbiter"
+			end
 		end
 	end
 end

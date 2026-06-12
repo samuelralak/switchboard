@@ -13,7 +13,9 @@ class RequestsController < ApplicationController
 	before_action :set_compose_context, only: %i[new edit]
 
 	# Fields the form posts to #preview; shape the draft. The shared CARRY_KEYS come from PublishesInBrowser.
-	PREVIEW_KEYS = %i[title description capability budget delivery_value delivery_unit claim_value claim_unit].freeze
+	PREVIEW_KEYS = %i[
+		title description capability budget delivery_value delivery_unit claim_value claim_unit escrow_tier
+	].freeze
 
 	# "My requests" folded into the unified order hub's Buying tab; this just redirects (the composer below
 	# stays at /requests/new + /requests/edit). Kept as a controller action so require_login still applies.
