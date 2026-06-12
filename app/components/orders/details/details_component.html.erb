@@ -14,7 +14,7 @@
 	<% if awaiting? %>
 		<div>
 			<dt class="text-xs font-medium uppercase tracking-wider text-ink-muted">Fund before</dt>
-			<dd class="mt-1 text-ink-secondary"><%= order.funding_deadline_at.strftime("%b %-d, %Y · %H:%M UTC") %></dd>
+			<dd class="mt-1 text-ink-secondary"><%= order.funding_deadline_at.strftime("%b %-d, %Y at %H:%M UTC") %></dd>
 		</div>
 	<% end %>
 </dl>

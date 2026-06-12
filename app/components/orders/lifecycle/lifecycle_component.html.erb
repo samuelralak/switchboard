@@ -47,7 +47,7 @@
 						<p class="mt-2 inline-flex items-center gap-2 font-mono text-xs text-lamp-live">
 							<span class="size-1.5 rounded-full bg-lamp-live" aria-hidden="true"></span>
 							<%= node.countdown[:label] %>
-							<span data-controller="countdown" data-countdown-deadline-value="<%= node.countdown[:at].to_i %>" class="tabular-nums">··:··:··</span>
+							<span data-controller="countdown" data-countdown-deadline-value="<%= node.countdown[:at].to_i %>" class="tabular-nums">--:--:--</span>
 							<span class="text-ink-faint">→ <%= node.countdown[:then] %></span>
 						</p>
 					<% end %>

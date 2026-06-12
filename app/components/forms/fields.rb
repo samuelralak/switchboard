@@ -27,7 +27,7 @@ module Forms
 		private
 
 		def section_tag(text, tone)
-			classes = "shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium uppercase tracking-wider #{tone}"
+			classes = "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wider #{tone}"
 			tag.span(text, class: classes)
 		end
 	end

@@ -21,9 +21,9 @@
               <span data-role="dot" class="size-1.5 shrink-0 rounded-full <%= section[:required] ? "border border-border-strong" : "bg-border" %>"></span>
               <span class="flex-1"><%= section[:title] %></span>
               <% if section[:required] %>
-                <span class="text-2xs font-medium uppercase tracking-wider text-copper">Required</span>
+                <span class="text-xs font-medium uppercase tracking-wider text-copper">Required</span>
               <% else %>
-                <span class="text-2xs font-medium uppercase tracking-wider text-ink-faint">Optional</span>
+                <span class="text-xs font-medium uppercase tracking-wider text-ink-faint">Optional</span>
               <% end %>
             </a>
           <% end %>

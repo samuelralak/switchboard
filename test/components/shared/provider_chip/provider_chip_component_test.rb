@@ -9,8 +9,8 @@ module Shared
 				render_inline(ProviderChipComponent.new(name: "Apollo", npub: "npub1apollo7x9q"))
 
 				assert_selector "span.inline-flex.items-center.gap-2.min-w-0"
-				assert_selector "span.font-mono.text-xs.text-ink-muted.truncate"
-				assert_text "Apollo · npub1apol…"
+				assert_selector "span.text-ink-muted", text: "Apollo" # role label, sans (no separator dot)
+				assert_selector "span.font-mono.text-ink-faint", text: "npub1apol…" # the npub, mono data
 			end
 
 			def test_embeds_avatar_without_ring_seeded_by_npub

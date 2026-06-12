@@ -1,6 +1,6 @@
 <%# The unseen-count badge on the bell. Rendered always (hidden when zero) so the live broadcast can replace
     it by id; the Stimulus controller hides it locally when the dropdown is opened (mark-seen). %>
 <span id="notifications-badge" data-notifications-target="badge"<%= " hidden".html_safe if count.zero? %>
-      class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-copper px-1 text-2xs font-semibold leading-none text-canvas">
+      class="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-copper px-1 text-xs font-semibold leading-none text-canvas">
   <%= count > 9 ? "9+" : count %><span class="sr-only"> unread notifications</span>
 </span>

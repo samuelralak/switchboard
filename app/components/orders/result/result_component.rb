@@ -27,7 +27,7 @@ module Orders
 			end
 
 			def heading
-				provider? ? "your delivery" : "data out · delivered result"
+				provider? ? "your delivery" : "data out, delivered result"
 			end
 
 			def icon

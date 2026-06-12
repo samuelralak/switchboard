@@ -44,7 +44,7 @@
     <div class="flex items-start gap-2">
       <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
       <div>
-        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow · every job</p>
+        <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow on every job</p>
         <p class="mt-1 text-sm leading-relaxed text-ink-secondary"><%= escrow_explainer %></p>
       </div>
     </div>
@@ -70,10 +70,15 @@
 
   <%# microstandard conformance (only when the listing carries the marker) %>
   <% if listing.conforms? %>
-    <p class="text-xs leading-relaxed text-ink-faint">
-      conforms to the service-listing convention ·
+    <p class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs leading-relaxed text-ink-faint">
+      <span>conforms to the service-listing convention</span>
+      <span class="inline-block h-2.5 w-px bg-border" aria-hidden="true"></span>
       <span class="font-mono text-ink-muted">t:<%= Catalog::Listing.marker %></span>
-      <% if listing.capability.present? %>· <span class="font-mono text-ink-muted">svc:<%= listing.capability %></span> <% end %>·
+      <% if listing.capability.present? %>
+        <span class="inline-block h-2.5 w-px bg-border" aria-hidden="true"></span>
+        <span class="font-mono text-ink-muted">svc:<%= listing.capability %></span>
+      <% end %>
+      <span class="inline-block h-2.5 w-px bg-border" aria-hidden="true"></span>
       <span class="font-mono text-ink-muted">kind 30402</span>
     </p>
   <% end %>

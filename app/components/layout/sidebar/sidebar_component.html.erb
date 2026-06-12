@@ -4,7 +4,7 @@
   </span>
   <span class="flex flex-col gap-1 leading-none">
     <span class="text-base font-semibold tracking-tight text-ink">Switchboard</span>
-    <span class="text-xs text-ink-faint">money in · data out</span>
+    <span class="text-xs text-ink-faint">money in, data out</span>
   </span>
 </div>
 
@@ -42,7 +42,7 @@
         <% if more_relays_count.positive? %>
           <li>
             <a href="<%= helpers.settings_relays_path %>" class="group flex w-full items-center gap-x-3 rounded-md p-2 text-ink-faint hover:bg-surface hover:text-ink">
-              <span class="grid size-6 shrink-0 place-items-center rounded-lg border border-dashed border-border font-mono text-2xs">+<%= more_relays_count %></span>
+              <span class="grid size-6 shrink-0 place-items-center rounded-lg border border-dashed border-border font-mono text-xs">+<%= more_relays_count %></span>
               <span class="text-sm/6">More relays</span>
             </a>
           </li>

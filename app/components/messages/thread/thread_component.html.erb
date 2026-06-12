@@ -19,11 +19,9 @@
       <%# the client's signed track record, one quiet line; only a dispute draws color %>
       <p class="mt-2 text-xs text-ink-faint">
         <% if conversation.track.fresh? %>
-          new npub · no track record yet · since <%= conversation.track.since %>
+          new npub, no track record yet, since <%= conversation.track.since %>
         <% else %>
-          <%= conversation.track.completed %> completed · <%= conversation.track.settled %> sat settled
-          <% if conversation.track.flagged? %>· <span class="text-lamp-fault"><%= helpers.pluralize(conversation.track.disputes, "release dispute") %></span><% end %>
-          · since <%= conversation.track.since %>
+          <%= conversation.track.completed %> completed, <%= conversation.track.settled %> sat settled<% if conversation.track.flagged? %>, <span class="text-lamp-fault"><%= helpers.pluralize(conversation.track.disputes, "release dispute") %></span><% end %>, since <%= conversation.track.since %>
         <% end %>
       </p>
     </div>
@@ -74,7 +72,7 @@
   <div class="rounded-xl border border-border bg-inset p-5">
     <div class="mb-4 flex items-center gap-2">
       <%= render Shared::Icon::IconComponent.new(name: "shield-01", size: :sm, color: "text-ink-muted") %>
-      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">escrow · <%= conversation.mode %></p>
+      <p class="text-xs font-medium uppercase tracking-wider text-ink-muted"><%= conversation.mode %> escrow</p>
       <span class="ml-auto"><%= render Shared::PriceTag::PriceTagComponent.new(amount: conversation.sats, size: :inline) %></span>
     </div>
     <ul class="flex flex-col gap-2.5 text-sm">

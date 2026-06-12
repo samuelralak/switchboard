@@ -11,7 +11,7 @@ module Catalog
 				render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event)))
 
 				assert_text "per request"
-				assert_text "escrow · every job"
+				assert_text "escrow on every job"
 				assert_selector "form[action='#{Rails.application.routes.url_helpers.orders_path}'][method='post']"
 				assert_selector "input[name='order[coordinate]'][value='#{Events::Kinds::CLASSIFIED}:#{event.pubkey}:t1']",
 					visible: :all

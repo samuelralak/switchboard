@@ -2,5 +2,9 @@
   <span class="rounded overflow-hidden ring-1 ring-border shrink-0">
     <%= render Shared::Avatar::AvatarComponent.new(seed: npub, size: size, ring: false) %>
   </span>
-  <span class="font-mono text-xs text-ink-muted truncate"><%= name %> · <%= short_npub %>…</span>
+  <%# Role label (sans) then the npub (mono data), set apart by a gap rather than a dot. %>
+  <span class="inline-flex min-w-0 items-baseline gap-1.5 text-xs">
+    <span class="shrink-0 text-ink-muted"><%= name %></span>
+    <span class="truncate font-mono text-ink-faint"><%= short_npub %>…</span>
+  </span>
 </span>

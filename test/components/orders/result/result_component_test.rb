@@ -16,7 +16,7 @@ module Orders
 
 				assert_selector "[data-controller='order-result'][data-order-result-own-value='#{order.consumer_pubkey}']"
 				assert_selector "[data-order-result-provider-value='#{order.provider_pubkey}']" # the trust anchor
-				assert_text "data out · delivered result"
+				assert_text "data out, delivered result"
 			end
 
 			test "the provider sees their own delivery once delivered, decrypting their self-copy" do
