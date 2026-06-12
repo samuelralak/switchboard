@@ -36,6 +36,9 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --text-hero: clamp(1.75rem, 1.1rem + 2.5vw, 2.75rem);
+  /* Two steps below Tailwind's text-xs (0.75rem), for the tiniest eyebrows, status badges, and micro-pills. */
+  --text-2xs: 0.625rem;  /* 10px */
+  --text-3xs: 0.5625rem; /* 9px */
 
   --shadow-panel: 0 24px 60px -28px oklch(0 0 0 / 0.75);
   --shadow-lamp: 0 0 0 4px oklch(0.84 0.13 82 / 0.12);

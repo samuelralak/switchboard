@@ -10,7 +10,7 @@
       <span class="block text-sm leading-snug <%= notification.read_at ? "text-ink-secondary" : "text-ink" %>">
         <%= notification_headline(notification) %>
       </span>
-      <span class="mt-0.5 block font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+      <span class="mt-0.5 block font-mono text-2xs uppercase tracking-widest text-ink-faint">
         <%= time_ago_in_words(notification.created_at) %> ago
       </span>
     </span>

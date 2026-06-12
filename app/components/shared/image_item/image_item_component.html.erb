@@ -3,12 +3,12 @@
   <img data-role="img" src="<%= image[:url] %>" alt="" class="h-full w-full object-cover">
 
   <span data-role="cover"<%= " hidden" unless cover? %>
-        class="absolute left-1.5 top-1.5 rounded-md bg-copper px-1.5 py-0.5 text-[0.625rem] font-medium uppercase tracking-wider text-canvas">cover</span>
+        class="absolute left-1.5 top-1.5 rounded-md bg-copper px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wider text-canvas">cover</span>
 
   <%# hover controls %>
   <div class="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-canvas/90 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
     <button type="button" data-action="image-upload#makeCover"<%= " hidden" if cover? %>
-            class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Set cover</button>
+            class="rounded-md bg-surface/90 px-2 py-1 text-2xs font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Set cover</button>
     <button type="button" data-action="image-upload#remove" aria-label="Remove image"
             class="ml-auto grid size-7 place-items-center rounded-md bg-surface/90 text-ink-muted hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
       <%= render Shared::Icon::IconComponent.new(name: "delete-02", size: :sm) %>
@@ -22,9 +22,9 @@
     <span data-role="status-text" class="text-xs text-ink-secondary">Uploading…</span>
     <div data-role="status-actions"<%= " hidden" unless errored? %> class="flex items-center gap-1.5">
       <button type="button" data-action="image-upload#retry"
-              class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Retry</button>
+              class="rounded-md bg-surface/90 px-2 py-1 text-2xs font-medium text-ink-secondary hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Retry</button>
       <button type="button" data-action="image-upload#remove"
-              class="rounded-md bg-surface/90 px-2 py-1 text-[0.625rem] font-medium text-ink-muted hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Remove</button>
+              class="rounded-md bg-surface/90 px-2 py-1 text-2xs font-medium text-ink-muted hover:text-lamp-fault focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Remove</button>
     </div>
   </div>
 

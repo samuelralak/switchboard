@@ -2,12 +2,12 @@
   <%# Top: the human label (sans) and the machine name (mono, auto-slugged from the label). %>
   <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
     <div>
-      <span class="mb-1 block text-[0.625rem] font-medium uppercase tracking-wider text-ink-faint">Label</span>
+      <span class="mb-1 block text-2xs font-medium uppercase tracking-wider text-ink-faint">Label</span>
       <input type="text" name="schema[][label]" value="<%= label %>" placeholder="Source text" autocomplete="off"
              data-studio-target="rowLabel" data-action="input->studio#slugName" class="<%= input_class %>">
     </div>
     <div>
-      <span class="mb-1 block text-[0.625rem] font-medium uppercase tracking-wider text-ink-faint">Name</span>
+      <span class="mb-1 block text-2xs font-medium uppercase tracking-wider text-ink-faint">Name</span>
       <input type="text" name="schema[][name]" value="<%= name %>" placeholder="source_text" autocomplete="off"
              data-studio-target="rowName" data-action="input->studio#nameEdited" class="<%= input_class %> font-mono">
     </div>
