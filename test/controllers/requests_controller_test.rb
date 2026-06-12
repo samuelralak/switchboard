@@ -69,7 +69,7 @@ class RequestsControllerTest < ActionDispatch::IntegrationTest
 		assert_select "[data-request-form-target=?]", "navItem", count: 5 # the section rail (5 sections)
 		assert_select "section#section-budget"
 		assert_select "turbo-frame#request-preview" # inside the preview drawer
-		assert_includes response.body, "Coming soon" # funding (escrow + fee) is gated
+		assert_includes response.body, "Fee coming soon" # the posting fee is still gated (escrow is fund-at-claim)
 	end
 
 	test "preview builds a draft request from form params and renders the board view" do
