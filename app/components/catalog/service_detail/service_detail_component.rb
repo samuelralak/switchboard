@@ -64,8 +64,8 @@ module Catalog
 					"Manual escrow. Funds lock as key-locked Cashu (NUT-11 P2PK) with a timelock refund if the " \
 						"provider misses the delivery window. Locked to keys, never held by us."
 				else
-					"Every job is escrowed. Funds lock at request and release only on delivery, with an automatic " \
-						"refund if the work never arrives. The platform guarantees it, not the provider."
+					"Every job is escrowed. Funds lock when you order and release only on delivery, with an " \
+						"automatic refund if the work never arrives. Key-locked to you, never held by us."
 				end
 			end
 		end

@@ -7,8 +7,8 @@ module Shared
 		#   :sm     text-base (default)
 		#   :lg     text-2xl
 		#   :inline text-sm, smaller suffix
-		#   :copper text-copper (default)
-		#   :ink    text-ink
+		#   :ink    text-ink (default) -- price reads as information in a list
+		#   :copper text-copper -- reserved for the ONE lead figure on a detail page
 		# `amount:` is an Integer and renders with thousands delimiters.
 		class PriceTagComponent < ApplicationComponent
 			SIZES = {
@@ -24,10 +24,10 @@ module Shared
 
 			attr_reader :suffix
 
-			def initialize(amount:, size: :sm, tone: :copper, suffix: "sat")
+			def initialize(amount:, size: :sm, tone: :ink, suffix: "sat")
 				@amount = amount
 				@size = SIZES.key?(size.to_s.to_sym) ? size.to_s.to_sym : :sm
-				@tone = TONES.key?(tone.to_s.to_sym) ? tone.to_s.to_sym : :copper
+				@tone = TONES.key?(tone.to_s.to_sym) ? tone.to_s.to_sym : :ink
 				@suffix = suffix
 			end
 

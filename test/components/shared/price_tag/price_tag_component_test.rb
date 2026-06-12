@@ -8,9 +8,15 @@ module Shared
 			def test_default_renders_delimited_amount_with_suffix
 				render_inline(PriceTagComponent.new(amount: 5000))
 
-				assert_selector "span.font-mono.text-base.text-copper.tabular-nums"
+				assert_selector "span.font-mono.text-base.text-ink.tabular-nums" # ink default: price reads as info
 				assert_text "5,000"
 				assert_text "sat"
+			end
+
+			def test_copper_tone_for_a_lead_figure
+				render_inline(PriceTagComponent.new(amount: 100, tone: :copper))
+
+				assert_selector "span.text-copper"
 			end
 
 			def test_large_size_uses_text_2xl
@@ -40,7 +46,7 @@ module Shared
 			def test_unknown_size_and_tone_fall_back_to_defaults
 				render_inline(PriceTagComponent.new(amount: 100, size: :huge, tone: :neon))
 
-				assert_selector "span.text-base.text-copper"
+				assert_selector "span.text-base.text-ink"
 			end
 		end
 	end

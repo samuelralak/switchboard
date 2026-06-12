@@ -9,7 +9,7 @@ module Shared
 
 			def info
 				component = AlertComponent.new(tone: :info, title: "Every transaction is escrowed.")
-				render(component.with_content("Funds lock at request and release only on delivery."))
+				render(component.with_content("Funds lock in escrow and release only on delivery."))
 			end
 
 			def note

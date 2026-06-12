@@ -12,7 +12,7 @@ module Shared
 					interactive: interactive,
 					accent: accent.to_sym == :none ? nil : accent.to_sym
 				)
-				render(component.with_content("Funds lock at request and release only on delivery."))
+				render(component.with_content("Funds lock in escrow and release only on delivery."))
 			end
 
 			def default

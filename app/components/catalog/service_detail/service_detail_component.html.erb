@@ -28,7 +28,7 @@
     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
       <span class="flex items-baseline gap-2">
         <% if listing.price? %>
-          <%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, suffix: listing.price_currency) %>
+          <%= render Shared::PriceTag::PriceTagComponent.new(amount: listing.price_amount, suffix: listing.price_currency, tone: :copper) %>
           <span class="text-xs text-ink-muted"><%= price_basis_label %></span>
         <% else %>
           <span class="text-sm text-ink-muted">Price on request</span>
