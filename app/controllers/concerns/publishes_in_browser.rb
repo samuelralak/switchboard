@@ -15,7 +15,9 @@ module PublishesInBrowser
 
 	def set_compose_context
 		@pubkey = current_user.pubkey
-		@publish_relays = NostrClient.configuration.relays # the catalog ingest relays; publish there so it is catalogued
+		# Seeds (the catalog ingest relays) unioned with the user's own NIP-65 write relays, so the event is
+		# catalogued AND reaches the user's advertised outbox.
+		@publish_relays = Relays::PublishSet.call(user: current_user)
 		@btc_usd = Pricing::BtcRate.call # nil hides the fiat hint; never blocks the render
 	end
 

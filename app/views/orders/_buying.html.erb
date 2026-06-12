@@ -18,7 +18,7 @@
   <% if authored.any? %>
     <section data-controller="my-requests"
              data-my-requests-pubkey-value="<%= current_user.pubkey %>"
-             data-my-requests-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+             data-my-requests-relays-value="<%= publish_relays.to_json %>"
              class="mt-8">
       <div class="mb-2.5">
         <p class="text-xs font-medium uppercase tracking-wider text-ink-muted">posted requests</p>

@@ -12,7 +12,7 @@ module Settings
 				Profile.new(
 					user:,
 					pubkey: user.pubkey,
-					publish_relays: NostrClient.configuration.relays,
+					publish_relays: Relays::PublishSet.call(user:),
 					metadata_event: Event.of_kind(Events::Kinds::METADATA).by_author(user.pubkey).recent.first
 				)
 			end

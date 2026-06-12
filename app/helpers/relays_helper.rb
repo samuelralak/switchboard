@@ -10,6 +10,10 @@ module RelaysHelper
 	# controller; nil for a signed-out viewer, which DisplayList renders as just the seeds.
 	def display_relays = Relays::DisplayList.call(user: Current.user)
 
+	# The relays the signed-in viewer publishes their own events to: seeds unioned with their NIP-65 write
+	# relays. For the in-view status-toggle controllers (my-listings / my-requests) that re-broadcast a flip.
+	def publish_relays = Relays::PublishSet.call(user: Current.user)
+
 	# Live/settled lamp class for a relay's connection status, matching the catalog status dots.
 	def relay_status_class(status)
 		status == :live ? "bg-lamp-live" : "bg-lamp-settled"

@@ -2,7 +2,7 @@
 
 <div data-controller="my-listings"
      data-my-listings-pubkey-value="<%= current_user.pubkey %>"
-     data-my-listings-relays-value="<%= NostrClient.configuration.relays.to_json %>"
+     data-my-listings-relays-value="<%= publish_relays.to_json %>"
      data-my-listings-marker-value="<%= Catalog::Listing.marker %>"
      data-my-listings-capability-namespace-value="<%= Catalog::Listing::CAPABILITY_NAMESPACE %>"
      data-my-listings-origin-value="<%= Rails.application.config.x.canonical_origin %>"
