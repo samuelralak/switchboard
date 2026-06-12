@@ -21,12 +21,12 @@
       </div>
       <div role="none" class="my-1.5 h-px bg-border"></div>
       <% menu_items.each do |item| %>
-        <a href="<%= item[:href] %>" class="block px-3 py-1.5 text-sm/6 text-ink-secondary hover:bg-surface hover:text-ink focus:bg-surface focus:outline-hidden"><%= item[:label] %></a>
+        <a href="<%= item[:href] %>" class="block px-3 py-1.5 text-sm/6 text-ink-secondary hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-copper-bright"><%= item[:label] %></a>
       <% end %>
       <div role="none" class="my-1.5 h-px bg-border"></div>
       <%= button_to helpers.session_path, method: :delete,
             form: { data: { controller: "signer-session", action: "submit->signer-session#forget" } },
-            class: "block w-full px-3 py-1.5 text-left text-sm/6 text-ink-secondary hover:bg-surface hover:text-ink" do %>
+            class: "block w-full px-3 py-1.5 text-left text-sm/6 text-ink-secondary hover:bg-surface hover:text-ink focus-visible:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-copper-bright" do %>
         Disconnect signer
       <% end %>
     </el-menu>

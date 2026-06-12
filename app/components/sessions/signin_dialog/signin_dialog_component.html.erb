@@ -7,7 +7,7 @@
         <div class="flex items-center gap-2.5 border-b border-border px-5 py-3.5">
           <i class="hgi-stroke hgi-square-lock-02 text-copper" aria-hidden="true"></i>
           <span class="font-mono text-xs uppercase tracking-widest text-ink-secondary">Sign in</span>
-          <button type="button" command="close" commandfor="<%= DIALOG_ID %>" class="-m-1.5 ml-auto p-1.5 text-ink-faint hover:text-ink">
+          <button type="button" command="close" commandfor="<%= DIALOG_ID %>" class="-m-1.5 ml-auto rounded-md p-1.5 text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
             <span class="sr-only">Close</span>
             <i class="hgi-stroke hgi-cancel-01" aria-hidden="true"></i>
           </button>
@@ -85,7 +85,7 @@
                     Unlock and sign in
                   <% end %>
                 <% end %>
-                <button type="button" data-action="nostr-auth#forgetKey" class="mt-2 w-full text-center text-xs text-ink-faint hover:text-ink">Forget saved key</button>
+                <button type="button" data-action="nostr-auth#forgetKey" class="mt-2 w-full rounded py-1 text-center text-xs text-ink-faint transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">Forget saved key</button>
               </div>
             </div>
           </div>

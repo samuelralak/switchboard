@@ -2,7 +2,7 @@
     Unread rows (read_at nil) show a copper dot and mark themselves read on click via the per-row controller. %>
 <li id="notification_<%= notification.id %>">
   <%= link_to notification_order_path(notification), data: read_on_click_data(notification),
-        class: "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface focus:bg-surface focus:outline-hidden" do %>
+        class: "flex items-start gap-3 px-4 py-3 transition-colors hover:bg-surface focus-visible:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-copper-bright" do %>
     <span class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg border border-border bg-inset text-ink-secondary">
       <i class="hgi-stroke <%= notification_icon(notification) %> text-sm" aria-hidden="true"></i>
     </span>

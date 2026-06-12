@@ -65,7 +65,7 @@
             <% active = view == "service" %>
             <button type="button" role="tab" data-catalog-target="tab" data-view="<%= view %>" data-action="catalog#setView"
                     aria-selected="<%= active %>"
-                    class="flex items-center whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none <%= active ? "border-copper text-ink" : "border-transparent text-ink-muted" %>">
+                    class="flex items-center whitespace-nowrap rounded-sm border-b-2 px-1 pb-3 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright <%= active ? "border-copper text-ink" : "border-transparent text-ink-muted" %>">
               <%= label %>
               <span data-role="count" class="ml-2 rounded-full px-2 py-0.5 font-mono text-xs <%= active ? "bg-copper/15 text-copper" : "bg-inset text-ink-secondary" %>"><%= count %></span>
             </button>
