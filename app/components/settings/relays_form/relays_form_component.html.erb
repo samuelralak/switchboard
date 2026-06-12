@@ -1,0 +1,55 @@
+<%# The relay-form Stimulus controller signs + broadcasts the kind-10002 in the browser and PATCHes the
+    settings resource to force-fetch it back; nothing is POSTed to Rails. The rows hydrate from the JSON
+    rows-value into the <template> below, so the row markup has a single source. %>
+<form id="relay-form" novalidate class="flex flex-col gap-5"
+      data-controller="relay-form"
+      data-action="submit->relay-form#publish"
+      data-relay-form-pubkey-value="<%= pubkey %>"
+      data-relay-form-relays-value="<%= publish_relays.to_json %>"
+      data-relay-form-rows-value="<%= relay_rows.to_json %>"
+      data-relay-form-refresh-url-value="<%= helpers.settings_relays_path %>">
+
+  <%# Publish status / receipt, filled by the controller (mutually-exclusive success vs error styling). %>
+  <div data-relay-form-target="status" hidden class="rounded-xl border px-4 py-3 text-sm"></div>
+
+  <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
+    <div class="mb-5">
+      <h2 class="font-display text-base font-semibold tracking-tight text-ink">Relays</h2>
+      <p class="mt-0.5 text-xs text-ink-faint">Where you publish (write) and where others reach you (read). This is your public NIP-65 list; anyone can read it.</p>
+    </div>
+
+    <ul role="list" data-relay-form-target="list" class="divide-y divide-border border-y border-border"></ul>
+
+    <%# Add a relay (inline; no modal). Enter or the button appends a read+write row. %>
+    <div class="mt-4 flex gap-2">
+      <input type="url" inputmode="url" autocomplete="off" placeholder="wss://relay.example.com" aria-label="Relay URL"
+             data-relay-form-target="newUrl" data-action="keydown.enter->relay-form#addRow"
+             class="block w-full rounded-lg border border-border bg-inset px-3.5 py-2.5 font-mono text-xs text-ink placeholder:text-ink-faint transition-colors hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+      <%= render Shared::Button::ButtonComponent.new(size: :sm, icon: "add-01", type: "button", data: { action: "relay-form#addRow" }) do %>Add<% end %>
+    </div>
+  <% end %>
+
+  <%# The single row markup source: the controller clones this for each prefill row and each added relay. %>
+  <template data-relay-form-target="rowTemplate">
+    <li data-relay-form-target="row" class="flex items-center gap-3 py-3">
+      <span data-role="host" class="min-w-0 flex-1 truncate font-mono text-xs text-ink-secondary"></span>
+      <input type="hidden" data-field="url">
+      <label class="inline-flex cursor-pointer items-center gap-1 font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+        <input type="checkbox" data-field="read" class="accent-copper"> read
+      </label>
+      <label class="inline-flex cursor-pointer items-center gap-1 font-mono text-[0.625rem] uppercase tracking-widest text-ink-faint">
+        <input type="checkbox" data-field="write" class="accent-copper"> write
+      </label>
+      <button type="button" data-action="relay-form#removeRow" aria-label="Remove relay"
+              class="-m-1.5 p-1.5 text-ink-faint transition-colors hover:text-ink">
+        <i class="hgi-stroke hgi-cancel-01 text-sm" aria-hidden="true"></i>
+      </button>
+    </li>
+  </template>
+
+  <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "sent", type: "submit",
+        data: { relay_form_target: "submit" }) do %>Sign &amp; publish relays<% end %>
+  <p class="px-0.5 text-xs leading-relaxed text-ink-faint">
+    Signs a conforming <span class="font-mono text-ink-muted">NIP-65</span> relay list with your key and broadcasts it to relays. Switchboard never holds your key.
+  </p>
+</form>

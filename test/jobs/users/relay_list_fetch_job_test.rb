@@ -14,6 +14,10 @@ module Users
 			Rails.define_singleton_method(:cache, original)
 		end
 
+		def write_relay(pubkey, url, read: true, write: true)
+			UserRelay.create!(pubkey:, url:, read:, write:, relay_list_event_id: "f" * 64, nostr_created_at: Time.current)
+		end
+
 		test "fetches once per cooldown window and ingests the result" do
 			pk = SecureRandom.hex(32)
 			event = { "id" => "abc", "pubkey" => pk, "kind" => Events::Kinds::RELAY_LIST }
@@ -46,6 +50,39 @@ module Users
 		ensure
 			Users::RelayListFetch.singleton_class.send(:remove_method, :call)
 			Catalog::Ingest.singleton_class.send(:remove_method, :call)
+		end
+
+		test "a forced fetch bypasses the cooldown (the post-edit reconcile)" do
+			pk = SecureRandom.hex(32)
+			event = { "id" => "abc", "pubkey" => pk, "kind" => Events::Kinds::RELAY_LIST }
+			fetch_calls = 0
+			Users::RelayListFetch.define_singleton_method(:call) { |**| fetch_calls += 1; event }
+			Catalog::Ingest.define_singleton_method(:call) { |**| nil }
+
+			with_cache do
+				Users::RelayListFetchJob.new.perform(pk)              # warms the cooldown
+				Users::RelayListFetchJob.new.perform(pk, force: true) # bypasses it, so the fresh list is pulled back
+			end
+
+			assert_equal 2, fetch_calls, "force: true re-runs the fetch within the cooldown window"
+		ensure
+			Users::RelayListFetch.singleton_class.send(:remove_method, :call)
+			Catalog::Ingest.singleton_class.send(:remove_method, :call)
+		end
+
+		test "reads from the indexers, the catalog relays, and the user's own write relays" do
+			pk = SecureRandom.hex(32)
+			write_relay(pk, "wss://mine.test")
+			captured = nil
+			Users::RelayListFetch.define_singleton_method(:call) { |**kwargs| captured = kwargs; nil }
+
+			with_cache { Users::RelayListFetchJob.new.perform(pk, force: true) }
+
+			assert_includes captured[:relays], "wss://mine.test", "the user's write relays (where an edit broadcasts)"
+			assert_includes captured[:relays], NostrClient.configuration.relays.first, "the catalog relays"
+			assert_includes captured[:relays], NostrClient.configuration.indexer_relays.first, "the discovery indexers"
+		ensure
+			Users::RelayListFetch.singleton_class.send(:remove_method, :call)
 		end
 	end
 end

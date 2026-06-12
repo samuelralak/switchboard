@@ -6,6 +6,7 @@ import { DmClient, canMessage } from "nostr/dm_client"
 import { installMockRelays } from "nostr/mock_relay"
 import { buildEvents, broadcastListing, setListingStatus } from "nostr/listing_publish"
 import { buildRequestEvent, broadcastRequest } from "nostr/request_publish"
+import { buildRelayListEvent, broadcastRelayList } from "nostr/relay_publish"
 import { saveNsec, nsecFor, savedNsecEntry } from "nostr/signer_store"
 import * as escrowIdentity from "nostr/escrow_identity"
 import * as orderFunding from "nostr/order_funding"
@@ -24,6 +25,7 @@ window.NostrCryptoTest = {
   RelaySet, DmClient, canMessage, installMockRelays,
   buildEvents, broadcastListing, setListingStatus,
   buildRequestEvent, broadcastRequest,
+  buildRelayListEvent, broadcastRelayList,
   saveNsec, nsecFor, savedNsecEntry,
   escrowIdentity, orderFunding, escrowMessages, orderEnvelope, resultEnvelope,
 }

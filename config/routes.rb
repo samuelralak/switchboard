@@ -51,7 +51,9 @@ Rails.application.routes.draw do
 		# signs + broadcasts the kind-0 itself, then PATCHes here to force-fetch it back). settings_profile_path.
 		# controller: keeps the singular ProfileController name (a singular resource defaults to the plural).
 		resource :profile, only: %i[show update], controller: "profile"
-		resource :relays, only: :show
+		# Non-custodial relay-list (NIP-65) editor: show renders the form; update is the post-broadcast reconcile
+		# (the browser signs + broadcasts the kind-10002, then PATCHes here to force-fetch it back).
+		resource :relays, only: %i[show update]
 	end
 
 	# Open requests (funded bounties): the public board (index), and authoring your own (new + preview).
