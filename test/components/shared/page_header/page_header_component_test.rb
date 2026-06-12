@@ -47,6 +47,21 @@ module Shared
 
 				assert_selector "header.mb-9"
 			end
+
+			def test_renders_an_optional_action_slot
+				render_inline(PageHeaderComponent.new(title: "Your listings")) do |header|
+					header.with_action { "<button>Publish</button>".html_safe }
+				end
+
+				assert_selector "h1", text: "Your listings"
+				assert_selector "button", text: "Publish"
+			end
+
+			def test_action_slot_omitted_when_absent
+				render_inline(PageHeaderComponent.new(title: "Your listings"))
+
+				assert_no_selector "button"
+			end
 		end
 	end
 end

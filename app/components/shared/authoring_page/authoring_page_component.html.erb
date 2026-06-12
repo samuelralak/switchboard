@@ -3,14 +3,15 @@
 <div data-controller="<%= stimulus %>"<% values.each do |key, value| %> data-<%= stimulus %>-<%= key %>-value="<%= value %>"<% end %>>
   <%= render Shared::PageHeader::PageHeaderComponent.new(title: heading, subtitle: subtitle) %>
 
-  <%# DOM order is form-then-rail so mobile stacks the actions BELOW the form; grid column placement puts %>
-  <%# the rail on the left on desktop. The whole grid hides on a successful publish (the receipt replaces it). %>
+  <%# DOM order is form-then-rail so mobile stacks the actions BELOW the form; on desktop the form sits in the
+      left columns (directly under the page title) and the section nav + actions rail on the right. The whole
+      grid hides on a successful publish (the receipt replaces it). %>
   <div data-<%= stimulus %>-target="composer" class="grid gap-6 lg:grid-cols-12 lg:gap-8">
-    <div class="lg:col-span-8 lg:col-start-5 lg:row-start-1">
+    <div class="lg:col-span-8 lg:col-start-1 lg:row-start-1">
       <%= form %>
     </div>
 
-    <aside class="lg:col-span-4 lg:col-start-1 lg:row-start-1">
+    <aside class="lg:col-span-4 lg:col-start-9 lg:row-start-1">
       <div class="flex flex-col gap-4 lg:sticky lg:top-24">
         <%# Section nav (desktop): jump to a section; the dot fills as each required section is satisfied. %>
         <nav class="hidden flex-col gap-0.5 lg:flex" aria-label="Form sections">

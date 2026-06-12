@@ -1,9 +1,16 @@
 <%= content_tag wrapper_tag, class: wrapper_class do %>
-  <% if eyebrow.present? %>
-    <p class="mb-2.5 text-xs font-medium uppercase tracking-widest text-copper"><%= eyebrow %></p>
-  <% end %>
-  <h1 class="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink"><%= title %></h1>
-  <% if subtitle.present? %>
-    <p class="text-ink-muted mt-2.5 max-w-2xl leading-relaxed"><%= subtitle %></p>
-  <% end %>
+  <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="min-w-0">
+      <% if eyebrow.present? %>
+        <p class="mb-2.5 text-xs font-medium uppercase tracking-widest text-copper"><%= eyebrow %></p>
+      <% end %>
+      <h1 class="font-display font-semibold text-xl sm:text-2xl tracking-tight text-ink"><%= title %></h1>
+      <% if subtitle.present? %>
+        <p class="text-ink-muted mt-2.5 max-w-2xl leading-relaxed"><%= subtitle %></p>
+      <% end %>
+    </div>
+    <% if action? %>
+      <div class="shrink-0"><%= action %></div>
+    <% end %>
+  </div>
 <% end %>

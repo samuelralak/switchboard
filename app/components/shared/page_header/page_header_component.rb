@@ -8,6 +8,10 @@ module Shared
 		#   :lg  <header class="mb-9">  (default, top-of-page sections)
 		#   :md  <div class="mb-6">     (tighter, in-panel sub-sections)
 		class PageHeaderComponent < ApplicationComponent
+			# An optional top-right action (a primary CTA on an index/management page); when absent the header
+			# renders title-only, exactly as before.
+			renders_one :action
+
 			SPACINGS = {
 				lg: { tag: :header, margin: "mb-9" },
 				md: { tag: :div, margin: "mb-6" }
