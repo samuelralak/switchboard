@@ -6,6 +6,7 @@ default: &default
     - wss://relay.damus.io
     - wss://relay.nostr.band
     - wss://nos.lol
+    - wss://relay.primal.net
   # R_op's NIP-17/59 DM-inbox relays, distinct from the catalog ingest `urls` above. Must
   # AUTH-gate kind-1059 serving (empirically vetted, see the nip17-relays memory):
   # auth.nostr1.com is the free recipient-restricted inbox; the self-hosted relay_rb inbox is
