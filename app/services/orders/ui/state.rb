@@ -78,12 +78,27 @@ module Orders
 
 				Hub.new(
 					buying_orders:,
-					buying_requests: Requests::AuthoredRequests.call(pubkey:),
+					buying_requests: unclaimed_requests(pubkey),
 					selling:,
 					open_order: chosen,
 					selected: order_id.present? && chosen.present?, # an explicit pick: narrow shows the detail
 					tab: active
 				)
+			end
+
+			# Posted requests on the Buying tab are the ones still AWAITING A CLAIM. Drop any request that already
+			# has a live claim order (awaiting_funding/funded/disputed): that order already shows in the list above,
+			# so listing the request again here is the duplicate. The unique partial index allows at most one active
+			# claim per coordinate, so matching listing_coordinate is exact; a request whose prior claim expired
+			# stays listed (it is open to claim again).
+			def self.unclaimed_requests(pubkey)
+				claimed = Order.as_consumer(pubkey)
+					.where(entry_point: Orders::EntryPoints::REQUEST_CLAIM)
+					.in_state(Orders::States::ACTIVE)
+					.pluck(:listing_coordinate)
+					.to_set
+
+				Requests::AuthoredRequests.call(pubkey:).reject { |request| claimed.include?(request.coordinate) }
 			end
 		end
 	end
