@@ -11,14 +11,12 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to root_path
 	end
 
-	test "index renders the my-listings shell when signed in" do
+	test "index redirects to the provider's profile, where managing listings now lives" do
 		sign_in
 
 		get studio_url
 
-		assert_response :success
-		assert_select "h1", text: "Your listings"
-		assert_includes response.body, "Publish a service"
+		assert_redirected_to profile_path(npub: Nostr::Bech32.npub_encode(@session_pubkey))
 	end
 
 	test "new renders the authoring form, the section rail, and the on-demand preview drawer" do
@@ -54,17 +52,6 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 		assert_includes response.body, "120"       # price tag
 	end
 
-	test "index lists the provider's own conforming listings with a d-tag-keyed edit link" do
-		sign_in
-		listing_event(pubkey: @session_pubkey, d_tag: "logo", title: "Logo design")
-
-		get studio_url
-
-		assert_response :success
-		assert_includes response.body, "Logo design"
-		assert_select "a[href=?]", edit_studio_listing_path(d: "logo")
-	end
-
 	test "edit prefills the form for the provider's own listing, carrying its d-tag and status" do
 		sign_in
 		listing_event(pubkey: @session_pubkey, d_tag: "logo", title: "Logo design", status: "inactive")
@@ -78,13 +65,13 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 		assert_select "input[name=?][value=?]", "status", "inactive"   # editing preserves an unpublished status
 	end
 
-	test "edit redirects to the index when the listing is not the provider's own" do
+	test "edit redirects to the profile when the listing is not the provider's own" do
 		sign_in
 		listing_event(pubkey: "b" * 64, d_tag: "theirs", title: "Theirs")
 
 		get edit_studio_listing_url(d: "theirs")
 
-		assert_redirected_to studio_path
+		assert_redirected_to profile_path(npub: Nostr::Bech32.npub_encode(@session_pubkey))
 	end
 
 	test "edit redirects when the coordinate now holds an open request, not a listing" do
@@ -94,7 +81,7 @@ class StudioControllerTest < ActionDispatch::IntegrationTest
 
 		get edit_studio_listing_url(d: "shared")
 
-		assert_redirected_to studio_path
+		assert_redirected_to profile_path(npub: Nostr::Bech32.npub_encode(@session_pubkey))
 	end
 
 	private

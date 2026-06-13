@@ -18,8 +18,10 @@ class StudioController < ApplicationController
 		title description capability price price_frequency fulfillment endpoint delivery_value delivery_unit
 	].freeze
 
+	# Managing your listings now lives on your profile (the portfolio surface). The route + name stay so the
+	# redirect and any old links resolve; the authoring form is reached via the "Provider studio" CTA -> new.
 	def index
-		@listings = Catalog::ProviderListings.call(pubkey: current_user.pubkey)
+		redirect_to profile_path(npub: current_user.npub), status: :see_other
 	end
 
 	def new
@@ -43,8 +45,8 @@ class StudioController < ApplicationController
 
 	private
 
-	# Listing edits/publishes happen in the studio, so a recoverable error lands back there, not on the catalog.
-	def error_redirect_fallback = studio_path
+	# A recoverable edit/publish error lands the provider on their profile, which now hosts manage.
+	def error_redirect_fallback = profile_path(npub: current_user.npub)
 
 	def draft_params
 		preview_params(*PREVIEW_KEYS, { images: %i[url m x dim], schema: %i[name label type required] })
