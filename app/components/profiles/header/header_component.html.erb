@@ -1,0 +1,51 @@
+<div>
+  <%# Banner with the avatar overlapping its lower-left (display-only; the owner uploads via the kind-0 editor). %>
+  <div class="relative">
+    <div class="aspect-[4/1] w-full overflow-hidden rounded-2xl border border-border bg-inset">
+      <% if user.banner.present? %>
+        <img src="<%= user.banner %>" alt="" loading="lazy"
+             data-controller="image-fallback" data-action="error->image-fallback#failed" class="size-full object-cover">
+      <% end %>
+    </div>
+    <div class="absolute -bottom-8 left-5 size-20 overflow-hidden rounded-full border-4 border-canvas bg-inset">
+      <% if user.picture.present? %>
+        <img src="<%= user.picture %>" alt="<%= user.display %>" loading="lazy"
+             data-controller="image-fallback" data-action="error->image-fallback#failed" class="size-full object-cover">
+      <% else %>
+        <%= render Shared::Avatar::AvatarComponent.new(seed: user.pubkey, size: 80, ring: false) %>
+      <% end %>
+    </div>
+  </div>
+
+  <%# Identity %>
+  <div class="mt-11">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <h1 class="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl"><%= user.display %></h1>
+      <% if user.nip05.present? %>
+        <span class="inline-flex items-center gap-1 text-sm <%= user.nip05_verified ? "text-lamp-settled" : "text-ink-muted" %>">
+          <% if user.nip05_verified %><i class="hgi-stroke hgi-checkmark-badge-01 text-sm" aria-hidden="true"></i><% end %>
+          <%= user.nip05 %>
+        </span>
+      <% end %>
+    </div>
+
+    <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      <span class="font-mono text-ink-faint"><%= short_npub %></span>
+      <% if user.lud16.present? %>
+        <span class="inline-flex items-center gap-1 font-mono text-copper">
+          <i class="hgi-stroke hgi-flash text-xs" aria-hidden="true"></i><%= user.lud16 %>
+        </span>
+      <% end %>
+      <% if website %>
+        <a href="<%= website %>" target="_blank" rel="noopener nofollow"
+           class="inline-flex items-center gap-1 text-ink-muted transition-colors hover:text-ink">
+          <i class="hgi-stroke hgi-link-02 text-xs" aria-hidden="true"></i><%= website_label %>
+        </a>
+      <% end %>
+    </div>
+
+    <% if user.about.present? %>
+      <div class="markdown mt-4 max-w-2xl"><%= helpers.markdown(user.about) %></div>
+    <% end %>
+  </div>
+</div>

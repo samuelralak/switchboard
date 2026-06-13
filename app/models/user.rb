@@ -15,6 +15,16 @@ class User < ApplicationRecord
 	validates :first_seen_at, presence: true
 	validate :external_identities_is_array
 
+	# Decode an npub to its hex pubkey, or nil when it is not a valid npub (rejects nsec/naddr/malformed). The
+	# hex comes back even for a pubkey we have no row for, so a profile can lazily fetch an unindexed identity.
+	def self.pubkey_from_npub(npub)
+		hrp, hex = Nostr::Bech32.decode(npub.to_s)
+
+		hex if hrp == "npub"
+	rescue StandardError
+		nil
+	end
+
 	# Bech32 npub for display; falls back to raw hex if encoding fails.
 	def npub
 		Nostr::Bech32.npub_encode(pubkey)

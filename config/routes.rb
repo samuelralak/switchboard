@@ -76,6 +76,11 @@ Rails.application.routes.draw do
 	# DB row id, which is regenerated when a re-publish supersedes the coordinate.
 	get "studio/edit", to: "studio#edit", as: :edit_studio_listing
 
+	# A provider's public profile = their portfolio: identity (kind-0) + their published services. Public; the
+	# owner additionally gets manage controls. npub-keyed so it is shareable. A valid-but-unindexed npub lazily
+	# fetches its kind-0 and shows a placeholder rather than 404ing (the pubkey is real even if not yet ingested).
+	get "u/:npub", to: "profiles#show", as: :profile
+
 	# Escrow orders (session-authed): place an order from a listing/request coordinate, and report the HTLC
 	# funding lock. The browser does the Cashu locking/keys; Rails records only observable lock data.
 	resources :orders, only: %i[create show index]

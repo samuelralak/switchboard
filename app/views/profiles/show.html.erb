@@ -1,0 +1,26 @@
+<% content_for :title, (@user&.display || "Profile") %>
+
+<div class="mx-auto max-w-4xl">
+  <% if @user %>
+    <%= render Profiles::Header::HeaderComponent.new(user: @user) %>
+
+    <%# Reputation strip: thin for now (member-since + live service count); completed jobs / settled sats /
+        disputes land later, off the order ledger. No fabricated numbers. %>
+    <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-muted">
+      <span>Member since <%= @user.first_seen_at.year %></span>
+      <span><%= pluralize(@listings.count(&:active?), "service") %></span>
+    </div>
+
+    <%# Owner action bar + the services portfolio land in later slices. %>
+  <% else %>
+    <%# A valid npub we have not projected yet: a kind-0 fetch is enqueued; show a placeholder this load. %>
+    <div class="mx-auto max-w-md py-20 text-center">
+      <%= render Shared::Icon::IconComponent.new(name: "user-circle", size: :lg, color: "text-ink-faint") %>
+      <h1 class="mt-3 font-display text-lg font-semibold text-ink">Fetching this profile</h1>
+      <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">
+        We're pulling <span class="font-mono text-ink-faint"><%= params[:npub].truncate(24, omission: "…") %></span>
+        from the relays. Refresh in a moment.
+      </p>
+    </div>
+  <% end %>
+</div>
