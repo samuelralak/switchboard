@@ -46,4 +46,10 @@ class CashuEscrowTest < ApplicationSystemTestCase
 		assert r["threw"], "a refund before the locktime must be rejected"
 		assert r["stillUnspent"], "a rejected refund must not spend the locked proofs"
 	end
+
+	test "a funding resume refuses to re-lock proofs a prior attempt already spent" do
+		r = run_scenario("fundingResumeRejectsSpentProofs")
+		assert r["threw"], "resuming onto already-spent minted proofs must fail, not silently retry the swap"
+		assert r["rejectedAsSpent"], "the failure must be the honest cannot-be-re-locked guard, not an opaque mint error"
+	end
 end

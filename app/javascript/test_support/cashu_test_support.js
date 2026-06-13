@@ -4,6 +4,7 @@ import * as escrow from "nostr/cashu_escrow"
 import { mintLockAndReport, mintLockAndReportTier2 } from "nostr/order_funding"
 import * as orderFunding from "nostr/order_funding"
 import * as settlement from "nostr/order_settlement"
+import { idbPut } from "nostr/escrow_store"
 
 // Test-only bridge: confirms @cashu/cashu-ts loads under the import map + CSP and drives the escrow module's
 // lock/release/refund flow in-browser against a local mint, so the system test can assert in Ruby on plain
@@ -169,6 +170,38 @@ const scenarios = {
       providerPubkey: provider.pkHex, consumerRefundPubkey: refund.pkHex, locktime,
     })
     return { amount, payload, tokenOk: /^cashu/.test(token), preimageOk: /^[0-9a-f]{64}$/.test(preimage) }
+  },
+
+  // Crash-safety regression (review finding A / W4): if a lock swap SPENT the minted proofs but crashed before
+  // the 'locked' marker landed, a resume must NOT silently retry the swap on already-spent inputs forever. Seed
+  // a 'minted' resume marker whose proofs are already spent at the mint, then drive the funding orchestrator and
+  // confirm it fails fast with the honest "cannot be re-locked" guard instead of looping on a doomed swap.
+  async fundingResumeRejectsSpentProofs(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const providerKp = newKeypair(), consumerKp = newKeypair()
+    const orderId = `w4-${toHex(createRandomSecretKey())}`
+    const locktime = Math.floor(Date.now() / 1000) + 3600
+
+    // Mint real proofs and SPEND them via a lock swap, so the mint now reports them SPENT.
+    const proofs = await mintTestSats(consumer, 8)
+    await escrow.lockHtlc({ wallet: consumer, amount: 8, proofs,
+      providerPubkey: providerKp.pkHex, consumerRefundPubkey: consumerKp.pkHex, locktime })
+
+    // Seed the resume marker as if a prior attempt minted (these exact, now-spent proofs) but never locked.
+    const mintedProofs = proofs.map((p) => ({ id: p.id, amount: Number(p.amount), secret: p.secret, C: p.C }))
+    await idbPut("escrow_secrets", orderId, { orderId, stage: "minted", amount: 8, mint, mintedProofs })
+
+    let threw = false, message = ""
+    try {
+      await mintLockAndReport({ wallet: consumer, mintUrl: mint, amount: 8, orderId,
+        providerPubkey: providerKp.pkHex, consumerRefundPubkey: consumerKp.pkHex, locktime })
+    } catch (e) {
+      threw = true
+      message = String((e && e.message) || e)
+    }
+
+    return { threw, rejectedAsSpent: /re-locked/i.test(message) }
   },
 
   // Drive the consumer refund path through order_settlement.refundExpired against a past-locktime lock,

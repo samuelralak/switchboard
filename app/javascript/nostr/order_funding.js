@@ -84,31 +84,46 @@ export async function reportFromSaved(wallet, saved) {
 }
 
 // Mint `amount` sats via the bolt11 flow as a FORWARD-ONLY, refresh-safe state machine persisted per order, so
-// a reload NEVER issues a new invoice or re-mints already-paid funds (each step persists BEFORE the next
-// irreversible one):
-//   - minted already (a reload after payment): return the saved proofs, never mint twice.
-//   - a quote already issued (a reload before/after payment): reuse the SAME invoice, never re-quote.
+// a reload NEVER re-mints already-paid funds and never re-locks already-spent ones (each step persists BEFORE
+// the next irreversible one):
+//   - minted already (a reload after payment): return the saved proofs, never mint twice. But first verify they
+//     are still UNSPENT: if a prior lock swap already spent them (a crash after the swap, before the 'locked'
+//     marker landed), re-locking is impossible, so fail with an honest message instead of looping forever.
+//   - a quote already issued (a reload before payment): reuse the SAME invoice, never re-quote -- UNLESS the
+//     saved quote has expired unpaid, in which case reuse would strand the order on an unpayable invoice, so
+//     drop it and issue a fresh one (a paid quote is never dropped, so a payment is never orphaned).
 //   - fresh: create the quote and persist it BEFORE the invoice is surfaced, so even a reload before payment resumes.
-// onInvoice(bolt11, quoteId) (re)surfaces the same invoice; onStatus(stage) drives the UI; signal cancels.
+// onInvoice(bolt11, quoteId) (re)surfaces the invoice; onStatus(stage) drives the UI; signal cancels.
 async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal }) {
   await ensureMintSupports(wallet)
 
-  const saved = orderId ? await idbGet("escrow_secrets", orderId) : null
-  if (saved?.mintedProofs) return saved.mintedProofs // reload after the mint: reuse, never mint twice
+  const saved = orderId ? await loadSecrets(orderId) : null
+  if (saved?.mintedProofs) {
+    await assertMintedSpendable(wallet, saved.mintedProofs)
+    return saved.mintedProofs // reload after the mint: reuse, never mint twice
+  }
 
   let quoteId = saved?.quote
   let bolt11 = saved?.request
+  let expiry = saved?.expiry ?? null
+  if (quoteId && await quoteExpiredUnpaid(wallet, quoteId)) {
+    quoteId = null // the saved invoice died unpaid; replace it rather than reuse a dead one
+    bolt11 = null
+    expiry = null
+  }
+
   if (!quoteId) {
     onStatus?.("invoice")
     const quote = await withTimeout(wallet.createMintQuoteBolt11(amount), "the mint did not issue an invoice")
     quoteId = quote.quote
     bolt11 = quote.request
+    expiry = quote.expiry ?? null
     // Persist the quote BEFORE the invoice is shown/paid, so a reload while waiting reuses THIS exact invoice.
-    await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, amount, mint: mintUrl })
+    await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, expiry, amount, mint: mintUrl })
   }
 
-  onInvoice?.(bolt11, quoteId) // (re)surface the same invoice to pay
-  await waitForPaid(wallet, quoteId, { onStatus, signal })
+  onInvoice?.(bolt11, quoteId) // (re)surface the invoice to pay
+  await waitForPaid(wallet, quoteId, { expiry, onStatus, signal })
 
   onStatus?.("minting")
   const minted = await withTimeout(wallet.mintProofsBolt11(amount, quoteId), "the mint did not issue the ecash")
@@ -116,6 +131,40 @@ async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onS
   // Persist minted proofs BEFORE locking: a reload between mint and lock resumes from here, never re-minting.
   await persistStage(orderId, { stage: "minted", quote: quoteId, amount, mint: mintUrl, mintedProofs: proofs })
   return proofs
+}
+
+// Resume guard for the narrow window where a lock swap SPENT the minted proofs but crashed before the 'locked'
+// marker (and the token/preimage) was persisted: those funds are locked at the mint but the unlock material is
+// gone, so a re-lock can only fail. Detect the SPENT state (NUT-07) and surface an honest, actionable error
+// instead of silently retrying a swap on already-spent inputs forever. A mint we cannot reach is left to the
+// lock attempt to surface -- we never block funding on a transient status check.
+async function assertMintedSpendable(wallet, proofs) {
+  let states
+  try {
+    states = await withTimeout(proofState({ wallet, proofs }), "the mint did not answer")
+  } catch {
+    return
+  }
+
+  if (states.some((s) => s.state === "SPENT")) {
+    throw new Error("This order's funds were locked in an earlier attempt that did not finish recording, and the unlock key was lost in that crash. They cannot be re-locked; please contact support to recover this order.")
+  }
+}
+
+// Has a saved quote expired WITHOUT being paid? Checked on resume so a dead invoice is replaced, not reused.
+// NUT-04 has no EXPIRED state (verified against cashu-ts v4.5.1: MintQuoteState is UNPAID|PAID|ISSUED), so we
+// judge by the quote's own expiry timestamp. PAID/ISSUED always wins -- a paid quote is never treated as dead,
+// so a payment is never orphaned -- and a transient check failure is treated as still-live (safe: at worst we
+// keep waiting and surface expiry via waitForPaid).
+async function quoteExpiredUnpaid(wallet, quoteId) {
+  try {
+    const quote = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
+    if (quote.state === "PAID" || quote.state === "ISSUED") return false
+
+    return isExpired(quote.expiry)
+  } catch {
+    return false
+  }
 }
 
 // Attach the reportable proofs (Y + amount + keyset, never the spendable secret/C) to the lock-term fields.
@@ -127,18 +176,26 @@ function reportProofs(states, lockedProofs, fields) {
 
 // Poll the mint until the invoice is PAID (or already ISSUED on a re-entry); honor an AbortSignal. A transient
 // poll failure (the mint rate-limiting our status checks, or a network blip) is NOT a funding failure -- the
-// invoice may simply be unpaid yet -- so per-poll errors are swallowed and we keep waiting. Only the abort
-// signal or the overall budget (~6 min at 3s) ends the wait. Polling slower also stays under mint rate limits.
-async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 3000, tries = 120 } = {}) {
+// invoice may simply be unpaid yet -- so per-poll errors are swallowed and we keep polling. The wait ends on:
+// the abort signal; a confirmed payment; the quote's own expiry passing (NUT-04 has no EXPIRED state, so we
+// stop by timestamp rather than poll a dead invoice for the full budget); or the overall budget (~6 min at 3s,
+// the fallback when the mint gave no expiry). Polling slower also stays under mint rate limits.
+async function waitForPaid(wallet, quoteId, { expiry, onStatus, signal, intervalMs = 3000, tries = 120 } = {}) {
   for (let i = 0; i < tries; i++) {
     if (signal?.aborted) throw new Error("funding cancelled")
 
+    let state
     try {
-      const { state } = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
-      if (state === "PAID" || state === "ISSUED") return
+      const quote = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
+      state = quote.state
     } catch {
       // a rate-limited / slow status check is not a funding failure; keep polling
     }
+
+    if (state === "PAID" || state === "ISSUED") return
+    // Only declare the invoice expired when the mint actually answered (state is defined): a network outage
+    // leaves state undefined, and must NOT be mistaken for expiry -- keep polling until it recovers or the budget ends.
+    if (state !== undefined && isExpired(expiry)) throw new Error("The Lightning invoice expired before it was paid. Start funding again for a fresh invoice.")
 
     onStatus?.("waiting")
     await sleep(intervalMs)
@@ -146,6 +203,10 @@ async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 300
 
   throw new Error("invoice was not paid in time")
 }
+
+// A quote's expiry is unix-seconds (or null/absent if the mint set none). Absent/unparseable expiry => treated
+// as not-expired, so the 6-min poll budget remains the only bound (graceful for mints that omit it).
+const isExpired = (expiry) => Number.isFinite(expiry) && expiry > 0 && expiry <= Math.floor(Date.now() / 1000)
 
 // --- durable backup of the unlock material (local + encrypted self-DM) ---
 
@@ -171,9 +232,20 @@ export async function backupSecrets({ signer, ownPubkey, relays, orderId, secret
   return record
 }
 
-// The fast local copy of an order's unlock material, or null.
-export function loadSecrets(orderId) {
-  return idbGet("escrow_secrets", orderId)
+// The fast local copy of an order's unlock material, or null. Defensively re-clean any stored proofs: a record
+// written by older code may still carry the unserializable dleq (BigInts), which would otherwise break the
+// JSON.stringify in backupSecrets on a resume. cleanProofs is idempotent on already-clean proofs.
+export async function loadSecrets(orderId) {
+  return sanitizeRecord(await idbGet("escrow_secrets", orderId))
+}
+
+function sanitizeRecord(record) {
+  if (!record) return null
+
+  if (Array.isArray(record.proofs)) record.proofs = cleanProofs(record.proofs)
+  if (Array.isArray(record.mintedProofs)) record.mintedProofs = cleanProofs(record.mintedProofs)
+
+  return record
 }
 
 // Disaster recovery: the order's unlock material from the encrypted self-DM backup on relays, or null.
