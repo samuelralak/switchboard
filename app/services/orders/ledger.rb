@@ -12,13 +12,15 @@ module Orders
 		end
 
 		def call
-			Order.as_consumer(pubkey).order(created_at: :desc).map { |order| row(order) }
+			orders = Order.as_consumer(pubkey).includes(:delivery).order(created_at: :desc).to_a
+			services = Orders::ServiceFor.map_for(orders)
+
+			orders.map { |order| row(order, services[order.id]) }
 		end
 
 		private
 
-		def row(order)
-			service = Orders::ServiceFor.call(order:)
+		def row(order, service)
 			Row.new(
 				id: order.id, title: service&.title || "Escrow order", cap: service&.capability,
 				sats: order.amount_sats, state: order.current_state, delivered: order.delivery.present?,

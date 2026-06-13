@@ -38,5 +38,35 @@ module Orders
 
 			assert_not Orders::Ledger.call(pubkey: consumer).first.active?
 		end
+
+		test "query count is constant in the number of orders (batched service + delivery, no N+1)" do
+			consumer = SecureRandom.hex(32)
+			place = lambda do
+				listing = classified_event(pubkey: SecureRandom.hex(32), marker: Catalog::Listing.marker, price: 2_000)
+				build_order(consumer_pubkey: consumer, listing_coordinate: coordinate_for(listing), amount_sats: 2_000)
+			end
+
+			place.call
+			one = count_queries { Orders::Ledger.call(pubkey: consumer) }
+			4.times { place.call }
+			five = count_queries { Orders::Ledger.call(pubkey: consumer) }
+
+			assert_equal one, five, "ledger query count must not grow with order count (N+1 regression)"
+		end
+
+		private
+
+		# Counts the non-schema, non-transaction SQL queries a block issues.
+		def count_queries(&)
+			queries = 0
+			counter = lambda do |_name, _start, _finish, _id, payload|
+				next if payload[:name] == "SCHEMA"
+				next if payload[:sql].to_s.match?(/\A\s*(BEGIN|COMMIT|ROLLBACK|SAVEPOINT|RELEASE)/i)
+
+				queries += 1
+			end
+			ActiveSupport::Notifications.subscribed(counter, "sql.active_record", &)
+			queries
+		end
 	end
 end

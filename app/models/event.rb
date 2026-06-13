@@ -5,6 +5,11 @@
 class Event < ApplicationRecord
 	include Events::Ingestable
 
+	# The canonical NIP-01 wire fields persisted in raw_event. A hostile/buggy relay can append arbitrary
+	# extra top-level keys; we keep only these so raw_event cannot bloat the jsonb (the id is hashed from the
+	# canonical serialization, so dropping extras never changes it, and re-feeding raw_event re-verifies).
+	WIRE_KEYS = %w[id pubkey created_at kind tags content sig].freeze
+
 	# The author's projected identity (joined by pubkey); nil until a kind-0 is seen.
 	belongs_to :author, class_name: "User", primary_key: :pubkey, foreign_key: :pubkey, optional: true
 
@@ -30,6 +35,9 @@ class Event < ApplicationRecord
 		kind, pubkey, d_tag = coordinate.to_s.split(":", 3)
 		find_by(kind: kind.to_i, pubkey:, d_tag: d_tag.to_s)
 	end
+
+	# This event's addressable coordinate (the inverse of by_coordinate).
+	def coordinate = "#{kind}:#{pubkey}:#{d_tag}"
 
 	# First value of the first tag named `name`, or nil. e.g. tag("title").
 	def tag(name)

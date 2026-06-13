@@ -30,13 +30,17 @@ module Messages
 		}.freeze
 
 		def call
-			Order.as_provider(pubkey).order(created_at: :desc).map { |order| build(order) }
+			orders = Order.as_provider(pubkey).includes(:delivery).order(created_at: :desc).to_a
+			@services = Orders::ServiceFor.map_for(orders)
+			@clients = client_records(orders.map(&:consumer_pubkey).uniq)
+
+			orders.map { |order| build(order) }
 		end
 
 		private
 
 		def build(order)
-			Conversation.new(**core(order), **client(order.consumer_pubkey), **service_fields(Orders::ServiceFor.call(order:)))
+			Conversation.new(**core(order), **client(order.consumer_pubkey), **service_fields(@services[order.id]))
 		end
 
 		# Order-derived fields (the escrow state + the one decision it calls for).
@@ -58,7 +62,11 @@ module Messages
 
 		# Counterparty (client) fields. peer_pubkey is the 64-hex trust anchor the browser checks the decrypted
 		# order envelope's author against before rendering it.
-		def client(peer) = { npub: npub(peer), name: name(peer), peer_pubkey: peer, track: track(peer) }
+		# Counterparty (client) fields, read from the batched @clients map (no per-conversation User query).
+		def client(peer)
+			record = @clients[peer]
+			{ npub: npub(peer), name: record[:user]&.name.presence || npub(peer), peer_pubkey: peer, track: track(record) }
+		end
 
 		# Joined-service fields (nil-safe when the listing/request is not ingested locally).
 		def service_fields(service)
@@ -73,21 +81,30 @@ module Messages
 			window && "#{window} window"
 		end
 
-		def name(peer) = User.find_by(pubkey: peer)&.name.presence || npub(peer)
-
 		def npub(peer)
 			Nostr::Bech32.npub_encode(peer)
 		rescue StandardError
 			peer
 		end
 
-		# The client's signed history as a consumer, so the provider can judge the request (brief §10).
-		def track(peer)
-			released = Order.as_consumer(peer).in_state(Orders::States::RELEASED)
-			since = User.find_by(pubkey: peer)&.first_seen_at&.year
+		# The client's signed history as a consumer, so the provider can judge the request (brief §10). Reads the
+		# batched release aggregate; disputes stay 0 until the dispute ledger feeds them.
+		def track(record)
+			year = record[:user]&.first_seen_at&.year
 
-			TrackRecord.new(completed: released.count, settled: released.sum(:amount_sats).to_s,
-				since: since&.to_s, disputes: 0, fresh: released.empty?)
+			TrackRecord.new(completed: record[:count], settled: record[:settled].to_s,
+				since: year&.to_s, disputes: 0, fresh: record[:count].zero?)
+		end
+
+		# One users-by-pubkey map + one grouped released-order aggregate for all clients, so name/track never run
+		# a query per conversation (the provider inbox is O(1) DB round-trips in the client dimension now).
+		def client_records(peers)
+			users = User.where(pubkey: peers).index_by(&:pubkey)
+			released = Order.where(consumer_pubkey: peers).in_state(Orders::States::RELEASED)
+			counts = released.group(:consumer_pubkey).count
+			settled = released.group(:consumer_pubkey).sum(:amount_sats)
+
+			peers.index_with { |peer| { user: users[peer], count: counts[peer].to_i, settled: settled[peer].to_i } }
 		end
 	end
 end

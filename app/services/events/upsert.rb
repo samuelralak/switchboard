@@ -102,7 +102,7 @@ module Events
 				content: event_data["content"].to_s,
 				tags: event_data["tags"] || [],
 				nostr_created_at: Time.at(event_data["created_at"].to_i).utc,
-				raw_event: event_data
+				raw_event: event_data.slice(*Event::WIRE_KEYS) # canonical wire fields only (no relay-appended bloat)
 			}
 		end
 	end
