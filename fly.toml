@@ -48,7 +48,7 @@ primary_region = "fra"  # EU (Frankfurt). Adjust to your preferred EU region (am
     path = "/up"              # Rails health endpoint; production.rb excludes /up from force_ssl + host authorization.
     interval = "15s"
     timeout = "5s"
-    grace_period = "10s"
+    grace_period = "30s"        # web boot runs the entrypoint db:prepare + Puma (~15-25s); 10s missed the first check
 
 # VM sizing per group -- starting points, tune after observing load. Bump memory if you see OOM (watch the relay:
 # a crash there freezes the read-model until Fly restarts it).
