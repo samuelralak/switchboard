@@ -19,6 +19,9 @@ primary_region = "fra"  # EU (Frankfurt). Adjust to your preferred EU region (am
 [env]
   # Read at boot; production fails fast without it (the NIP-98 sign-in origin). Public value, not a secret.
   CANONICAL_ORIGIN = "https://switchboardgo.com"
+  # Thruster's listen port. The image runs as non-root (USER 1000), which cannot bind privileged port 80, so
+  # Thruster listens on 8080 (and still proxies to Puma on TARGET_PORT=3000). internal_port below must match.
+  HTTP_PORT = "8080"
   # Deliberately NOT setting SOLID_QUEUE_IN_PUMA: Solid Queue runs ONLY in the dedicated `jobs` process group.
   # Setting it on web would run the recurring scheduler in BOTH web and jobs and double-enqueue every recurring
   # task (the trap from the deleted Kamal config/deploy.yml). RAILS_ENV=production is baked into the image.
@@ -33,7 +36,7 @@ primary_region = "fra"  # EU (Frankfurt). Adjust to your preferred EU region (am
   relay = "bin/rails relay:boot"
 
 [http_service]
-  internal_port = 80          # Thruster's listen port (it proxies to Puma on 3000).
+  internal_port = 8080        # matches HTTP_PORT above (Thruster); non-root can't bind 80. Puma stays on 3000.
   force_https = true
   auto_stop_machines = "stop"
   auto_start_machines = true
