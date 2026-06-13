@@ -1,4 +1,4 @@
-import { ensureMintSupports, lockHtlc, lockP2PK2of3, proofState } from "nostr/cashu_escrow"
+import { ensureMintSupports, lockHtlc, lockP2PK2of3, lockFee, proofState } from "nostr/cashu_escrow"
 import { RelaySet } from "nostr/relay_set"
 import { buildRumor, wrapMessage, unwrap, Kind } from "nostr/nip17"
 import { idbGet, idbPut } from "nostr/escrow_store"
@@ -23,9 +23,15 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
 // keyset_id}]). onInvoice(bolt11, quoteId) surfaces the invoice to pay; onStatus(stage) drives the UI;
 // signal cancels.
 export async function mintLockAndReport({
-  wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal,
+  wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal, backup,
 }) {
-  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
+  // Mint amount + the mint's lock-swap fee so the lock of exactly `amount` balances on a fee-charging mint: the
+  // consumer covers the small fee, the provider still receives the full order amount locked.
+  const proofs = await mintPaidProofs(wallet, amount + await lockFee(wallet, amount), { orderId, mintUrl, onInvoice, onStatus, signal })
+
+  // Back up the pre-lock proofs (best-effort; backup never throws) so the minted ecash survives device loss in
+  // the brief mint -> lock window, not just a same-browser reload.
+  await backup?.(proofs)
 
   onStatus?.("locking")
   const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
@@ -44,9 +50,13 @@ export async function mintLockAndReport({
 // n_sigs=2. arbiterPubkey is the PLATFORM key (advertised by Rails); Rails rejects any other arbiter.
 export async function mintLockAndReportTier2({
   wallet, mintUrl, amount, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
-  orderId, onInvoice, onStatus, signal,
+  orderId, onInvoice, onStatus, signal, backup,
 }) {
-  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
+  // Mint amount + the mint's lock-swap fee so the lock of exactly `amount` balances on a fee-charging mint.
+  const proofs = await mintPaidProofs(wallet, amount + await lockFee(wallet, amount), { orderId, mintUrl, onInvoice, onStatus, signal })
+
+  // Back up the pre-lock proofs (best-effort) so the minted ecash survives device loss before the lock lands.
+  await backup?.(proofs)
 
   onStatus?.("locking")
   const lock = await lockP2PK2of3({
@@ -83,29 +93,37 @@ export async function reportFromSaved(wallet, saved) {
   return reportProofs(await proofState({ wallet, proofs: saved.proofs }), saved.proofs, saved.fields)
 }
 
-// Mint `amount` sats via the bolt11 flow as a FORWARD-ONLY, refresh-safe state machine persisted per order, so
-// a reload NEVER re-mints already-paid funds and never re-locks already-spent ones (each step persists BEFORE
-// the next irreversible one):
-//   - minted already (a reload after payment): return the saved proofs, never mint twice. But first verify they
-//     are still UNSPENT: if a prior lock swap already spent them (a crash after the swap, before the 'locked'
-//     marker landed), re-locking is impossible, so fail with an honest message instead of looping forever.
-//   - a quote already issued (a reload before payment): reuse the SAME invoice, never re-quote -- UNLESS the
-//     saved quote has expired unpaid, in which case reuse would strand the order on an unpayable invoice, so
-//     drop it and issue a fresh one (a paid quote is never dropped, so a payment is never orphaned).
+// Obtain `amount` sats of unspent proofs via the bolt11 flow as a FORWARD-ONLY, refresh-safe, RECOVERABLE state
+// machine persisted per order. It never re-mints already-paid funds, never re-locks already-spent ones, and
+// TOPS UP rather than abandons -- so an attempt that minted too little (e.g. it paid the order amount before the
+// mint's lock-swap fee was accounted for) recovers by paying only the small difference, not the whole amount.
+//   - enough already minted (a reload after a complete mint): return the saved proofs, never mint twice. First
+//     verify they are still UNSPENT: a SPENT set means a prior lock swap consumed them (a crash after the swap),
+//     which cannot be re-locked, so fail honestly.
+//   - some minted but short (a top-up / recovery): keep the recovered proofs and mint only the shortfall.
+//   - a quote already in flight (a reload before the mint): reuse the SAME invoice, never re-quote -- UNLESS it
+//     expired unpaid (then re-issue; a paid quote is never dropped, so a payment is never orphaned).
 //   - fresh: create the quote and persist it BEFORE the invoice is surfaced, so even a reload before payment resumes.
 // onInvoice(bolt11, quoteId) (re)surfaces the invoice; onStatus(stage) drives the UI; signal cancels.
 async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal }) {
   await ensureMintSupports(wallet)
 
   const saved = orderId ? await loadSecrets(orderId) : null
-  if (saved?.mintedProofs) {
-    await assertMintedSpendable(wallet, saved.mintedProofs)
-    return saved.mintedProofs // reload after the mint: reuse, never mint twice
-  }
 
-  let quoteId = saved?.quote
-  let bolt11 = saved?.request
-  let expiry = saved?.expiry ?? null
+  // Proofs a prior attempt already minted, RECOVERED rather than abandoned. Verify they are still UNSPENT: a
+  // SPENT set means a prior lock swap consumed them and the unlock key was lost, which cannot be re-locked.
+  const existing = saved?.mintedProofs ?? []
+  if (existing.length) await assertMintedSpendable(wallet, existing)
+  if (sumProofs(existing) >= amount) return existing // already enough (incl. any fee top-up); never mint twice
+
+  const owed = amount - sumProofs(existing)
+
+  // Reuse a saved IN-FLIGHT quote (stage "quote": created, maybe paid, not yet minted) so a reload never issues
+  // a duplicate invoice. After a "minted" stage the saved quote is consumed, so a top-up issues a fresh quote.
+  const inFlight = saved?.stage === "quote"
+  let quoteId = inFlight ? saved.quote : null
+  let bolt11 = inFlight ? saved.request : null
+  let expiry = inFlight ? (saved.expiry ?? null) : null
   if (quoteId && await quoteExpiredUnpaid(wallet, quoteId)) {
     quoteId = null // the saved invoice died unpaid; replace it rather than reuse a dead one
     bolt11 = null
@@ -114,24 +132,28 @@ async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onS
 
   if (!quoteId) {
     onStatus?.("invoice")
-    const quote = await withTimeout(wallet.createMintQuoteBolt11(amount), "the mint did not issue an invoice")
+    const quote = await withTimeout(wallet.createMintQuoteBolt11(owed), "the mint did not issue an invoice")
     quoteId = quote.quote
     bolt11 = quote.request
     expiry = quote.expiry ?? null
-    // Persist the quote BEFORE the invoice is shown/paid, so a reload while waiting reuses THIS exact invoice.
-    await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, expiry, amount, mint: mintUrl })
+    // Persist the in-flight quote AND any recovered proofs BEFORE the invoice is shown, so a reload reuses THIS
+    // invoice and keeps the recovered proofs.
+    await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, expiry, amount, mint: mintUrl, mintedProofs: existing })
   }
 
   onInvoice?.(bolt11, quoteId) // (re)surface the invoice to pay
   await waitForPaid(wallet, quoteId, { expiry, onStatus, signal })
 
   onStatus?.("minting")
-  const minted = await withTimeout(wallet.mintProofsBolt11(amount, quoteId), "the mint did not issue the ecash")
-  const proofs = cleanProofs(minted?.proofs ?? minted)
-  // Persist minted proofs BEFORE locking: a reload between mint and lock resumes from here, never re-minting.
-  await persistStage(orderId, { stage: "minted", quote: quoteId, amount, mint: mintUrl, mintedProofs: proofs })
+  const minted = await withTimeout(wallet.mintProofsBolt11(owed, quoteId), "the mint did not issue the ecash")
+  const proofs = [ ...existing, ...cleanProofs(minted?.proofs ?? minted) ]
+  // Persist the full minted set BEFORE locking: a reload between mint and lock resumes from here, never re-minting.
+  await persistStage(orderId, { stage: "minted", amount, mint: mintUrl, mintedProofs: proofs })
   return proofs
 }
+
+// Sum a proof set's sats (amounts may arrive as cashu-ts Amounts or numbers; coerce to a plain number).
+const sumProofs = (proofs) => proofs.reduce((total, proof) => total + Number(proof.amount), 0)
 
 // Resume guard for the narrow window where a lock swap SPENT the minted proofs but crashed before the 'locked'
 // marker (and the token/preimage) was persisted: those funds are locked at the mint but the unlock material is

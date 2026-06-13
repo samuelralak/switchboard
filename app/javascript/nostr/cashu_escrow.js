@@ -33,6 +33,34 @@ export async function ensureMintSupports(wallet) {
   return wallet
 }
 
+// The extra sats to mint so locking `amount` to the provider succeeds on THIS mint. Locking is a swap, and a
+// fee-charging mint requires the swap inputs to cover amount + fee, so the consumer mints amount + this (the
+// lock then balances). The fee is read PER MINT from the active sat keyset's input_fee_ppk -- never hard-coded,
+// so it tracks any mint that charges. 0 for a fee-free mint.
+export async function lockFee(wallet, amount) {
+  return solveLockFee(amount, await activeInputFeePpk(wallet))
+}
+
+// Pure, testable fee solver: the smallest extra-mint such that minting amount + it covers locking `amount`
+// plus the mint's fee for that proof set. cashu-ts mints a value as its optimal power-of-2 split, so the input
+// proof count is popcount(value), and the fee is ceil(count * ppk / 1000). The climb is MONOTONIC (mintAmount
+// only rises until it covers its own fee), so it always converges and NEVER under-estimates -- the lock of
+// `amount` is then guaranteed to be covered, with at most a sat of change on rare carry-chain amounts. 0 ppk -> 0.
+export function solveLockFee(amount, ppk) {
+  if (!ppk) return 0
+
+  const feeFor = (proofCount) => Math.ceil((proofCount * ppk) / 1000)
+  let mintAmount = amount
+  for (let i = 0; i < 64; i++) {
+    const need = amount + feeFor(popcount(mintAmount))
+    if (mintAmount >= need) break
+
+    mintAmount = need
+  }
+
+  return mintAmount - amount
+}
+
 // Lock `amount` sats to the provider as an HTLC: secret data = sha256(preimage), pubkeys = [provider],
 // locktime, refund = [consumer]. Returns the encoded token (handed to the provider over the order thread)
 // plus the preimage (the consumer's release secret, kept private until delivery is approved). pubkeys and
@@ -53,7 +81,8 @@ export async function lockHtlc({
   if (requiredRefundSignatures > 1) builder.requireRefundSignatures(requiredRefundSignatures)
 
   const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize secret
-  const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
+  assertCoversFee(wallet, proofs, amount) // proofs must cover amount + the mint swap fee, or the lock underflows
+  const { keep, send } = await wallet.send(amount, proofs, { includeFees: true }, { send: { type: "p2pk", options } })
   const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
 
   return { token, lockedProofs: send, change: keep, hash, preimage: pre, locktime }
@@ -103,7 +132,8 @@ export async function lockP2PK2of3({
     .lockUntil(locktime)                   // refund keys REQUIRE a locktime (builder enforces)
 
   const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize
-  const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
+  assertCoversFee(wallet, proofs, amount) // proofs must cover amount + the mint swap fee, or the lock underflows
+  const { keep, send } = await wallet.send(amount, proofs, { includeFees: true }, { send: { type: "p2pk", options } })
   const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
 
   return { token, lockedProofs: send, change: keep, locktime }
@@ -169,5 +199,40 @@ async function swapInputs(wallet, inputs) {
 function assertFutureLocktime(locktime) {
   if (!Number.isFinite(locktime) || locktime <= 0) {
     throw new Error("locktime must be a positive unix-seconds integer")
+  }
+}
+
+// This mint's active sat-keyset NUT-02 input_fee_ppk (parts-per-thousand per input proof), or 0. Read from the
+// spec /v1/keysets endpoint so it reflects whatever fee the mint actually charges (not just Coinos); a read
+// failure degrades to 0, and the lock's own coverage guard then surfaces any real shortfall clearly.
+async function activeInputFeePpk(wallet) {
+  try {
+    const { keysets } = await (await fetch(`${wallet.mint.mintUrl}/v1/keysets`)).json()
+    const active = (keysets ?? []).find((keyset) => keyset.active && (keyset.unit ?? SAT) === SAT)
+
+    return Number(active?.input_fee_ppk) || 0
+  } catch {
+    return 0
+  }
+}
+
+// Set-bit count = the proof count of a value's optimal power-of-2 split (cashu-ts's default mint split).
+function popcount(n) {
+  let count = 0
+  for (let v = Math.floor(n); v > 0; v = Math.floor(v / 2)) count += v % 2
+
+  return count
+}
+
+// FAIL-CLOSED before a lock swap: the proofs must cover the locked amount PLUS the mint's fee for those inputs
+// (cashu-ts's own getFeesForProofs), else the swap underflows. A clear message beats cashu-ts's terse "Not
+// enough funds available to send" when a mint charges a fee the minted budget did not account for.
+function assertCoversFee(wallet, proofs, amount) {
+  // getFeesForProofs returns a cashu-ts Amount (numeric under -/<, but string-concatenating under +); coerce
+  // every term to a plain number so the comparison is arithmetic, not string.
+  const total = proofs.reduce((sum, proof) => sum + Number(proof.amount), 0)
+  const fee = Number(wallet.getFeesForProofs(proofs)) || 0
+  if (total < Number(amount) + fee) {
+    throw new Error(`minted ${total} sat cannot cover the ${amount} sat lock plus the mint's ${fee} sat fee; please retry funding`)
   }
 }

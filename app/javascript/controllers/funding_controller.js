@@ -68,7 +68,7 @@ export default class extends Controller {
     const wallet = new Wallet(this.mintValue, { unit: "sat" })
     const locktime = Math.floor(Date.now() / 1000) + this.locktimeSecondsValue
 
-    const { payload, token, preimage, lockedProofs } = await this.mintAndLock(funding, wallet, me, provider, locktime)
+    const { payload, token, preimage, lockedProofs } = await this.mintAndLock(funding, wallet, me, provider, locktime, signer, relays)
 
     // backupSecrets persists locally (mandatory) before the relay self-DM, and stores the payload + proofs
     // so a resume can re-deliver + re-submit without re-minting. Tier-2 has no preimage; omit it.
@@ -84,10 +84,11 @@ export default class extends Controller {
   // Mint the budget and lock it for the order's tier. Tier-2 (2-of-3 arbiter) locks the consumer escrow key
   // as a signer + the provider + the PLATFORM arbiter, no hashlock; tier-1 locks an HTLC to the provider.
   // me.pubkeyHex (the consumer ESCROW key) is both the 2-of-3 consumer signer and the timelock-refund key.
-  async mintAndLock(funding, wallet, me, provider, locktime) {
+  async mintAndLock(funding, wallet, me, provider, locktime, signer, relays) {
     const onInvoice = (bolt11) => this.showInvoice(bolt11)
     const onStatus = (stage) => this.setStatus(STATUS[stage] || stage)
-    const common = { wallet, mintUrl: this.mintValue, amount: this.amountValue, locktime, orderId: this.orderIdValue, onInvoice, onStatus }
+    const backup = (proofs) => this.backupMinted(funding, signer, relays, proofs)
+    const common = { wallet, mintUrl: this.mintValue, amount: this.amountValue, locktime, orderId: this.orderIdValue, onInvoice, onStatus, backup }
 
     if (this.tierValue === TIER2_ARBITER) {
       // Source the arbiter from Rails (data-value); locking to any other key orphans the funds (Orders::Funding
@@ -101,6 +102,20 @@ export default class extends Controller {
     }
 
     return funding.mintLockAndReport({ ...common, providerPubkey: provider.pubkey, consumerRefundPubkey: me.pubkeyHex })
+  }
+
+  // Best-effort relay backup of the freshly minted (pre-lock) proofs, so the ecash survives device loss in the
+  // brief mint -> lock window, not just a same-browser reload. They are already in local IndexedDB; a relay
+  // failure must NOT block funding, so this swallows errors (the encrypted self-DM copy is the cross-device bonus).
+  async backupMinted(funding, signer, relays, proofs) {
+    try {
+      await funding.backupSecrets({
+        signer, ownPubkey: this.consumerValue, relays, orderId: this.orderIdValue,
+        secrets: { stage: "minted", mint: this.mintValue, mintedProofs: proofs },
+      })
+    } catch {
+      // already persisted locally; the relay copy is best-effort here
+    }
   }
 
   // Hand the locked budget to the provider over NIP-17 so they can verify it now and redeem on release.

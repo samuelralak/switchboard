@@ -52,6 +52,22 @@ const totalOf = (proofs) => proofs.reduce((sum, p) => sum + Number(p.amount), 0)
 // End-to-end escrow flows the system test runs by name. Each takes the mint URL and returns a plain object
 // of booleans/totals the Ruby side asserts on; they exercise the real escrow primitive (cashu_escrow.js).
 const scenarios = {
+  // Pure-math check of the lock-fee solver (no mint needed): a free mint adds nothing, a fee-charging mint adds
+  // >=1, and for every amount (incl. carry-chain edges like 2046/2047) minting amount+fee always covers the
+  // lock of amount plus the REAL swap fee for the minted proof set. Guards the "Not enough funds" fee bug.
+  async lockFeeMath() {
+    const ppk = 100 // a Coinos-like fee-charging mint
+    const bits = (n) => { let c = 0; for (let v = Math.floor(n); v > 0; v = Math.floor(v / 2)) c += v % 2; return c }
+    const amounts = [ 1, 7, 8, 31, 100, 1000, 2046, 2047, 2048, 65535, 100000 ]
+    const covered = amounts.every((a) => {
+      const mintAmount = a + escrow.solveLockFee(a, ppk)
+      const actualFee = Math.ceil((bits(mintAmount) * ppk) / 1000)
+      return mintAmount >= a + actualFee
+    })
+
+    return { free: escrow.solveLockFee(5000, 0), coinosLike: escrow.solveLockFee(5000, ppk), covered }
+  },
+
   // Lock an HTLC, prove a wrong preimage cannot redeem, release with the real preimage, and confirm the
   // settled proof's NUT-07 witness reveals the preimage (the runtime's authoritative release signal).
   async lockReleaseReveal(mint) {
@@ -202,6 +218,29 @@ const scenarios = {
     }
 
     return { threw, rejectedAsSpent: /re-locked/i.test(message) }
+  },
+
+  // Recovery regression: an attempt that minted too LITTLE (e.g. it paid the order amount before the mint's
+  // lock-swap fee was counted) must TOP UP the shortfall and recover the already-minted proofs, not abandon
+  // them. Seed a 'minted' marker holding only (amount - 4) sat, then drive the orchestrator for `amount` and
+  // confirm it mints the 4-sat shortfall, combines, and locks the FULL amount.
+  async fundingTopsUpAShortfall(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const provider = newKeypair(), refund = newKeypair()
+    const orderId = `topup-${toHex(createRandomSecretKey())}`
+    const amount = 16
+
+    const partial = await mintTestSats(consumer, amount - 4) // a prior under-minted attempt: only 12 sat minted
+    const mintedProofs = partial.map((p) => ({ id: p.id, amount: Number(p.amount), secret: p.secret, C: p.C }))
+    await idbPut("escrow_secrets", orderId, { orderId, stage: "minted", amount, mint, mintedProofs })
+
+    const { payload, token } = await mintLockAndReport({
+      wallet: consumer, mintUrl: mint, amount, providerPubkey: provider.pkHex,
+      consumerRefundPubkey: refund.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600, orderId,
+    })
+
+    return { lockedTotal: totalOf(payload.proofs), amount, tokenOk: /^cashu/.test(token) }
   },
 
   // Drive the consumer refund path through order_settlement.refundExpired against a past-locktime lock,

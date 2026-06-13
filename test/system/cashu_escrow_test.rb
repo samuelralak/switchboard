@@ -52,4 +52,17 @@ class CashuEscrowTest < ApplicationSystemTestCase
 		assert r["threw"], "resuming onto already-spent minted proofs must fail, not silently retry the swap"
 		assert r["rejectedAsSpent"], "the failure must be the honest cannot-be-re-locked guard, not an opaque mint error"
 	end
+
+	test "the lock-fee solver always covers a fee-charging mint's swap fee" do
+		r = run_scenario("lockFeeMath")
+		assert_equal 0, r["free"], "a free mint needs no extra mint"
+		assert_operator r["coinosLike"], :>=, 1, "a fee-charging mint needs at least one extra sat to lock"
+		assert r["covered"], "minting amount+fee must cover the lock of amount plus the real swap fee, for every amount"
+	end
+
+	test "funding tops up an under-minted attempt and locks the full amount" do
+		r = run_scenario("fundingTopsUpAShortfall")
+		assert_equal r["amount"], r["lockedTotal"], "the top-up must recover the partial mint and lock the full amount"
+		assert r["tokenOk"], "the recovered lock must produce a cashu token"
+	end
 end
