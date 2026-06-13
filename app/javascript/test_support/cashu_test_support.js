@@ -52,20 +52,28 @@ const totalOf = (proofs) => proofs.reduce((sum, p) => sum + Number(p.amount), 0)
 // End-to-end escrow flows the system test runs by name. Each takes the mint URL and returns a plain object
 // of booleans/totals the Ruby side asserts on; they exercise the real escrow primitive (cashu_escrow.js).
 const scenarios = {
-  // Pure-math check of the lock-fee solver (no mint needed): a free mint adds nothing, a fee-charging mint adds
-  // >=1, and for every amount (incl. carry-chain edges like 2046/2047) minting amount+fee always covers the
-  // lock of amount plus the REAL swap fee for the minted proof set. Guards the "Not enough funds" fee bug.
-  async lockFeeMath() {
+  // Pure-math check of the top-up solver (no mint needed): for fresh mints AND top-ups onto an already-minted,
+  // non-optimal set, minting `have + solveTopUp(...)` must always leave the combined inputs covering `amount`
+  // plus the REAL swap fee for that proof count, including carry-chain edges. Guards the "Not enough funds" bug.
+  async topUpMath() {
     const ppk = 100 // a Coinos-like fee-charging mint
     const bits = (n) => { let c = 0; for (let v = Math.floor(n); v > 0; v = Math.floor(v / 2)) c += v % 2; return c }
-    const amounts = [ 1, 7, 8, 31, 100, 1000, 2046, 2047, 2048, 65535, 100000 ]
-    const covered = amounts.every((a) => {
-      const mintAmount = a + escrow.solveLockFee(a, ppk)
-      const actualFee = Math.ceil((bits(mintAmount) * ppk) / 1000)
-      return mintAmount >= a + actualFee
+    // [amount, haveSats, haveCount]: fresh (have 0) and recovery top-ups onto an existing set.
+    const cases = [
+      [ 1, 0, 0 ], [ 100, 0, 0 ], [ 777, 0, 0 ], [ 1023, 0, 0 ], [ 2047, 0, 0 ], [ 65535, 0, 0 ],
+      [ 100, 100, 3 ], [ 1023, 1023, 10 ], [ 2047, 2047, 11 ], [ 16, 12, 2 ], [ 50000, 49999, 9 ],
+    ]
+    const covered = cases.every(([ amount, have, haveCount ]) => {
+      const topup = escrow.solveTopUp(amount, ppk, have, haveCount)
+      const count = haveCount + (topup > 0 ? bits(topup) : 0)
+      return (have + topup) >= amount + Math.ceil((count * ppk) / 1000)
     })
 
-    return { free: escrow.solveLockFee(5000, 0), coinosLike: escrow.solveLockFee(5000, ppk), covered }
+    return {
+      covered,
+      stuckTopup: escrow.solveTopUp(1023, ppk, 1023, 10), // the production bug: must be >= 2 (was 1)
+      freeExisting: escrow.solveTopUp(1023, 0, 1023, 10), // 0-fee mint, already covered -> 0
+    }
   },
 
   // Lock an HTLC, prove a wrong preimage cannot redeem, release with the real preimage, and confirm the
@@ -241,6 +249,43 @@ const scenarios = {
     })
 
     return { lockedTotal: totalOf(payload.proofs), amount, tokenOk: /^cashu/.test(token) }
+  },
+
+  // FEE-MINT fresh funding: drive the orchestrator on a fee-charging mint and confirm the full amount locks
+  // (the lock-swap fee is minted on top). Only meaningful against a mint with input_fee_ppk > 0.
+  async feeFreshFund(mint) {
+    const amount = 777
+    const consumer = new Wallet(mint, { unit: "sat" })
+    const provider = newKeypair(), refund = newKeypair()
+    const { payload, token } = await mintLockAndReport({
+      wallet: consumer, mintUrl: mint, amount, providerPubkey: provider.pkHex,
+      consumerRefundPubkey: refund.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600,
+    })
+
+    return { lockedTotal: totalOf(payload.proofs), amount, tokenOk: /^cashu/.test(token) }
+  },
+
+  // FEE-MINT recovery (reproduces the production "Not enough funds" bug): a prior attempt minted the full order
+  // amount as MANY proofs with NO fee buffer, so the lock fee for that combined input set exceeds a naive
+  // single-mint estimate. Seed that under-minted set and confirm the orchestrator tops up correctly and locks
+  // the full amount on a fee mint. amount=1023 -> popcount 10 -> ~10 proofs, which forces a >1-sat fee.
+  async fundingFeeStuckRecovery(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    const provider = newKeypair(), refund = newKeypair()
+    const orderId = `feestuck-${toHex(createRandomSecretKey())}`
+    const amount = 1023
+
+    const partial = await mintTestSats(consumer, amount) // prior attempt: full amount minted, no fee buffer
+    const mintedProofs = partial.map((p) => ({ id: p.id, amount: Number(p.amount), secret: p.secret, C: p.C }))
+    await idbPut("escrow_secrets", orderId, { orderId, stage: "minted", amount, mint, mintedProofs })
+
+    const { payload, token } = await mintLockAndReport({
+      wallet: consumer, mintUrl: mint, amount, providerPubkey: provider.pkHex,
+      consumerRefundPubkey: refund.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600, orderId,
+    })
+
+    return { lockedTotal: totalOf(payload.proofs), amount, proofCount: payload.proofs.length, tokenOk: /^cashu/.test(token) }
   },
 
   // Drive the consumer refund path through order_settlement.refundExpired against a past-locktime lock,

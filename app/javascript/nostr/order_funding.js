@@ -1,4 +1,4 @@
-import { ensureMintSupports, lockHtlc, lockP2PK2of3, lockFee, proofState } from "nostr/cashu_escrow"
+import { ensureMintSupports, lockHtlc, lockP2PK2of3, topUpAmount, proofState } from "nostr/cashu_escrow"
 import { RelaySet } from "nostr/relay_set"
 import { buildRumor, wrapMessage, unwrap, Kind } from "nostr/nip17"
 import { idbGet, idbPut } from "nostr/escrow_store"
@@ -25,9 +25,9 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
 export async function mintLockAndReport({
   wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal, backup,
 }) {
-  // Mint amount + the mint's lock-swap fee so the lock of exactly `amount` balances on a fee-charging mint: the
-  // consumer covers the small fee, the provider still receives the full order amount locked.
-  const proofs = await mintPaidProofs(wallet, amount + await lockFee(wallet, amount), { orderId, mintUrl, onInvoice, onStatus, signal })
+  // mintPaidProofs covers the order amount PLUS the mint's lock-swap fee (it sizes the mint to the actual proof
+  // set), so the lock of exactly `amount` balances; the provider still receives the full order amount.
+  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
 
   // Back up the pre-lock proofs (best-effort; backup never throws) so the minted ecash survives device loss in
   // the brief mint -> lock window, not just a same-browser reload.
@@ -52,8 +52,8 @@ export async function mintLockAndReportTier2({
   wallet, mintUrl, amount, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
   orderId, onInvoice, onStatus, signal, backup,
 }) {
-  // Mint amount + the mint's lock-swap fee so the lock of exactly `amount` balances on a fee-charging mint.
-  const proofs = await mintPaidProofs(wallet, amount + await lockFee(wallet, amount), { orderId, mintUrl, onInvoice, onStatus, signal })
+  // mintPaidProofs covers the order amount PLUS the mint's lock-swap fee, so the lock of exactly `amount` balances.
+  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
 
   // Back up the pre-lock proofs (best-effort) so the minted ecash survives device loss before the lock lands.
   await backup?.(proofs)
@@ -114,9 +114,11 @@ async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onS
   // SPENT set means a prior lock swap consumed them and the unlock key was lost, which cannot be re-locked.
   const existing = saved?.mintedProofs ?? []
   if (existing.length) await assertMintedSpendable(wallet, existing)
-  if (sumProofs(existing) >= amount) return existing // already enough (incl. any fee top-up); never mint twice
 
-  const owed = amount - sumProofs(existing)
+  // What to mint NOW so the combined proofs cover `amount` + the mint's lock-swap fee. Sized from the actual
+  // existing proof count, so a top-up onto an already-minted (non-optimal) set is correct on a fee mint.
+  const owed = await topUpAmount(wallet, amount, existing)
+  if (owed <= 0) return existing // existing already covers the lock + fee; never mint twice
 
   // Reuse a saved IN-FLIGHT quote (stage "quote": created, maybe paid, not yet minted) so a reload never issues
   // a duplicate invoice. After a "minted" stage the saved quote is consumed, so a top-up issues a fresh quote.
@@ -151,9 +153,6 @@ async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onS
   await persistStage(orderId, { stage: "minted", amount, mint: mintUrl, mintedProofs: proofs })
   return proofs
 }
-
-// Sum a proof set's sats (amounts may arrive as cashu-ts Amounts or numbers; coerce to a plain number).
-const sumProofs = (proofs) => proofs.reduce((total, proof) => total + Number(proof.amount), 0)
 
 // Resume guard for the narrow window where a lock swap SPENT the minted proofs but crashed before the 'locked'
 // marker (and the token/preimage) was persisted: those funds are locked at the mint but the unlock material is

@@ -33,32 +33,32 @@ export async function ensureMintSupports(wallet) {
   return wallet
 }
 
-// The extra sats to mint so locking `amount` to the provider succeeds on THIS mint. Locking is a swap, and a
-// fee-charging mint requires the swap inputs to cover amount + fee, so the consumer mints amount + this (the
-// lock then balances). The fee is read PER MINT from the active sat keyset's input_fee_ppk -- never hard-coded,
-// so it tracks any mint that charges. 0 for a fee-free mint.
-export async function lockFee(wallet, amount) {
-  return solveLockFee(amount, await activeInputFeePpk(wallet))
+// The extra sats to mint so `existing` (proofs a prior attempt already minted) plus a fresh mint cover locking
+// `amount` on THIS mint. Locking is a swap whose NUT-02 fee is charged per INPUT proof, so the inputs must total
+// amount + fee; the consumer covers that small fee and the provider receives the full `amount` (the lock output
+// is exactly `amount`). The fee is read PER MINT from the active sat keyset's input_fee_ppk -- never hard-coded.
+export async function topUpAmount(wallet, amount, existing) {
+  const have = existing.reduce((sum, proof) => sum + Number(proof.amount), 0)
+
+  return solveTopUp(amount, await activeInputFeePpk(wallet), have, existing.length)
 }
 
-// Pure, testable fee solver: the smallest extra-mint such that minting amount + it covers locking `amount`
-// plus the mint's fee for that proof set. cashu-ts mints a value as its optimal power-of-2 split, so the input
-// proof count is popcount(value), and the fee is ceil(count * ppk / 1000). The climb is MONOTONIC (mintAmount
-// only rises until it covers its own fee), so it always converges and NEVER under-estimates -- the lock of
-// `amount` is then guaranteed to be covered, with at most a sat of change on rare carry-chain amounts. 0 ppk -> 0.
-export function solveLockFee(amount, ppk) {
-  if (!ppk) return 0
+// Pure, testable solver: the smallest extra-mint T so that `have` sats (haveCount proofs) plus a fresh optimal
+// mint of T cover `amount` + the mint's fee for the FINAL input set. cashu-ts mints a value as its optimal
+// power-of-2 split, so the new proof count is popcount(T); the swap fee is ceil(count * ppk / 1000). The climb
+// is MONOTONIC, so it converges and NEVER under-mints. Returns 0 on a free mint, or when `have` already covers.
+export function solveTopUp(amount, ppk, have, haveCount) {
+  const feeFor = (count) => (ppk ? Math.ceil((count * ppk) / 1000) : 0)
 
-  const feeFor = (proofCount) => Math.ceil((proofCount * ppk) / 1000)
-  let mintAmount = amount
-  for (let i = 0; i < 64; i++) {
-    const need = amount + feeFor(popcount(mintAmount))
-    if (mintAmount >= need) break
+  let topup = Math.max(0, amount - have)
+  for (let i = 0; i < 128; i++) {
+    const need = amount + feeFor(haveCount + (topup > 0 ? popcount(topup) : 0))
+    if (have + topup >= need) break
 
-    mintAmount = need
+    topup = need - have
   }
 
-  return mintAmount - amount
+  return topup
 }
 
 // Lock `amount` sats to the provider as an HTLC: secret data = sha256(preimage), pubkeys = [provider],
@@ -82,7 +82,7 @@ export async function lockHtlc({
 
   const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize secret
   assertCoversFee(wallet, proofs, amount) // proofs must cover amount + the mint swap fee, or the lock underflows
-  const { keep, send } = await wallet.send(amount, proofs, { includeFees: true }, { send: { type: "p2pk", options } })
+  const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
   const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
 
   return { token, lockedProofs: send, change: keep, hash, preimage: pre, locktime }
@@ -133,7 +133,7 @@ export async function lockP2PK2of3({
 
   const options = builder.toOptions() // throws on no lock key / refund-without-locktime / >10 keys / oversize
   assertCoversFee(wallet, proofs, amount) // proofs must cover amount + the mint swap fee, or the lock underflows
-  const { keep, send } = await wallet.send(amount, proofs, { includeFees: true }, { send: { type: "p2pk", options } })
+  const { keep, send } = await wallet.send(amount, proofs, undefined, { send: { type: "p2pk", options } })
   const token = getEncodedToken({ mint: wallet.mint.mintUrl, unit: SAT, proofs: send })
 
   return { token, lockedProofs: send, change: keep, locktime }

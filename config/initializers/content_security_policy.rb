@@ -12,8 +12,9 @@
 Rails.application.configure do
 	config.content_security_policy do |policy|
 		# Non-prod-only: the escrow system test drives cashu-ts in-browser against the local HTTP mint
-		# (http://127.0.0.1:3338); production mints are HTTPS, already covered by :https below.
-		mint_local = Rails.env.production? ? [] : %w[http://127.0.0.1:3338 http://localhost:3338]
+		# (http://127.0.0.1:3338); production mints are HTTPS, already covered by :https below. An optional
+		# CASHU_MINT_URL is also allowed so a test can point at an alternate local mint (e.g. a fee-charging one).
+		mint_local = Rails.env.production? ? [] : (%w[http://127.0.0.1:3338 http://localhost:3338] | Array(ENV["CASHU_MINT_URL"].presence))
 		policy.default_src     :self
 		policy.base_uri        :self
 		policy.object_src      :none
