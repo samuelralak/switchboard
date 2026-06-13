@@ -16,7 +16,7 @@
     </div>
     <div class="markdown mt-3"><%= helpers.markdown(request.description) %></div>
     <div class="mt-4">
-      <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "posted by", npub: request.poster_npub) %>
+      <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "posted by", npub: request.poster_npub, linked: true) %>
     </div>
   </div>
 

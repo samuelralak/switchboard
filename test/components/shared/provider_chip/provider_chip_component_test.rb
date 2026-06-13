@@ -13,6 +13,12 @@ module Shared
 				assert_selector "span.font-mono.text-ink-faint", text: "npub1apol…" # the npub, mono data
 			end
 
+			def test_renders_as_a_profile_link_when_linked
+				render_inline(ProviderChipComponent.new(name: "provider", npub: "npub1apollo7x9q", linked: true))
+
+				assert_selector "a[href='/u/npub1apollo7x9q']", text: /provider/
+			end
+
 			def test_embeds_avatar_without_ring_seeded_by_npub
 				render_inline(ProviderChipComponent.new(name: "Apollo", npub: "npub1apollo7x9q"))
 

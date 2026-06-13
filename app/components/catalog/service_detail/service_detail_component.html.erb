@@ -18,7 +18,7 @@
     </div>
     <div class="markdown mt-3"><%= helpers.markdown(listing.description) %></div>
     <div class="mt-4">
-      <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: listing.provider_npub) %>
+      <%= render Shared::ProviderChip::ProviderChipComponent.new(name: "provider", npub: listing.provider_npub, linked: true) %>
     </div>
   </div>
 

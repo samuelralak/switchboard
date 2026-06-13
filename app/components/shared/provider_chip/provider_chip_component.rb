@@ -7,11 +7,16 @@ module Shared
 		class ProviderChipComponent < ApplicationComponent
 			attr_reader :name, :npub, :size
 
-			def initialize(name:, npub:, size: 20)
+			# linked: render as a link to the identity's profile. Only valid where the chip is NOT nested in
+			# another interactive element (a detail drawer, never a card button).
+			def initialize(name:, npub:, size: 20, linked: false)
 				@name = name
 				@npub = npub.to_s
 				@size = size
+				@linked = linked
 			end
+
+			def linked? = @linked
 
 			def short_npub = @npub[0, 9]
 		end

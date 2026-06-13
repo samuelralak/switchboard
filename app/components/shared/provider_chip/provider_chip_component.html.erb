@@ -1,10 +1,13 @@
-<span class="inline-flex items-center gap-2 min-w-0">
+<%# Links to the identity's profile when `linked` (valid only outside another interactive element, e.g. a
+    detail drawer); otherwise a plain span (safe inside a card button). The role label is sans, the npub mono. %>
+<%= content_tag(linked? ? :a : :span,
+      href: (linked? ? helpers.profile_path(npub: npub) : nil),
+      class: "inline-flex items-center gap-2 min-w-0#{' group/chip' if linked?}") do %>
   <span class="rounded overflow-hidden ring-1 ring-border shrink-0">
     <%= render Shared::Avatar::AvatarComponent.new(seed: npub, size: size, ring: false) %>
   </span>
-  <%# Role label (sans) then the npub (mono data), set apart by a gap rather than a dot. %>
   <span class="inline-flex min-w-0 items-baseline gap-1.5 text-xs">
-    <span class="shrink-0 text-ink-muted"><%= name %></span>
+    <span class="shrink-0 text-ink-muted<%= ' transition-colors group-hover/chip:text-ink' if linked? %>"><%= name %></span>
     <span class="truncate font-mono text-ink-faint"><%= short_npub %>…</span>
   </span>
-</span>
+<% end %>

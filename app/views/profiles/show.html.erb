@@ -11,7 +11,31 @@
       <span><%= pluralize(@listings.count(&:active?), "service") %></span>
     </div>
 
-    <%# Owner action bar + the services portfolio land in later slices. %>
+    <%# Owner action bar lands in the next slice. %>
+
+    <%# Services = the portfolio. Public sees the live listings as catalog cards that open the shared order
+        drawer (so a buyer can evaluate + order from a profile, the same flow as the board). %>
+    <section class="mt-10">
+      <h2 class="mb-4 font-display text-base font-semibold tracking-tight text-ink">Services</h2>
+      <% active = @listings.select(&:active?) %>
+      <% if active.any? %>
+        <div class="flex flex-col gap-3">
+          <% active.each do |listing| %>
+            <%= render Catalog::ListingCard::ListingCardComponent.new(listing: listing) %>
+          <% end %>
+        </div>
+
+        <%# Drawer mounts: each card opens its order drawer via the native command/commandfor. %>
+        <div id="<%= Catalog::Ui::State::DRAWER_TARGET %>">
+          <% active.each do |listing| %>
+            <%= render "catalog/drawer", listing: listing %>
+          <% end %>
+        </div>
+      <% else %>
+        <%= render Shared::EmptyState::EmptyStateComponent.new(
+              title: "No services yet", body: "No published services to show.", icon: "store-add-01") %>
+      <% end %>
+    </section>
   <% else %>
     <%# A valid npub we have not projected yet: a kind-0 fetch is enqueued; show a placeholder this load. %>
     <div class="mx-auto max-w-md py-20 text-center">
