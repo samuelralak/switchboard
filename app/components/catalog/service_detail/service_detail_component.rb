@@ -17,14 +17,16 @@ module Catalog
 				@show_cta = show_cta
 			end
 
-			def automated? = listing.fulfillment == "automated"
+			delegate :automated?, to: :listing
 
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
 			def order_coordinate = listing.coordinate
 
 			# Escrow locks whole sats, so only a fixed whole-sat listing (with a vetted mint available) is
 			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
-			def orderable? = Orders::Policy.default_mint.present? && !listing.per_hour? && listing.whole_sat_price?
+			def orderable?
+				Orders::Policy.default_mint.present? && !listing.automated? && !listing.per_hour? && listing.whole_sat_price?
+			end
 
 			# Offer the Tier-2 (arbiter-mediated) escrow choice only when the platform arbiter is provisioned AND
 			# the price sits under the lower Tier-2 cap; otherwise the buyer would place an unfundable order
@@ -58,8 +60,8 @@ module Catalog
 			def escrow_explainer
 				case listing.fulfillment
 				when "automated"
-					"Automated escrow. Funds lock as a Lightning hold invoice, released on a valid response " \
-						"and auto-cancelled on timeout. Genuinely trustless for fast work."
+					"Automated endpoint fulfillment is coming soon, so this service can't be ordered through " \
+						"escrow yet."
 				when "manual"
 					"Manual escrow. Funds lock as key-locked Cashu (NUT-11 P2PK) with a timelock refund if the " \
 						"provider misses the delivery window. Locked to keys, never held by us."

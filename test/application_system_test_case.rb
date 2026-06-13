@@ -7,9 +7,9 @@ require "test_helper"
 class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
 	driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ]
 
-	# Injects the keyless-crypto test bridge (app/javascript/nostr/test_support.js) as a real module
-	# script -- its imports resolve via the page import map, unlike an executeScript dynamic import --
-	# and records any in-page error for diagnostics.
+	# Injects the keyless-crypto test bridge (app/javascript/test_support/test_support.js, pinned as
+	# "nostr/test_support" outside production) as a real module script -- its imports resolve via the page
+	# import map, unlike an executeScript dynamic import -- and records any in-page error for diagnostics.
 	NOSTR_BRIDGE_JS = <<~JS
    if (!window.__nostrBridge) {
    	window.__nostrBridge = true

@@ -47,6 +47,9 @@ module Catalog
 
 		# Fulfillment mode (microstandard, brief §7.1): "automated" | "manual" | nil.
 		def fulfillment = event.tag("fulfillment")
+		# Automated endpoint delivery is not orderable yet (no dispatcher); the single rule both the buyer UI
+		# and the server order path read, so an automated listing cannot be ordered via either.
+		def automated? = fulfillment == "automated"
 		# Automated endpoint (microstandard): the runtime forwards each paid request here.
 		def endpoint = event.tag("endpoint")
 		# Manual delivery window (microstandard): e.g. "24h" / "3d"; sets the acceptance deadline clock.

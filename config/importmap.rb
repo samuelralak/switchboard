@@ -9,6 +9,15 @@ pin "@hotwired/stimulus-loading", to: "stimulus-loading.js"
 pin_all_from "app/javascript/controllers", under: "controllers"
 # Keyless NIP-17 client crypto (#32): canonical id, nip44 wrapper, signer adapter, seal/wrap/unwrap.
 pin_all_from "app/javascript/nostr", under: "nostr"
+# Test-only crypto/relay bridges (keyless-signer fake, NIP-44 vectors, mock relays), injected by the system
+# test harness via imports["nostr/test_support"]. Kept under the same nostr/ module names but pinned ONLY
+# outside production, so the money app never serves test crypto same-origin. Explicit pins (a second
+# pin_all_from under the same namespace registers nothing).
+unless Rails.env.production?
+	pin "nostr/test_support", to: "test_support/test_support.js"
+	pin "nostr/mock_relay", to: "test_support/mock_relay.js"
+	pin "nostr/cashu_test_support", to: "test_support/cashu_test_support.js"
+end
 
 # Tailwind Plus Elements: headless interactive web components (dialog, dropdown,
 # tabs, popover, command palette, select, autocomplete, etc.). Vendored in

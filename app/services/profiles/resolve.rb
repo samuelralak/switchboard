@@ -16,9 +16,21 @@ module Profiles
 			pubkey = User.pubkey_from_npub(npub) or raise ActiveRecord::RecordNotFound
 
 			user = User.find_by(pubkey:)
-			Users::MetadataFetchJob.perform_later(pubkey) unless user
+			enqueue_fetch(pubkey) unless user
 
 			Ui::State.portfolio(pubkey:, user:, owner: viewer&.pubkey == pubkey)
+		end
+
+		private
+
+		# Lazy kind-0 fetch on a miss, throttled per pubkey: an anonymous viewer refreshing /u/:npub (or
+		# fanning across many unprojected npubs) must not enqueue a relay-fetch job on every load. unless_exist
+		# returns true only on the first write in the window, so we enqueue once and skip until it expires.
+		def enqueue_fetch(pubkey)
+			key = "profiles:fetch_enqueued:#{pubkey}"
+			fresh = Rails.cache.write(key, true, expires_in: 10.minutes, unless_exist: true)
+
+			Users::MetadataFetchJob.perform_later(pubkey) if fresh
 		end
 	end
 end

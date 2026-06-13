@@ -23,15 +23,19 @@ bin/rails db:prepare      # creates + migrates the primary, cache, queue, and ca
 ## Configuration
 
 Local development and test configuration is loaded from `.env` by `dotenv-rails` (`.env` is
-gitignored; `.env.example` is the committed, secret-free template). In production, use real
-environment variables, Rails credentials, or Kamal secrets instead of these files.
+gitignored; `.env.example` is the committed, secret-free template). In production, provision these
+as real environment variables (the platform's config vars / secrets) or via Rails credentials.
 
 | Variable | Purpose |
 | --- | --- |
-| `DEFAULT_RELAY_URLS` | Comma-separated relays the runtime reads/writes by default. |
-| `R_OP_PRIVATE_KEY` | The R_op operational key (64-char hex). See below. |
-| `PLATFORM_NPUB` | The platform's own npub (recipient of the open-request posting fee). Optional. |
-| `CASHU_MINT_URL` | Default Cashu mint URL for manual-mode escrow. Optional. |
+| `CANONICAL_ORIGIN` | Absolute origin the NIP-98 sign-in is verified against (e.g. `https://app.example`). REQUIRED in production; a localhost default breaks auth. |
+| `R_OP_PRIVATE_KEY` | The R_op operational key (64-char hex). Optional (AUTH-gated relays stay off without it). See below. |
+| `ESCROW_MINT_ALLOWLIST` | Comma-separated Cashu mint URLs trusted for escrow. The production money path needs at least one; empty disables ordering. |
+| `ESCROW_TIER2_ARBITER_PRIVKEY` | The platform's dedicated Cashu secp256k1 arbiter key (64-hex). Optional; blank disables Tier-2 mediated escrow. |
+| `OPERATOR_PUBKEYS` | Comma-separated 64-hex Nostr pubkeys allowed onto the admin surface. Empty = closed. |
+| `DATABASE_URL` / `DATABASE_PASSWORD` | Postgres connection for production (the primary + cache/queue/cable databases). |
+
+Relay seeds are configured per-environment in `config/relays.yml`, not via an env var.
 
 ### The R_op operational key
 

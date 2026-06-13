@@ -59,6 +59,7 @@ module Orders
 		def listing_order_attributes(event)
 			listing = Catalog::Listing.new(event)
 			raise NotFoundError, "not an active service listing" unless listing.conforms? && listing.active?
+			raise NotFoundError, "automated fulfillment is not yet available" if listing.automated?
 
 			{
 				entry_point: EntryPoints::CATALOG_ORDER, consumer_pubkey: actor.pubkey, provider_pubkey: event.pubkey,
