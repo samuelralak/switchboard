@@ -48,7 +48,8 @@ module Requests
 			def funding_explainer
 				"Claiming opens a funding window: the poster locks the budget to you in escrow (key-locked Cashu " \
 					"with a timelock refund), and the delivery clock starts. It releases to you on delivery, or " \
-					"refunds to the poster if you never deliver. Verify the locked budget before doing the work."
+					"refunds to the poster if you never deliver. The budget sits at a Cashu mint while locked, so a " \
+					"mint outage can stall your redemption or the refund. Verify the locked budget before doing the work."
 			end
 
 			# Extra line shown only on a mediated request: how a dispute resolves through the platform arbiter,

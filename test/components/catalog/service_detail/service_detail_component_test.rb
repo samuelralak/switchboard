@@ -71,6 +71,34 @@ module Catalog
 				assert_selector "button", text: /Order this service/ # still orderable, tier-1 by default
 			end
 
+			def test_lets_the_buyer_pick_the_escrow_mint_and_states_the_custodial_caveat
+				event = build_event(title: "T", d: "tm", extra_tags: [ %w[price 1500 sat] ])
+
+				render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event)))
+
+				# the test allowlist carries two mints, so the buyer picks rather than a hidden field
+				assert_selector "select[name='order[mint_url]']"
+				assert_selector "select[name='order[mint_url]'] option[value='http://127.0.0.1:3338']"
+				assert_text "afford to lose" # the custodial caveat sits under the picker
+			end
+
+			# A single-mint allowlist (a realistic prod posture) drops the picker for a hidden field carrying the
+			# one vetted mint, and the caveat names it. Exercises the default_mint delegate + the single-mint branch
+			# that the two-mint test env never hits, so a broken delegate can't ship green.
+			def test_uses_a_hidden_field_naming_the_one_vetted_mint_when_the_allowlist_is_single
+				event = build_event(title: "T", d: "ts1", extra_tags: [ %w[price 1500 sat] ])
+
+				with_mint_allowlist("https://mint.coinos.io") do
+					render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event)))
+				end
+
+				assert_no_selector "select[name='order[mint_url]']"
+				assert_selector "input[type='hidden'][name='order[mint_url]'][value='https://mint.coinos.io']",
+					visible: :all
+				assert_text "Escrow mint:" # the MintNotice names the chosen mint
+				assert_selector "span.font-mono", text: "mint.coinos.io"
+			end
+
 			def test_hides_the_tier_2_choice_above_the_tier_2_cap
 				event = build_event(title: "T", d: "t2c", extra_tags: [ %w[price 50000 sat] ]) # > 25k tier-2 cap, < 100k tier-1
 

@@ -18,6 +18,8 @@
 				</p>
 			</div>
 
+			<%= render Orders::MintNotice::MintNoticeComponent.new(mint: order.mint_url) %>
+
 			<div class="mt-4">
 				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
 					data: { funding_target: "start", action: "funding#start" }) do %>Fund escrow<% end %>

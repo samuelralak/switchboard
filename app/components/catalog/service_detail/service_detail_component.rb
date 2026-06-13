@@ -18,6 +18,7 @@ module Catalog
 			end
 
 			delegate :automated?, to: :listing
+			delegate :default_mint, to: "Orders::Policy"
 
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
 			def order_coordinate = listing.coordinate
@@ -26,6 +27,24 @@ module Catalog
 			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
 			def orderable?
 				Orders::Policy.default_mint.present? && !listing.automated? && !listing.per_hour? && listing.whole_sat_price?
+			end
+
+			# The vetted escrow mints the buyer picks from (Orders::Create server-validates the choice); a
+			# single-mint allowlist needs no picker, just the hidden field.
+			def mint_options
+				Orders::Policy.mint_allowlist
+			end
+
+			def single_mint?
+				mint_options.size <= 1
+			end
+
+			# Host shown per picker option. nil-safe (matches MintNoticeComponent#host) so a blank/odd entry
+			# degrades to the raw value instead of raising in the render path.
+			def mint_host(url)
+				URI(url.to_s).host || url
+			rescue URI::InvalidURIError
+				url
 			end
 
 			# Offer the Tier-2 (arbiter-mediated) escrow choice only when the platform arbiter is provisioned AND

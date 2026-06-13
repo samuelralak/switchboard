@@ -1,0 +1,9 @@
+<div class="mt-3 rounded-lg border border-border bg-inset px-3 py-2.5">
+  <% if mint %>
+    <p class="text-xs text-ink-muted">Escrow mint: <span class="font-mono text-ink-secondary"><%= host %></span></p>
+  <% end %>
+  <p class="<%= "mt-1 " if mint %>text-xs leading-relaxed text-ink-muted">
+    A Cashu mint custodies the backing sats. If it goes offline or fails, locked funds can be lost even though
+    the lock is yours, and the timelock refund needs the mint online to pay out. Fund only what you can afford to lose.
+  </p>
+</div>

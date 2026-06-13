@@ -90,7 +90,6 @@
       <form action="<%= helpers.orders_path %>" method="post" class="block">
         <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
         <input type="hidden" name="order[coordinate]" value="<%= order_coordinate %>">
-        <input type="hidden" name="order[mint_url]" value="<%= Orders::Policy.default_mint %>">
         <input type="hidden" name="order[dedupe_key]" value="<%= SecureRandom.uuid %>">
         <% if tier2_offered? %>
           <fieldset class="mb-3 space-y-2">
@@ -99,7 +98,7 @@
               <input type="radio" name="order[tier]" value="<%= Orders::Tiers::TIER1_HTLC %>" checked class="mt-0.5 accent-copper">
               <span class="text-sm">
                 <span class="font-medium text-ink">Standard escrow</span>
-                <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">You release the funds when the work satisfies you, or reclaim them after the timelock. Fully self-custodial.</span>
+                <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">You release the funds when the work satisfies you, or reclaim them after the timelock. The lock is key-locked to you, never us.</span>
               </span>
             </label>
             <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
@@ -111,7 +110,29 @@
             </label>
           </fieldset>
         <% end %>
-        <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, type: "submit", icon: "arrow-right-01") do %>Order this service<% end %>
+
+        <%# Escrow mint: the buyer picks from the vetted, server-validated allowlist when more than one exists. %>
+        <% if single_mint? %>
+          <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">
+        <% else %>
+          <div class="mb-3">
+            <label for="order_mint_url" class="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-faint">Escrow mint</label>
+            <div class="relative">
+              <select id="order_mint_url" name="order[mint_url]" class="w-full appearance-none rounded-lg border border-border bg-surface py-2 pl-3 pr-9 text-sm font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+                <% mint_options.each do |url| %>
+                  <option value="<%= url %>"><%= mint_host(url) %></option>
+                <% end %>
+              </select>
+              <i class="hgi-stroke hgi-arrow-down-01 pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true"></i>
+            </div>
+          </div>
+        <% end %>
+
+        <%= render Orders::MintNotice::MintNoticeComponent.new(mint: (default_mint if single_mint?)) %>
+
+        <div class="mt-4">
+          <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, type: "submit", icon: "arrow-right-01") do %>Order this service<% end %>
+        </div>
       </form>
     <% else %>
       <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "arrow-right-01") do %>Request this service<% end %>

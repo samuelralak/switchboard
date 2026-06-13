@@ -9,7 +9,21 @@ module Orders
 				render(ActionsComponent.new(order: funded_order, viewer: viewer(funded_order.provider_pubkey)))
 			end
 
+			# The consumer's "Fund escrow" panel, which carries the mint-custody caveat.
+			def fund_panel
+				render(ActionsComponent.new(order: awaiting_order, viewer: viewer(awaiting_order.consumer_pubkey)))
+			end
+
 			private
+
+			def awaiting_order
+				@awaiting_order ||= Order.new(
+					id: "00000000-0000-0000-0000-0000000000f1", current_state: Orders::States::AWAITING_FUNDING,
+					entry_point: Orders::EntryPoints::CATALOG_ORDER, provider_pubkey: "a" * 64,
+					consumer_pubkey: "b" * 64, mint_url: "http://127.0.0.1:3338",
+					listing_coordinate: "30402:#{'a' * 64}:svc", amount_sats: 5_000
+				)
+			end
 
 			def funded_order
 				@funded_order ||= Order.new(

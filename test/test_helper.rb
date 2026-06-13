@@ -77,6 +77,17 @@ module ActiveSupport
 			ENV["ESCROW_TIER2_ARBITER_PRIVKEY"] = previous
 		end
 
+		# Run the block with a specific vetted mint allowlist, then restore. The non-prod default is two local
+		# mints (config/initializers/escrow.rb), so single-mint UI branches are otherwise never exercised.
+		def with_mint_allowlist(*mints)
+			escrow = Rails.application.config.x.escrow
+			previous = escrow.mint_allowlist
+			escrow.mint_allowlist = mints.flatten
+			yield
+		ensure
+			escrow.mint_allowlist = previous
+		end
+
 		# The compressed arbiter pubkey for the test key (derived directly, independent of ENV).
 		def platform_arbiter_pubkey(privkey = TEST_ARBITER_PRIVKEY)
 			Escrow::ArbiterSigner.new(private_key: privkey).pubkey

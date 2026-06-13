@@ -178,7 +178,7 @@
             <input type="radio" name="escrow_tier" value="<%= Orders::Tiers::TIER1_HTLC %>" <%= "checked" if escrow_tier == Orders::Tiers::TIER1_HTLC %> class="mt-0.5 accent-copper">
             <span class="text-sm">
               <span class="font-medium text-ink">Standard escrow</span>
-              <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">The claiming provider releases on your approval, or you reclaim the budget after the timelock. Fully self-custodial.</span>
+              <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">The claiming provider releases on your approval, or you reclaim the budget after the timelock. The lock is key-locked to you, never us.</span>
             </span>
           </label>
           <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
