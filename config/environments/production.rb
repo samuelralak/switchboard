@@ -82,9 +82,11 @@ Rails.application.configure do
 	config.active_record.attributes_for_inspect = [ :id ]
 
 	# DNS-rebinding / Host-header protection: restrict to Fly's *.fly.dev and the canonical app host (derived
-	# from CANONICAL_ORIGIN, the single source of the public origin). CANONICAL_ORIGIN is unset during asset
-	# precompile (SECRET_KEY_BASE_DUMMY), which serves no requests, so guarding on presence is safe.
-	config.hosts = [ /\.fly\.dev\z/ ]
+	# from CANONICAL_ORIGIN, the single source of the public origin). Use the ".fly.dev" STRING form: Rails turns
+	# it into an anchored, PORT-tolerant subdomain matcher (/\A(sub\.)?fly\.dev(:\d+)?\z/i), whereas a bare
+	# /\.fly\.dev\z/ regex rejects a host that arrives WITH a :port (which happens behind Fly's proxy and was
+	# 403-ing every request). CANONICAL_ORIGIN is unset during asset precompile (no requests), so guard on presence.
+	config.hosts = [ ".fly.dev" ]
 	config.hosts << URI(ENV["CANONICAL_ORIGIN"]).host if ENV["CANONICAL_ORIGIN"].present?
 
 	# The Fly health check hits /up with the machine's internal Host, so exclude that path from the check.
