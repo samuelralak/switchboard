@@ -285,9 +285,28 @@ module Events
 			end
 
 			assert_raises(RuntimeError) { Events::Upsert.call(event_data: deletion) }
-			assert_equal 2, Event.classified.where(pubkey:).count # neither destroyed: the set rolled back
+			# The destroys share the kind-5's transaction, so a failure rolls back BOTH: neither target is
+			# destroyed AND the kind-5 is not committed, so the job retry re-applies the whole deletion (rather
+			# than skipping a now-duplicate-but-unapplied kind-5).
+			assert_equal 2, Event.classified.where(pubkey:).count
+			assert_nil Event.find_by(event_id: deletion["id"])
 		ensure
 			Event.class_eval { alias_method :destroy, :__orig_destroy; remove_method :__orig_destroy }
+		end
+
+		test "a NIP-09 deletion with a malformed a-tag kind does not erase the author's own kind-0" do
+			pubkey = SecureRandom.hex(32)
+			meta = stored(kind: Events::Kinds::METADATA, pubkey:)
+			meta["content"] = { "name" => "carol" }.to_json
+			meta["tags"] = []
+			perform_enqueued_jobs { Events::Upsert.call(event_data: meta) }
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "a", "abc:#{pubkey}:whatever" ] ] # non-numeric kind would to_i to 0 (kind-0)
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_equal 1, Event.of_kind(Events::Kinds::METADATA).where(pubkey:).count
+			assert_equal "carol", User.find_by(pubkey:).name
 		end
 
 		test "deleting a listing broadcasts its removal to open boards" do

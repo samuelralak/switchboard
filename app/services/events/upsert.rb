@@ -17,8 +17,9 @@ module Events
 				replace_existing_event!(coordinate) if coordinate.present?
 
 				event = Event.create!(attributes)
+				deleted = apply_deletion(event) # destroys NIP-09 targets in THIS transaction (atomic with the insert)
 
-				txn.after_commit { project(event) }
+				txn.after_commit { project(event, deleted) }
 
 				event
 			end
@@ -39,32 +40,28 @@ module Events
 		private
 
 		# After commit (the row is already saved, so a failure here is loud, not a swallowed side effect):
-		# broadcast a listing to its live surface, and project the per-pubkey kind-0 / kind:10002 (each
-		# job re-reads the current winner, so it is idempotent). A NIP-09 deletion actions its targets.
-		def project(event)
-			return process_deletion(event) if event.kind == Kinds::DELETION
+		# re-sync any NIP-09-deleted targets (clear projections / drop live cards), broadcast a listing to its
+		# live surface, and project the per-pubkey kind-0 / kind:10002 (each job re-reads the current winner, so
+		# it is idempotent).
+		def project(event, deleted = [])
+			deleted.each { |target| resync_after_delete(target) }
 
 			broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
 			Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
 			Users::RelayListProjectJob.perform_later(event.pubkey) if event.kind == Kinds::RELAY_LIST
 		end
 
-		# NIP-09: honor a kind-5 by removing the events it references via `e` (event id) and `a`
-		# (kind:pubkey:d coordinate) tags, but ONLY those authored by the SAME pubkey -- a relay must never
-		# let one pubkey delete another's events. Deleting the row stops it being served (the catalog/profile
-		# read live from the DB); a deleted kind-0/kind:10002 re-runs its projection job, which clears the
-		# now-sourceless profile/relay projection. (A re-sent copy could re-appear; durable deletion tracking
-		# is a follow-up, not needed for the erasure guarantee on content we currently hold.)
-		def process_deletion(deletion)
-			targets = deletion_targets(deletion)
-			return if targets.empty?
+		# NIP-09: honor a kind-5 by destroying the events it references via `e` (event id) and `a` (kind:pubkey:d
+		# coordinate) tags, but ONLY those authored by the SAME pubkey -- a relay must never let one pubkey delete
+		# another's events. The destroys run in the CALLER's transaction (atomic with the kind-5 insert), so a
+		# failure rolls the kind-5 back too and the job retry re-applies -- a deletion is never left
+		# committed-but-unapplied. Returns the destroyed events for the after-commit re-sync (a deleted listing's
+		# live card, a deleted kind-0/kind:10002's now-sourceless projection). A re-sent copy can re-appear;
+		# durable tracking against re-ingest is a follow-up.
+		def apply_deletion(event)
+			return [] unless event.kind == Kinds::DELETION
 
-			# All-or-nothing across the e/a target set: a mid-loop failure must not leave a NIP-09 deletion
-			# half-applied (some referenced events erased, others permanently served). The re-sync side effects
-			# (job enqueues / live-board removal) run AFTER the destroys commit, so a queue hiccup cannot strand
-			# a partially-applied erasure either.
-			Event.transaction { targets.each(&:destroy) }
-			targets.each { |target| resync_after_delete(target) }
+			deletion_targets(event).each(&:destroy)
 		end
 
 		def deletion_targets(deletion)
@@ -79,7 +76,9 @@ module Events
 		# (pubkey, kind) and ignore the empty d.
 		def events_for_a_tag(a_tag, pubkey)
 			kind, author, d_tag = a_tag.split(":", 3)
-			return [] unless author == pubkey
+			# Same-author only, and a numeric kind: a malformed kind segment would `to_i` to 0 and wrongly target
+			# the author's own kind-0 metadata.
+			return [] unless author == pubkey && kind.to_s.match?(/\A\d+\z/)
 
 			kind = kind.to_i
 			scope = Kinds.addressable?(kind) ? Event.where(pubkey:, kind:, d_tag: d_tag.to_s) : Event.where(pubkey:, kind:)
