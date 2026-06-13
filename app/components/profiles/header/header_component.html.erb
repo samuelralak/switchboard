@@ -20,7 +20,13 @@
   <%# Identity %>
   <div class="mt-11">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
-      <h1 class="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl"><%= user.display %></h1>
+      <% if user.named? %>
+        <h1 class="font-display text-xl font-semibold tracking-tight text-ink sm:text-2xl"><%= user.display %></h1>
+      <% else %>
+        <%# No kind-0 name yet: the npub is data, not a display name, so render it mono + truncated (a full npub
+            as a big sans heading overflows and misreads as a name). %>
+        <h1 class="font-mono text-base font-medium text-ink-secondary sm:text-lg"><%= short_npub %></h1>
+      <% end %>
       <% if user.nip05.present? %>
         <span class="inline-flex items-center gap-1 text-sm <%= user.nip05_verified ? "text-lamp-settled" : "text-ink-muted" %>">
           <% if user.nip05_verified %><i class="hgi-stroke hgi-checkmark-badge-01 text-sm" aria-hidden="true"></i><% end %>

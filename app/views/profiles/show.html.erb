@@ -1,48 +1,161 @@
-<% content_for :title, (@user&.display || "Profile") %>
+<% content_for :title, (@portfolio.user&.named? ? @portfolio.user.display : "Profile") %>
 
 <div>
-  <% if @user %>
-    <%= render Profiles::Header::HeaderComponent.new(user: @user) %>
+  <% if @portfolio.projected? %>
+    <%= render Profiles::Header::HeaderComponent.new(user: @portfolio.user) %>
 
-    <%# Reputation strip: thin for now (member-since + live service count); completed jobs / settled sats /
-        disputes land later, off the order ledger. No fabricated numbers. %>
-    <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-muted">
-      <span>Member since <%= @user.first_seen_at.year %></span>
-      <span><%= pluralize(@listings.count(&:active?), "service") %></span>
+    <%# Reputation strip: member-since + the two-sided counts (services offered / requests posted) so the
+        supply+demand story reads before any scroll. The owner gets their one identity action on the right;
+        publishing lives in the navbar + each section heading, not here. Counts are role-scoped in the state
+        (owner sees inactive/withdrawn too, a visitor only the live ones). No fabricated reputation numbers. %>
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-ink-muted">
+        <span>Member since <%= @portfolio.user.first_seen_at.year %></span>
+        <span><span class="font-mono text-ink-secondary"><%= @portfolio.service_count %></span> <%= "service".pluralize(@portfolio.service_count) %></span>
+        <span><span class="font-mono text-ink-secondary"><%= @portfolio.request_count %></span> <%= "request".pluralize(@portfolio.request_count) %></span>
+      </div>
+      <% if @portfolio.owner? %>
+        <%= render Shared::Button::ButtonComponent.new(tag: :a, href: settings_profile_path, variant: :ghost, size: :sm, icon: "pencil-edit-02") do %>Edit profile<% end %>
+      <% end %>
     </div>
 
-    <%# Owner action bar lands in the next slice. %>
-
-    <%# Services = the portfolio. Public sees the live listings as catalog cards that open the shared order
-        drawer (so a buyer can evaluate + order from a profile, the same flow as the board). %>
-    <section class="mt-10">
-      <h2 class="mb-4 font-display text-base font-semibold tracking-tight text-ink">Services</h2>
-      <% active = @listings.select(&:active?) %>
-      <% if active.any? %>
-        <div class="flex flex-col gap-3">
-          <% active.each do |listing| %>
-            <%= render Catalog::ListingCard::ListingCardComponent.new(listing: listing) %>
+    <% if @portfolio.empty? %>
+      <%# No presence on either side: one unified empty state rather than two stacked voids reading as a dead
+          account. The owner gets both create paths; a visitor gets a quiet line. %>
+      <div class="mt-12">
+        <% if @portfolio.owner? %>
+          <%= render Shared::EmptyState::EmptyStateComponent.new(
+                icon: "store-add-01", title: "Your marketplace presence is empty",
+                body: "Offer a service to sell, or post a request for work you need done.") do %>
+            <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :primary, icon: "add-01") do %>Post a request<% end %>
+            <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_studio_listing_path, variant: :ghost, icon: "add-01") do %>Publish a service<% end %>
+          <% end %>
+        <% else %>
+          <%= render Shared::EmptyState::EmptyStateComponent.new(
+                icon: "store-add-01", title: "Nothing here yet",
+                body: "This account has not offered any services or posted any requests.") %>
+        <% end %>
+      </div>
+    <% else %>
+      <%# Services = the supply side. The owner manages in place (active + inactive rows); everyone else sees
+          the live listings as orderable catalog cards that open the shared order drawer. %>
+      <section class="mt-10">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">
+            Services
+            <span class="ml-2 rounded-full bg-inset px-2 py-0.5 font-mono text-xs text-ink-secondary"><%= @portfolio.service_count %></span>
+          </h2>
+          <% if @portfolio.owner? %>
+            <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_studio_listing_path, variant: :ghost, size: :sm, icon: "add-01") do %>Publish a service<% end %>
           <% end %>
         </div>
 
-        <%# Drawer mounts: each card opens its order drawer via the native command/commandfor. %>
-        <div id="<%= Catalog::Ui::State::DRAWER_TARGET %>">
-          <% active.each do |listing| %>
-            <%= render "catalog/drawer", listing: listing %>
+        <% if @portfolio.owner? %>
+          <%# Manage rows: Edit re-publishes under the same coordinate; the Unpublish/Re-publish toggle
+              re-signs the event's status IN THE BROWSER with the provider's key (non-custodial). %>
+          <div data-controller="my-listings"
+               data-my-listings-pubkey-value="<%= @portfolio.pubkey %>"
+               data-my-listings-relays-value="<%= publish_relays.to_json %>"
+               data-my-listings-marker-value="<%= Catalog::Listing.marker %>"
+               data-my-listings-capability-namespace-value="<%= Catalog::Listing::CAPABILITY_NAMESPACE %>"
+               data-my-listings-origin-value="<%= Rails.application.config.x.canonical_origin %>">
+            <% if @portfolio.services_shown.any? %>
+              <div class="flex flex-col gap-3">
+                <% @portfolio.services_shown.each do |listing| %>
+                  <%= render Studio::MyListing::MyListingComponent.new(listing: listing) %>
+                <% end %>
+              </div>
+            <% else %>
+              <%= render Shared::EmptyState::EmptyStateComponent.new(
+                    icon: "store-add-01", title: "No services yet",
+                    body: "Publish a service from the Provider studio and it appears here, live in the catalog.") %>
+            <% end %>
+          </div>
+        <% else %>
+          <% if @portfolio.services_shown.any? %>
+            <div class="flex flex-col gap-3">
+              <% @portfolio.services_shown.each do |listing| %>
+                <%= render Catalog::ListingCard::ListingCardComponent.new(listing: listing) %>
+              <% end %>
+            </div>
+
+            <%# Drawer mounts: each card opens its order drawer via the native command/commandfor. %>
+            <div id="<%= Catalog::Ui::State::DRAWER_TARGET %>">
+              <% @portfolio.services_shown.each do |listing| %>
+                <%= render "catalog/drawer", listing: listing %>
+              <% end %>
+            </div>
+          <% else %>
+            <%= render Shared::EmptyState::EmptyStateComponent.new(
+                  icon: "store-add-01", title: "No services yet",
+                  body: "This account isn't offering anything right now.") %>
+          <% end %>
+        <% end %>
+      </section>
+
+      <%# Requests = the demand side, mirroring Services. The owner manages in place (open + withdrawn rows,
+          Withdraw/Re-post toggle); everyone else sees the open bounties as claim cards that open the request
+          drawer. %>
+      <section class="mt-12">
+        <div class="mb-4 flex items-center justify-between gap-3">
+          <h2 class="font-display text-base font-semibold tracking-tight text-ink">
+            Requests
+            <span class="ml-2 rounded-full bg-inset px-2 py-0.5 font-mono text-xs text-ink-secondary"><%= @portfolio.request_count %></span>
+          </h2>
+          <% if @portfolio.owner? %>
+            <%= render Shared::Button::ButtonComponent.new(tag: :a, href: new_request_path, variant: :ghost, size: :sm, icon: "add-01") do %>Post a request<% end %>
           <% end %>
         </div>
-      <% else %>
-        <%= render Shared::EmptyState::EmptyStateComponent.new(
-              title: "No services yet", body: "No published services to show.", icon: "store-add-01") %>
-      <% end %>
-    </section>
+
+        <% if @portfolio.owner? %>
+          <%# Manage rows: Withdraw/Re-post re-signs the request's status IN THE BROWSER (non-custodial).
+              my-requests needs only pubkey + relays (no marker/namespace, unlike my-listings). %>
+          <div data-controller="my-requests"
+               data-my-requests-pubkey-value="<%= @portfolio.pubkey %>"
+               data-my-requests-relays-value="<%= publish_relays.to_json %>">
+            <% if @portfolio.requests_shown.any? %>
+              <div class="flex flex-col gap-3">
+                <% @portfolio.requests_shown.each do |request| %>
+                  <%= render Requests::MyRequest::MyRequestComponent.new(request: request) %>
+                <% end %>
+              </div>
+            <% else %>
+              <%# No slot CTA: the heading-row ghost "Post a request" sits right above, like the Services twin.
+                  A primary here would be a second post-request button a few px from the ghost. %>
+              <%= render Shared::EmptyState::EmptyStateComponent.new(
+                    icon: "sent", title: "No open requests yet",
+                    body: "Post a bounty the catalog doesn't cover and track claims here.") %>
+            <% end %>
+          </div>
+        <% else %>
+          <% if @portfolio.requests_shown.any? %>
+            <div class="flex flex-col gap-3">
+              <% @portfolio.requests_shown.each do |request| %>
+                <%= render Requests::RequestCard::RequestCardComponent.new(request: request) %>
+              <% end %>
+            </div>
+
+            <%# Drawer mounts: each card opens its request drawer via the native command/commandfor. %>
+            <div id="<%= Requests::Ui::State::DRAWER_TARGET %>">
+              <% @portfolio.requests_shown.each do |request| %>
+                <%= render "requests/drawer", request: request %>
+              <% end %>
+            </div>
+          <% else %>
+            <%= render Shared::EmptyState::EmptyStateComponent.new(
+                  icon: "sent", title: "No open requests",
+                  body: "This account has no open bounties right now.") %>
+          <% end %>
+        <% end %>
+      </section>
+    <% end %>
   <% else %>
     <%# A valid npub we have not projected yet: a kind-0 fetch is enqueued; show a placeholder this load. %>
     <div class="mx-auto max-w-md py-20 text-center">
       <%= render Shared::Icon::IconComponent.new(name: "user-circle", size: :lg, color: "text-ink-faint") %>
       <h1 class="mt-3 font-display text-lg font-semibold text-ink">Fetching this profile</h1>
       <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">
-        We're pulling <span class="font-mono text-ink-faint"><%= params[:npub].truncate(24, omission: "…") %></span>
+        We're pulling <span class="font-mono text-ink-faint"><%= @portfolio.npub.truncate(24, omission: "…") %></span>
         from the relays. Refresh in a moment.
       </p>
     </div>

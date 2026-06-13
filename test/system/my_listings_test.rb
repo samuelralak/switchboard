@@ -2,7 +2,7 @@
 
 require "application_system_test_case"
 
-# Verifies the studio My-listings management (#66): the provider's listing renders, and Unpublish /
+# Verifies My-listings management, now on the owner's profile (#66): the provider's listing renders, and Unpublish /
 # Re-publish re-sign the existing event with the status tag flipped and flip the card IN PLACE (badge +
 # button + success note). Signs with the held nsec key (identity-gated against the session pubkey). This
 # covers the in-place UI flip only; the re-signed wire status is verified by ListingPublishTest.
@@ -25,7 +25,11 @@ class MyListingsTest < ApplicationSystemTestCase
 
 	test "unpublishing a listing flips it to inactive in place, and re-publishing flips it back" do
 		sign_in_with_nsec
-		click_link "Provider studio"
+		# Managing listings now lives on the owner's profile (the portfolio surface). Reach it through the
+		# identity menu: a Turbo soft-nav that preserves the in-memory nsec signer (a hard visit would drop it
+		# and force an unlock prompt mid-test).
+		click_button "Open user menu"
+		click_link "Your profile"
 
 		assert_text "Logo design"
 		# the badge is CSS-uppercased and Capybara reads rendered text; "ACTIVE" is a substring of

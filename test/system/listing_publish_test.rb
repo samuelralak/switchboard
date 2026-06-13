@@ -218,8 +218,7 @@ class ListingStudioPublishTest < ApplicationSystemTestCase
 
 	test "filling the studio form and publishing shows the success receipt" do
 		sign_in_with_nsec
-		click_link "Provider studio"
-		click_link "Publish a service", match: :first # header CTA + empty-state CTA both match on the empty index
+		click_link "Provider studio" # the CTA now soft-navs straight to the new-listing form
 		assert_text "No code runs on Switchboard" # the new-listing form's subtitle
 
 		execute_script(<<~JS)

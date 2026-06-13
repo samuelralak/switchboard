@@ -35,6 +35,10 @@ class User < ApplicationRecord
 	# NIP-24 display fallback chain: display_name -> name -> npub.
 	def display = display_name.presence || name.presence || npub
 
+	# Whether a kind-0 name has landed yet (vs only an npub). The profile header gives a named account a sans
+	# display name and a nameless one its npub rendered as data, rather than a 63-char npub as a sans heading.
+	def named? = display_name.present? || name.present?
+
 	# This identity's catalog events, joined by pubkey (Event belongs_to :author).
 	def events = Event.by_author(pubkey)
 	def listings = events.classified.active

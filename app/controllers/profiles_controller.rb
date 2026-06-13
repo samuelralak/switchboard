@@ -1,19 +1,11 @@
 # frozen_string_literal: true
 
-# A provider's public profile = their portfolio: identity projected from kind-0 + their published services.
-# Viewer-aware (the owner additionally gets manage controls). Public, npub-keyed so it is shareable. A valid
-# but not-yet-ingested npub triggers a background kind-0 fetch and renders a placeholder rather than 404ing
-# (the pubkey is real even if we have not projected its profile); only a malformed/non-npub identifier 404s.
+# A user's public profile = their two-sided marketplace presence (identity + the services they offer and the
+# requests they have posted), viewer-aware so the owner additionally gets manage controls. Public + npub-keyed,
+# so it is shareable. Profiles::Resolve owns the resolution use-case (404 on a malformed npub, a lazy kind-0
+# fetch + placeholder on a not-yet-projected one) and returns the render state; the action just hands it off.
 class ProfilesController < ApplicationController
 	def show
-		@pubkey = User.pubkey_from_npub(params[:npub]) or raise ActiveRecord::RecordNotFound
-
-		@user = User.find_by(pubkey: @pubkey)
-		@is_owner = current_user&.pubkey == @pubkey
-		@listings = @user ? Catalog::ProviderListings.call(pubkey: @pubkey) : []
-
-		return if @user
-
-		Users::MetadataFetchJob.perform_later(@pubkey, force: true)
+		@portfolio = Profiles::Resolve.call(npub: params[:npub], viewer: current_user)
 	end
 end

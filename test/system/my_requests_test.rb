@@ -2,10 +2,10 @@
 
 require "application_system_test_case"
 
-# Verifies My-requests management (#129, the demand-side mirror of the studio's #66): the poster's request
-# renders, and Withdraw / Re-post re-sign the existing event with the status tag flipped and flip the card
-# IN PLACE (badge + button + success note). Signs with the held nsec key (identity-gated against the
-# session pubkey). Covers the in-place UI flip only; the re-signed wire path is the same one
+# Verifies My-requests management on the owner's profile (#129, the demand-side mirror of the studio's #66):
+# the poster's request renders, and Withdraw / Re-post re-sign the existing event with the status tag flipped,
+# flipping the card IN PLACE (badge + button + success note). Signs with the held nsec key (identity-gated
+# against the session pubkey). Covers the in-place UI flip only; the re-signed wire path is the same one
 # RequestPublishTest exercises for publishing.
 class MyRequestsTest < ApplicationSystemTestCase
 	PASSPHRASE = "correct horse battery staple"
@@ -27,7 +27,10 @@ class MyRequestsTest < ApplicationSystemTestCase
 
 	test "withdrawing a request flips it to withdrawn in place, and re-posting flips it back" do
 		sign_in_with_nsec
-		click_link "My requests"
+		# Request management now lives on the owner's profile (the portfolio surface). Reach it through the
+		# identity menu: a Turbo soft-nav that preserves the in-memory nsec signer.
+		click_button "Open user menu"
+		click_link "Your profile"
 
 		assert_text "Diagnose an engine"
 		assert_selector '[data-role="status"]', text: "OPEN", exact_text: true
@@ -62,6 +65,6 @@ class MyRequestsTest < ApplicationSystemTestCase
 		find('[data-nostr-auth-target="nsec"]').set(@nsec)
 		find('[data-nostr-auth-target="savePassphrase"]').set(PASSPHRASE)
 		click_button "Sign in with key"
-		assert_link "My requests"
+		assert_text "Provider studio"
 	end
 end

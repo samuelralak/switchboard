@@ -21,8 +21,7 @@ class SignerPersistenceTest < ApplicationSystemTestCase
 	test "a pasted nsec stays usable across navigation to the studio, with no extension and no re-prompt" do
 		sign_in_with_nsec
 
-		click_link "Provider studio"                  # soft nav -> /studio
-		click_link "Publish a service", match: :first # soft nav -> /studio/new; the held NsecSigner persists
+		click_link "Provider studio" # soft nav straight to /studio/new; the held NsecSigner persists across it
 		assert_text "No code runs on Switchboard"
 
 		stub_uploads_only # NOTE: window.nostr is NEVER set here, so a working upload can only come from the registry
