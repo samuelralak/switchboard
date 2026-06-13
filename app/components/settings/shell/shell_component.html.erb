@@ -1,9 +1,10 @@
-<div class="lg:flex lg:gap-x-16">
+<div class="lg:flex lg:items-start lg:gap-x-6">
   <h1 class="sr-only">Account settings</h1>
 
-  <%# Section rail: horizontal scroll on mobile, a fixed column flush to the content's left edge on desktop.
-      Each item is its own route, so the active section is highlighted by page, not scroll position. %>
-  <aside data-controller="scroll-into-view" class="-mx-2 flex overflow-x-auto border-b border-border px-2 pb-4 lg:mx-0 lg:block lg:w-56 lg:flex-none lg:border-0 lg:px-0 lg:pb-0">
+  <%# Section rail: horizontal scroll on mobile; on desktop a sticky column matching the orders hub's left
+      pane (same w-104 width + sticky top, so the content column lines up across pages). Each item is its own
+      route, so the active section is highlighted by page, not scroll position. %>
+  <aside data-controller="scroll-into-view" class="-mx-2 flex overflow-x-auto border-b border-border px-2 pb-4 lg:mx-0 lg:block lg:w-104 lg:flex-none lg:sticky lg:top-20 lg:self-start lg:border-0 lg:px-0 lg:pb-0">
     <nav class="flex-none">
       <ul role="list" class="flex gap-x-1 whitespace-nowrap lg:flex-col lg:gap-y-0.5">
         <% items.each do |item| %>
