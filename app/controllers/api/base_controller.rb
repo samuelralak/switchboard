@@ -8,6 +8,6 @@ module Api
 		include Nip98Authentication
 
 		skip_forgery_protection
-		rate_limit to: 60, within: 1.minute
+		rate_limit to: 60, within: 1.minute, by: -> { client_ip }
 	end
 end

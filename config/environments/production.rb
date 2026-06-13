@@ -81,12 +81,12 @@ Rails.application.configure do
 	# Only use :id for inspections in production.
 	config.active_record.attributes_for_inspect = [ :id ]
 
-	# Enable DNS rebinding protection and other `Host` header attacks.
-	# config.hosts = [
-	#   "example.com",     # Allow requests from example.com
-	#   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-	# ]
-	#
-	# Skip DNS rebinding protection for the default health check endpoint.
-	# config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+	# DNS-rebinding / Host-header protection: restrict to Fly's *.fly.dev and the canonical app host (derived
+	# from CANONICAL_ORIGIN, the single source of the public origin). CANONICAL_ORIGIN is unset during asset
+	# precompile (SECRET_KEY_BASE_DUMMY), which serves no requests, so guarding on presence is safe.
+	config.hosts = [ /\.fly\.dev\z/ ]
+	config.hosts << URI(ENV["CANONICAL_ORIGIN"]).host if ENV["CANONICAL_ORIGIN"].present?
+
+	# The Fly health check hits /up with the machine's internal Host, so exclude that path from the check.
+	config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
 end

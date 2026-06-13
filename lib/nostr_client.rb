@@ -24,6 +24,10 @@ module NostrClient
 		def reactor = Reactor.instance
 		def manager = Manager.instance
 
+		# True only while the shared reactor thread is alive and EM is up; false once it dies. The relay:boot
+		# supervisor polls this so a dead reactor exits the process (and Fly restarts it) instead of going stale.
+		delegate :running?, to: :reactor
+
 		# Boot the reactor (idempotent). Returns the manager for chaining.
 		def start
 			reactor.start

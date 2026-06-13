@@ -7,7 +7,7 @@
 class ProfilesController < ApplicationController
 	# Public + unauthenticated, and a miss enqueues a relay-fetch job, so cap per-IP request volume; the
 	# per-pubkey enqueue cooldown in Profiles::Resolve is the second line against fan-out.
-	rate_limit to: 60, within: 1.minute, only: :show
+	rate_limit to: 60, within: 1.minute, only: :show, by: -> { client_ip }
 
 	def show
 		@portfolio = Profiles::Resolve.call(npub: params[:npub], viewer: current_user)

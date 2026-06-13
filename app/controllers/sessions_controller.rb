@@ -10,7 +10,7 @@ class SessionsController < ApplicationController
 	# on everywhere else, including #destroy.
 	skip_forgery_protection only: %i[challenge create]
 
-	rate_limit to: 10, within: 1.minute, only: :challenge
+	rate_limit to: 10, within: 1.minute, only: :challenge, by: -> { client_ip }
 
 	# POST /session/challenge -> issue a single-use nonce for the client to sign.
 	def challenge

@@ -50,7 +50,7 @@ class InboxController < ApplicationController
 
 	# Salted so the raw source IP is never the cache key (deposit-path privacy invariant).
 	def hashed_ip
-		OpenSSL::HMAC.hexdigest("SHA256", Rails.application.secret_key_base, request.remote_ip)
+		OpenSSL::HMAC.hexdigest("SHA256", Rails.application.secret_key_base, client_ip)
 	end
 
 	def wrap_param
