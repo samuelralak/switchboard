@@ -99,6 +99,10 @@ Rails.application.routes.draw do
 		resources :flags, only: %i[index create destroy], param: :pubkey
 	end
 
+	# Static informational pages (linked from the sidebar footer), public.
+	get "terms", to: "pages#terms", as: :terms
+	get "donate", to: "pages#donate", as: :donate
+
 	# Defines the root path route ("/")
 	root "pages#home"
 end

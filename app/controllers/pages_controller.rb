@@ -7,6 +7,9 @@ class PagesController < ApplicationController
 		@board = Requests::Ui::State.grid(query: search_query)
 	end
 
+	# `terms` and `donate` are static pages with no data, so they have no action method: Rails renders
+	# pages/terms.html.erb and pages/donate.html.erb implicitly from the route.
+
 	private
 
 	def search_query

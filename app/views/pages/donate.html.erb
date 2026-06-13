@@ -1,0 +1,35 @@
+<% content_for :title, "Donate" %>
+
+<header class="mb-6">
+  <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Support Switchboard</h1>
+  <p class="mt-0.5 text-sm text-ink-muted">Switchboard is free and non-custodial. If it is useful to you, a few sats help keep it running.</p>
+</header>
+
+<div class="max-w-xl space-y-3">
+  <%# Lightning (preferred for small amounts) and on-chain. Addresses are data, so they render in mono. %>
+  <% [
+       { kind: "Lightning", note: "Instant, lowest fees. Pay to this Lightning address.", icon: "hgi-flash", value: "afraidstorm87@walletofsatoshi.com" },
+       { kind: "On-chain Bitcoin", note: "For larger amounts. Send to this address.", icon: "hgi-bitcoin-01", value: "bc1q2kkvcqkn9s5alhcr8uw0t80kga994eukzmxsa3" }
+     ].each do |row| %>
+    <section class="rounded-xl border border-border bg-surface p-4" data-controller="clipboard" data-clipboard-text-value="<%= row[:value] %>">
+      <div class="mb-3 flex items-center gap-3">
+        <span class="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-canvas text-copper">
+          <i class="hgi-stroke <%= row[:icon] %> text-lg" aria-hidden="true"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-ink"><%= row[:kind] %></p>
+          <p class="text-xs text-ink-faint"><%= row[:note] %></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 rounded-lg border border-border bg-inset px-3 py-2">
+        <code class="min-w-0 flex-1 truncate font-mono text-xs text-ink-secondary"><%= row[:value] %></code>
+        <button type="button" data-action="clipboard#copy"
+                class="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-copper transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+          <span data-clipboard-target="label">Copy</span>
+        </button>
+      </div>
+    </section>
+  <% end %>
+
+  <p class="pt-1 text-xs text-ink-faint">Donations are voluntary and go toward keeping Switchboard independent, robust, and free to use. They are not a payment for any service.</p>
+</div>

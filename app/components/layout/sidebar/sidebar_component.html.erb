@@ -51,10 +51,17 @@
     </li>
 
     <li class="mt-auto -mx-2">
-      <a href="<%= helpers.settings_path %>"<%= " aria-current=\"page\"".html_safe if on_settings? %> class="group flex items-center gap-x-3 rounded-md p-2 text-sm/6 font-semibold <%= on_settings? ? "bg-surface text-copper" : "text-ink-muted hover:bg-surface hover:text-ink" %>">
-        <i class="hgi-stroke hgi-settings-02 shrink-0 text-lg <%= on_settings? ? "text-copper" : "text-ink-faint group-hover:text-ink" %>" aria-hidden="true"></i>
-        Settings
-      </a>
+      <ul role="list" class="space-y-0.5 border-t border-border pt-3">
+        <% footer_links.each do |link| %>
+          <li>
+            <a href="<%= link[:href] %>"<%= ' target="_blank" rel="noopener noreferrer"'.html_safe if link[:external] %>
+               class="group flex items-center gap-x-3 rounded-md p-2 text-xs font-medium text-ink-faint hover:bg-surface hover:text-ink">
+              <i class="hgi-stroke <%= link[:icon] %> shrink-0 text-base text-ink-faint group-hover:text-ink" aria-hidden="true"></i>
+              <%= link[:label] %>
+            </a>
+          </li>
+        <% end %>
+      </ul>
     </li>
   </ul>
 </nav>

@@ -1,0 +1,87 @@
+<% content_for :title, "Terms & Privacy" %>
+
+<header class="mb-6">
+  <h1 class="font-display text-lg font-semibold tracking-tight text-ink">Terms &amp; Privacy</h1>
+  <p class="mt-0.5 text-sm text-ink-muted">How Switchboard works, what it holds, and what you are responsible for.</p>
+</header>
+
+<div class="max-w-3xl">
+  <div class="rounded-xl border border-copper-dim/40 bg-copper/5 px-4 py-3 text-sm leading-relaxed text-ink-secondary">
+    <span class="font-medium text-ink">The short version.</span>
+    Switchboard is a non-custodial marketplace built on Nostr and Cashu: we never hold your keys or your funds,
+    and every order is escrowed. Your activity on Nostr is public, and escrowed sats are held by a mint you
+    choose. It is early, independent software we are actively hardening, and your
+    <a href="<%= donate_path %>" class="font-medium text-copper hover:text-copper-bright">donations</a>
+    help us make it more robust and reliable.
+  </div>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">What Switchboard is</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    Switchboard is software for discovering services and open requests published on the Nostr network and for
+    coordinating escrowed payments in Cashu ecash over Lightning. It is a tool, not a party to your transactions.
+    Buyers and sellers deal directly with each other.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Your keys and your funds (non-custodial)</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    Your Nostr private key, your Cashu tokens, escrow preimages, and unlock material stay in your browser and
+    never reach our servers. We cannot move, freeze, refund, or recover your funds, and we cannot reset or
+    recover your key. You are solely responsible for safeguarding your key and for backing up the escrow unlock
+    material an order gives you. Lose it and the funds for that order may be unrecoverable.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Escrow and the Cashu mint</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    While an order is funded, the backing sats are held as ecash by a third-party Cashu mint that you select
+    from the allowlist. That mint is a custodian of those sats: it could go offline, fail, be seized, change its
+    terms, or refuse to redeem. Switchboard does not operate the mint, does not control it, and is not liable for
+    its conduct or solvency. Choose a mint you trust, and prefer small amounts.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Nostr is public</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    Listings, requests, profile details, and other events you publish are signed with your key and broadcast to
+    independent relays you do not control. They are public, may be copied and re-published by anyone, and cannot
+    be guaranteed to be deleted once sent. Do not publish anything you are not comfortable making permanent and
+    public.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">What we store, and what we do not</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    To run the order ledger we store observable, non-secret data: order amounts, escrow lock terms, the public
+    keys of the parties, and timestamps, plus a session record when you sign in. We never store private keys,
+    escrow preimages, spendable proofs, or the plaintext of your encrypted messages. Private messages are
+    end-to-end encrypted between you and the other party.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Disputes and mediation</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    Some orders use a mediated (2-of-3) escrow in which a platform arbiter can co-sign to resolve a dispute.
+    Mediation is a best effort to reach a fair outcome and is not a guarantee. In every case the buyer keeps a
+    refund path that opens after the escrow locktime passes.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Our commitment, and its limits</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    We build the money path carefully and review it adversarially. Still, no software is perfect and operations
+    on Bitcoin and Cashu are irreversible, so we offer Switchboard as independent, early software without a
+    guarantee and cannot accept liability for a counterparty's conduct or for a mint or relay failing.
+    <a href="<%= donate_path %>" class="font-medium text-copper hover:text-copper-bright">Supporting the project</a>
+    directly funds the testing, audits, and infrastructure that make it more dependable over time.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Acceptable use</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    Do not use Switchboard for anything illegal where you are, for fraud, or to harm others. You are responsible
+    for complying with the laws and taxes that apply to you.
+  </p>
+
+  <h2 class="mt-8 text-sm font-semibold text-ink">Changes and contact</h2>
+  <p class="mt-2 text-sm leading-relaxed text-ink-secondary">
+    These terms may change as the software evolves; continued use means you accept the current version. Questions
+    or concerns: reach us on Nostr at
+    <a href="https://njump.me/npub18rl8k26jzhjq572k3ys93z6csmtzz7jr2uxz3s9r9cmtzg3wjq0q4z92mq"
+       target="_blank" rel="noopener noreferrer"
+       class="font-medium text-copper hover:text-copper-bright">our profile</a>.
+  </p>
+</div>

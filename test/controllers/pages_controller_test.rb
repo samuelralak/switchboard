@@ -36,4 +36,19 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 		get root_url, params: { search: [ "a" ] }
 		assert_response :success
 	end
+
+	test "renders the terms & privacy page publicly" do
+		get terms_url
+
+		assert_response :success
+		assert_select "h1", text: /Terms/
+	end
+
+	test "renders the donation page publicly with the addresses" do
+		get donate_url
+
+		assert_response :success
+		assert_includes response.body, "afraidstorm87@walletofsatoshi.com"
+		assert_includes response.body, "bc1q2kkvcqkn9s5alhcr8uw0t80kga994eukzmxsa3"
+	end
 end
