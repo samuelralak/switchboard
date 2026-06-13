@@ -43,6 +43,16 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_select "turbo-frame[src=?]", order_path(order) # the drawer lazy-loads the order detail
 	end
 
+	test "viewing an unfunded order past its funding deadline expires it on the spot" do
+		sign_in
+		order = build_order(consumer_pubkey: @session_pubkey, provider_pubkey: SecureRandom.hex(32), funding_deadline_at: 1.minute.ago)
+
+		get order_url(order)
+
+		assert_response :success
+		assert_equal Orders::States::EXPIRED, order.reload.current_state
+	end
+
 	test "an order_id that isn't the signed-in user's renders no drawer" do
 		sign_in
 

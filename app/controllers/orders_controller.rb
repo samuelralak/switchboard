@@ -21,6 +21,9 @@ class OrdersController < ApplicationController
 
 	def show
 		@order = Order.involving(current_user.pubkey).find(params.expect(:id))
+		# Reflect funding-window expiry the moment the order is viewed, rather than waiting on the background
+		# sweep: a thin, idempotent transition through the sole state writer (no-op unless past the deadline).
+		Orders::ExpireIfDue.call(order: @order)
 	end
 
 	def create
