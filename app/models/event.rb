@@ -29,6 +29,10 @@ class Event < ApplicationRecord
 	scope :without_tag, ->(name, value) { where.not("tags @> ?", [ [ name, value ] ].to_json) } # the inverse facet
 	scope :not_unpublished, -> { without_tag("status", "inactive") } # drops author-hidden (status) events
 	scope :by_author, ->(pubkey) { where(pubkey:) }
+	# Operator takedown: hide content from flagged authors. `flagged` is operator state on the user
+	# projection, preserved across re-projection (Users::Upsert#assign_kind0 never touches it). Empty
+	# subquery (no flagged users) leaves every row, so this is a no-op cost in the common case.
+	scope :not_from_flagged, -> { where.not(pubkey: User.where(flagged: true).select(:pubkey)) }
 
 	# A kind:pubkey:d coordinate -> the single matching event, or nil.
 	def self.by_coordinate(coordinate)

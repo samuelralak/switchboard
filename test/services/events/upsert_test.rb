@@ -181,6 +181,58 @@ module Events
 			assert_equal 1, Event.of_kind(Events::Kinds::METADATA).where(pubkey:).count
 		end
 
+		test "a NIP-09 deletion removes the same-author event it references by e tag" do
+			pubkey = SecureRandom.hex(32)
+			target = stored(kind: Events::Kinds::CLASSIFIED, pubkey:)
+			perform_enqueued_jobs { Events::Upsert.call(event_data: target) }
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "e", target["id"] ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_nil Event.find_by(event_id: target["id"])
+		end
+
+		test "a NIP-09 deletion never removes an event authored by a different pubkey" do
+			victim = stored(kind: Events::Kinds::CLASSIFIED) # a random, different author
+			perform_enqueued_jobs { Events::Upsert.call(event_data: victim) }
+
+			attacker = stored(kind: Events::Kinds::DELETION) # a different pubkey deleting the victim's id
+			attacker["tags"] = [ [ "e", victim["id"] ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: attacker) }
+
+			assert_not_nil Event.find_by(event_id: victim["id"])
+		end
+
+		test "a NIP-09 deletion removes the same-author addressable listing it references by a tag" do
+			pubkey = SecureRandom.hex(32)
+			listing = stored(kind: Events::Kinds::CLASSIFIED, pubkey:, d: "logo")
+			perform_enqueued_jobs { Events::Upsert.call(event_data: listing) }
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "a", "#{Events::Kinds::CLASSIFIED}:#{pubkey}:logo" ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_equal 0, Event.classified.where(pubkey:).count
+		end
+
+		test "a NIP-09 deletion of a kind-0 erases the projected profile (GDPR right-to-erasure)" do
+			pubkey = SecureRandom.hex(32)
+			meta = stored(kind: Events::Kinds::METADATA, pubkey:)
+			meta["content"] = { "name" => "alice" }.to_json
+			perform_enqueued_jobs { Events::Upsert.call(event_data: meta) }
+			assert_equal "alice", User.find_by(pubkey:).name
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "e", meta["id"] ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_nil Event.find_by(event_id: meta["id"]) # the source kind-0 is gone
+			user = User.find_by(pubkey:)
+			assert_nil user.name # the projection is cleared
+			assert_nil user.metadata_event_id
+		end
+
 		private
 
 		# Temporarily replace target.call with a recorder of broadcast event_ids, then restore it. Two

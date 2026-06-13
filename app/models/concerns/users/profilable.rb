@@ -32,6 +32,19 @@ module Users
 			reset_nip05_verification if nip05_changed?
 		end
 
+		# Erase the projected profile when the source kind-0 is gone (NIP-09 deletion / GDPR erasure). The
+		# inverse of assign_kind0: blanks every projected field but keeps the identity shell (pubkey,
+		# first_seen_at, flagged, sessions) so a still-logged-in author is not surprised by a forced sign-out.
+		def clear_profile!
+			STRING_FIELDS.each { |field| self[field] = nil }
+			self.bot = false
+			self.external_identities = []
+			self.metadata_event_id = nil
+			self.nostr_created_at = nil
+			reset_nip05_verification
+			save!
+		end
+
 		private
 
 		def set_first_seen_at

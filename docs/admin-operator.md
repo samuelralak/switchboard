@@ -1,9 +1,22 @@
 # Admin (operator) access + testing
 
-The admin surface is the **Tier-2 dispute ruling queue** at `/admin/disputes`. There is no admin password or
-role: an operator signs in with their normal Nostr key, and access is gated by the `OPERATOR_PUBKEYS`
-allowlist (`config/initializers/operators.rb` → `Operator`). A non-operator who visits `/admin/disputes` is
-quietly redirected home.
+The admin surface has two pages, both gated by the same `OPERATOR_PUBKEYS` allowlist
+(`config/initializers/operators.rb` → `Operator`): the **Tier-2 dispute ruling queue** at `/admin/disputes`
+and the **takedown queue** at `/admin/flags`. There is no admin password or role: an operator signs in with
+their normal Nostr key. A non-operator who visits either is quietly redirected home.
+
+## Takedown: hide a pubkey's public content
+
+`/admin/flags` flags or unflags a pubkey. A flagged author's service listings, open requests, and profile page
+(`/u/:npub`) stop being served (`Event.not_from_flagged` on the catalog/board scopes; `Profiles::Resolve` 404s a
+flagged identity). Paste an `npub…` or a 64-hex pubkey and Flag; Unflag reverses it. The flag is operator state
+on the `users` row (`users.flagged`), preserved across kind-0 re-projection, and it **never touches funds or
+escrow**. Flagging a pubkey we hold no profile for still works (a bare identity row is created to carry the flag).
+
+Note: removal is at the next read (the catalog/board/profile read live from the DB); a live board already open
+keeps the stale card until reload. The deletion of user-published content the author themselves requests is
+handled separately by NIP-09 (a kind-5 deletion removes the same-author events it references, and a deleted
+kind-0 erases the projected profile).
 
 ## Log in as admin
 

@@ -95,6 +95,8 @@ Rails.application.routes.draw do
 		resources :disputes, only: %i[index] do
 			member { post :rule }
 		end
+		# Operator takedown: hide a flagged pubkey's public content (catalog/requests/profile).
+		resources :flags, only: %i[index create destroy], param: :pubkey
 	end
 
 	# Defines the root path route ("/")

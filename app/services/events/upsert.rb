@@ -40,11 +40,47 @@ module Events
 
 		# After commit (the row is already saved, so a failure here is loud, not a swallowed side effect):
 		# broadcast a listing to its live surface, and project the per-pubkey kind-0 / kind:10002 (each
-		# job re-reads the current winner, so it is idempotent).
+		# job re-reads the current winner, so it is idempotent). A NIP-09 deletion actions its targets.
 		def project(event)
+			return process_deletion(event) if event.kind == Kinds::DELETION
+
 			broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
 			Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
 			Users::RelayListProjectJob.perform_later(event.pubkey) if event.kind == Kinds::RELAY_LIST
+		end
+
+		# NIP-09: honor a kind-5 by removing the events it references via `e` (event id) and `a`
+		# (kind:pubkey:d coordinate) tags, but ONLY those authored by the SAME pubkey -- a relay must never
+		# let one pubkey delete another's events. Deleting the row stops it being served (the catalog/profile
+		# read live from the DB); a deleted kind-0/kind:10002 re-runs its projection job, which clears the
+		# now-sourceless profile/relay projection. (A re-sent copy could re-appear; durable deletion tracking
+		# is a follow-up, not needed for the erasure guarantee on content we currently hold.)
+		def process_deletion(deletion)
+			deletion_targets(deletion).each do |target|
+				target.destroy
+				resync_after_delete(target)
+			end
+		end
+
+		def deletion_targets(deletion)
+			pubkey = deletion.pubkey
+			by_id = Event.by_author(pubkey).where(event_id: deletion.tag_values("e"))
+			by_coordinate = deletion.tag_values("a").filter_map do |a|
+				kind, author, d_tag = a.split(":", 3)
+				next unless author == pubkey
+
+				Event.where(pubkey:, kind: kind.to_i, d_tag: d_tag.to_s)
+			end
+
+			(by_id.to_a + by_coordinate.flat_map(&:to_a)).uniq(&:id)
+		end
+
+		# Re-sync whatever projection the now-deleted event fed, so deleted personal data stops being served.
+		def resync_after_delete(event)
+			case event.kind
+			when Kinds::METADATA   then Users::ProjectJob.perform_later(event.pubkey)
+			when Kinds::RELAY_LIST then Users::RelayListProjectJob.perform_later(event.pubkey)
+			end
 		end
 
 		# Route a kind-30402 event to the right live surface by its marker: an open request to the demand

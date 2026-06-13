@@ -16,6 +16,8 @@ module Profiles
 			pubkey = User.pubkey_from_npub(npub) or raise ActiveRecord::RecordNotFound
 
 			user = User.find_by(pubkey:)
+			raise ActiveRecord::RecordNotFound if user&.flagged? # operator takedown: a flagged identity 404s
+
 			enqueue_fetch(pubkey) unless user
 
 			Ui::State.portfolio(pubkey:, user:, owner: viewer&.pubkey == pubkey)

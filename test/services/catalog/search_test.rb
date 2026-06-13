@@ -65,5 +65,13 @@ module Catalog
 			# limit fetches one row; without the SQL status filter the newer unpublished one would consume it.
 			assert_equal [ "Active" ], Catalog::Search.call(limit: 1).map(&:title)
 		end
+
+		test "excludes listings from operator-flagged authors (takedown)" do
+			build_event(title: "Clean service", d: "ok")
+			scam = build_event(title: "Scam service", d: "scam")
+			User.create!(pubkey: scam.pubkey, first_seen_at: Time.current, flagged: true)
+
+			assert_equal [ "Clean service" ], Catalog::Search.call.map(&:title)
+		end
 	end
 end

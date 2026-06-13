@@ -47,5 +47,13 @@ module Requests
 
 			assert_equal [ "A service listing" ], Catalog::Search.call.map(&:title)
 		end
+
+		test "excludes requests from operator-flagged authors (takedown)" do
+			request_event(title: "Real need", d: "real")
+			spam = request_event(title: "Spam need", d: "spam")
+			User.create!(pubkey: spam.pubkey, first_seen_at: Time.current, flagged: true)
+
+			assert_equal [ "Real need" ], Requests::Search.call.map(&:title)
+		end
 	end
 end

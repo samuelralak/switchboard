@@ -10,7 +10,13 @@ module Users
 
 		def perform(pubkey)
 			event = Event.of_kind(Events::Kinds::METADATA).by_author(pubkey).first
-			Upsert.call(event_data: event.raw_event) if event
+			if event
+				Upsert.call(event_data: event.raw_event)
+			else
+				# No kind-0 remains (e.g. a NIP-09 deletion): erase the stale profile projection rather than
+				# leaving deleted personal data served. No-op when there is nothing projected yet.
+				User.find_by(pubkey:)&.clear_profile!
+			end
 		end
 	end
 end

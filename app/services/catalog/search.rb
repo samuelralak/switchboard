@@ -23,7 +23,7 @@ module Catalog
 		# Open requests share kind 30402 and are excluded by their marker, so the demand board never leaks
 		# into the supply catalog (Requests::Search applies the symmetric include).
 		def catalog_scope
-			Event.classified.active.not_unpublished.without_tag("t", Requests::OpenRequest.marker)
+			Event.classified.active.not_from_flagged.not_unpublished.without_tag("t", Requests::OpenRequest.marker)
 		end
 	end
 end
