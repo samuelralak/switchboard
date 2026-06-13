@@ -1,6 +1,11 @@
 <% content_for(:title, "Settings") %>
 
 <%= render Settings::Shell::ShellComponent.new(active: :relays) do %>
+  <div class="mb-6">
+    <h2 class="font-display text-lg font-semibold tracking-tight text-ink">Relays</h2>
+    <p class="mt-0.5 text-sm text-ink-muted">Where you publish (write) and where others reach you (read). This is your public NIP-65 list; anyone can read it.</p>
+  </div>
+
   <%= render Settings::RelaysForm::RelaysFormComponent.new(
         user: @relays.user, pubkey: @relays.pubkey, publish_relays: @relays.publish_relays) %>
 <% end %>

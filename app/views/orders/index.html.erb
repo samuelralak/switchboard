@@ -11,7 +11,7 @@
 <div class="flex items-start gap-x-6">
   <%# list (primary on narrow screens). On desktop it sticks below the header while the detail pane scrolls,
       and scrolls internally if the list itself outgrows the viewport. %>
-  <div class="w-full shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:w-[26rem] <%= "hidden lg:block" if @hub.selected %>">
+  <div class="w-full shrink-0 lg:sticky lg:top-20 lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto lg:w-104 <%= "hidden lg:block" if @hub.selected %>">
     <div class="mb-5 flex items-center border-b border-border">
       <div class="flex items-center gap-6" role="tablist">
         <% [ [ "buying", "Buying", @hub.buying_count ], [ "selling", "Selling", @hub.selling_count ] ].each do |key, label, count| %>

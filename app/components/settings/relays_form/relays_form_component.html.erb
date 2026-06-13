@@ -12,12 +12,8 @@
   <%# Publish status / receipt, filled by the controller (mutually-exclusive success vs error styling). %>
   <div data-relay-form-target="status" hidden class="rounded-xl border px-4 py-3 text-sm"></div>
 
+  <%# Title + intro live in the settings page header (settings/relays/show); the card is just the list + add-row. %>
   <%= render Shared::Card::CardComponent.new(padding: :p6) do %>
-    <div class="mb-5">
-      <h2 class="font-display text-base font-semibold tracking-tight text-ink">Relays</h2>
-      <p class="mt-0.5 text-xs text-ink-faint">Where you publish (write) and where others reach you (read). This is your public NIP-65 list; anyone can read it.</p>
-    </div>
-
     <ul role="list" data-relay-form-target="list" class="divide-y divide-border border-y border-border"></ul>
 
     <%# Add a relay (inline; no modal). Enter or the button appends a read+write row. %>
