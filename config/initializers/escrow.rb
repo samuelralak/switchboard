@@ -7,6 +7,9 @@ Rails.application.configure do
 	config.x.escrow.funding_window_seconds = Integer(ENV.fetch("ESCROW_FUNDING_WINDOW_SECONDS", "3600"))
 	config.x.escrow.max_locktime_seconds = Integer(ENV.fetch("ESCROW_MAX_LOCKTIME_SECONDS", "2592000")) # 30 days
 	config.x.escrow.default_locktime_seconds = Integer(ENV.fetch("ESCROW_DEFAULT_LOCKTIME_SECONDS", "604800")) # 7 days
+	# How far past its locktime a still-settleable order may sit before Escrow::StuckAlert flags it for an
+	# operator (the reconcile sweep retries a dead/unresponsive mint forever but never recovers or escalates).
+	config.x.escrow.stuck_grace_seconds = Integer(ENV.fetch("ESCROW_STUCK_GRACE_SECONDS", "86400")) # 1 day
 
 	# Tier-2 (arbiter) is opt-in for subjective work: a lower per-order cap, and a minimum locktime lead so a
 	# dispute has time to resolve before the consumer's unilateral refund window opens.

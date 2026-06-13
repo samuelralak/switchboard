@@ -30,3 +30,7 @@ production:
     class: Escrow::ExpireSweepJob
     queue: escrow
     schedule: every 5 minutes
+  escrow_alert_stuck:
+    command: "Escrow::StuckAlert.call"
+    queue: escrow
+    schedule: every hour at minute 41

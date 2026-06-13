@@ -24,7 +24,7 @@ export async function ensureMintSupports(wallet) {
   const info = await (await fetch(`${wallet.mint.mintUrl}/v1/info`)).json()
   const nuts = info?.nuts ?? {}
 
-  for (const nut of [ 7, 11, 14 ]) {
+  for (const nut of [ 7, 10, 11, 14 ]) {
     const entry = nuts[nut] ?? nuts[String(nut)]
     const ok = entry === true || entry?.supported === true
     if (!ok) throw new Error(`Mint ${wallet.mint.mintUrl} does not support NUT-${nut}`)
@@ -146,13 +146,19 @@ export function parseWitness(witness) {
 
 // --- internals ---
 
-// Swap already-witnessed inputs into fresh proofs (fees off => outputs total == inputs total). The outputs
-// MUST use the inputs' own keyset, not the wallet's active one: a mint that rotated keysets between funding
-// and redeem would otherwise mismatch inputs (keyset A) against outputs (keyset B) and the swap is rejected.
+// Swap already-witnessed inputs into fresh proofs, accounting for the mint's NUT-02 input fee. The mint
+// requires sum(inputs) == sum(outputs) + fee, so the outputs must total inputs - fee or it rejects the swap
+// and the locked funds strand; getFeesForProofs is 0 on a fee-free mint (outputs == inputs, unchanged) and
+// ~1 sat on a fee-charging one (the redeemer absorbs it). The outputs MUST use the inputs' own keyset, not the
+// wallet's active one: a mint that rotated keysets between funding and redeem would otherwise mismatch inputs
+// (keyset A) against outputs (keyset B) and the swap is rejected.
 async function swapInputs(wallet, inputs) {
   const keyset = wallet.getKeyset(inputs[0]?.id)
-  const amount = inputs.reduce((sum, p) => sum + Number(p.amount), 0)
-  const outputs = OutputData.createRandomData(amount, keyset)
+  const inputTotal = inputs.reduce((sum, p) => sum + Number(p.amount), 0)
+  const fee = wallet.getFeesForProofs(inputs)
+  if (fee >= inputTotal) throw new Error(`mint input fee ${fee} >= locked amount ${inputTotal}; cannot redeem`)
+
+  const outputs = OutputData.createRandomData(inputTotal - fee, keyset)
   const { signatures } = await wallet.mint.swap({ inputs, outputs: outputs.map((o) => o.blindedMessage) })
 
   return { proofs: outputs.map((o, i) => o.toProof(signatures[i], keyset)) }
