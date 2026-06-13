@@ -1,0 +1,60 @@
+# Switchboard production deploy (Fly.io). Schema verified against https://fly.io/docs/reference/configuration/.
+# First-deploy steps, the secrets checklist, and the connection-budget math live in docs/fly-deploy.md.
+
+app = "switchboardgo"   # globally-unique Fly app name; must match `fly apps create`.
+primary_region = "fra"  # EU (Frankfurt). Adjust to your preferred EU region (ams/cdg/lhr/arn/mad) BEFORE the
+                        # first deploy -- the Managed Postgres cluster MUST be provisioned in the SAME region.
+
+[build]
+  dockerfile = "Dockerfile"  # the existing multi-stage Rails 8 image (Thruster listens on :80 -> Puma on :3000).
+
+[deploy]
+  # Runs once per deploy on a temporary Machine, before the new release rolls out. db:prepare creates + migrates
+  # ALL FOUR databases (primary + cache + queue + cable); Rails 8.1 migrate_all loads each Solid schema on a fresh
+  # DB. Needs the four *_DATABASE_URL secrets set BEFORE the first deploy (and a Postgres role that can CREATE
+  # DATABASE, or the four databases pre-created -- see the runbook).
+  release_command = "bin/rails db:prepare"
+  release_command_timeout = "10m"
+
+[env]
+  # Read at boot; production fails fast without it (the NIP-98 sign-in origin). Public value, not a secret.
+  CANONICAL_ORIGIN = "https://switchboardgo.com"
+  # Deliberately NOT setting SOLID_QUEUE_IN_PUMA: Solid Queue runs ONLY in the dedicated `jobs` process group.
+  # Setting it on web would run the recurring scheduler in BOTH web and jobs and double-enqueue every recurring
+  # task (the trap from the deleted Kamal config/deploy.yml). RAILS_ENV=production is baked into the image.
+
+# Three process groups. Only `web` has a service, so the Fly proxy routes to (and can autostop) only web; `jobs`
+# and `relay` are serviceless and therefore immune to autostop -- they run continuously, which the relay REQUIRES.
+# Pin counts with `fly scale count web=1 jobs=1 relay=1` after deploy: the relay's EventMachine reactor + ingest
+# cursor assume a SINGLE instance (two would double-ingest and corrupt the cursor).
+[processes]
+  web   = "./bin/thrust ./bin/rails server"
+  jobs  = "bin/jobs"
+  relay = "bin/rails relay:boot"
+
+[http_service]
+  internal_port = 80          # Thruster's listen port (it proxies to Puma on 3000).
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1    # keep >=1 web Machine warm in the primary region (no cold start on the money path).
+  processes = ["web"]         # only web serves HTTP; jobs/relay stay serviceless.
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/up"              # Rails health endpoint; production.rb excludes /up from force_ssl + host authorization.
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
+
+# VM sizing per group -- starting points, tune after observing load. Bump memory if you see OOM (watch the relay:
+# a crash there freezes the read-model until Fly restarts it).
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  processes = ["web"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  processes = ["jobs", "relay"]
