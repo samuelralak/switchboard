@@ -25,7 +25,7 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
 export async function mintLockAndReport({
   wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal,
 }) {
-  const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
+  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
 
   onStatus?.("locking")
   const lock = await lockHtlc({ wallet, amount, proofs, providerPubkey, consumerRefundPubkey, locktime })
@@ -34,7 +34,7 @@ export async function mintLockAndReport({
     mint_url: mintUrl, hashlock: lock.hash, locktime: String(locktime),
     lock_pubkey: providerPubkey, refund_pubkey: consumerRefundPubkey,
   }
-  await persistLockedMarker(orderId, { token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, preimage: lock.preimage, fields })
+  await persistStage(orderId, { stage: "locked", token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, preimage: lock.preimage, fields })
   const payload = reportProofs(await proofState({ wallet, proofs: lockedProofs }), lockedProofs, fields)
 
   return { payload, token: lock.token, preimage: lock.preimage, lockedProofs }
@@ -46,7 +46,7 @@ export async function mintLockAndReportTier2({
   wallet, mintUrl, amount, consumerPubkey, providerPubkey, arbiterPubkey, consumerRefundPubkey, locktime,
   orderId, onInvoice, onStatus, signal,
 }) {
-  const proofs = await mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal })
+  const proofs = await mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal })
 
   onStatus?.("locking")
   const lock = await lockP2PK2of3({
@@ -57,7 +57,7 @@ export async function mintLockAndReportTier2({
     mint_url: mintUrl, locktime: String(locktime), lock_pubkey: providerPubkey,
     refund_pubkey: consumerRefundPubkey, arbiter_pubkey: arbiterPubkey, required_signatures: 2,
   }
-  await persistLockedMarker(orderId, { token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, fields })
+  await persistStage(orderId, { stage: "locked", token: lock.token, mint: mintUrl, locktime, proofs: lockedProofs, fields })
   const payload = reportProofs(await proofState({ wallet, proofs: lockedProofs }), lockedProofs, fields)
 
   return { payload, token: lock.token, lockedProofs }
@@ -69,10 +69,11 @@ export async function mintLockAndReportTier2({
 // spend, so a swap with these proofs still redeems at the mint.
 const cleanProofs = (proofs) => proofs.map((p) => ({ id: p.id, amount: Number(p.amount), secret: p.secret, C: p.C }))
 
-// Crash-safety: persist a LOCAL marker the instant funds lock -- BEFORE the report round-trip below -- so a
-// crash there cannot orphan the lock. The resume guard keys on `token` (never re-mints) and re-derives the
-// report from `proofs` + `fields` (reportFromSaved). The full backup (with payload) overwrites this shortly.
-async function persistLockedMarker(orderId, record) {
+// Persist the order's escrow record at its current stage (quote -> minted -> locked -> reported). Each write is
+// the full record for the order; the resume logic (mintPaidProofs + the funding controller) reads the furthest
+// stage reached, so a reload continues FORWARD without re-quoting or re-minting. Proofs are cleaned of the
+// unserializable dleq before they are ever stored here.
+async function persistStage(orderId, record) {
   if (orderId) await idbPut("escrow_secrets", orderId, { orderId, savedAt: Math.floor(Date.now() / 1000), ...record })
 }
 
@@ -82,18 +83,39 @@ export async function reportFromSaved(wallet, saved) {
   return reportProofs(await proofState({ wallet, proofs: saved.proofs }), saved.proofs, saved.fields)
 }
 
-// Mint `amount` sats via the bolt11 flow: assert the mint, surface the invoice, wait for payment, return proofs.
-async function mintPaidProofs(wallet, amount, { onInvoice, onStatus, signal }) {
+// Mint `amount` sats via the bolt11 flow as a FORWARD-ONLY, refresh-safe state machine persisted per order, so
+// a reload NEVER issues a new invoice or re-mints already-paid funds (each step persists BEFORE the next
+// irreversible one):
+//   - minted already (a reload after payment): return the saved proofs, never mint twice.
+//   - a quote already issued (a reload before/after payment): reuse the SAME invoice, never re-quote.
+//   - fresh: create the quote and persist it BEFORE the invoice is surfaced, so even a reload before payment resumes.
+// onInvoice(bolt11, quoteId) (re)surfaces the same invoice; onStatus(stage) drives the UI; signal cancels.
+async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal }) {
   await ensureMintSupports(wallet)
 
-  onStatus?.("invoice")
-  const quote = await withTimeout(wallet.createMintQuoteBolt11(amount), "the mint did not issue an invoice")
-  onInvoice?.(quote.request, quote.quote) // bolt11 to pay + the quote id
-  await waitForPaid(wallet, quote.quote, { onStatus, signal })
+  const saved = orderId ? await idbGet("escrow_secrets", orderId) : null
+  if (saved?.mintedProofs) return saved.mintedProofs // reload after the mint: reuse, never mint twice
+
+  let quoteId = saved?.quote
+  let bolt11 = saved?.request
+  if (!quoteId) {
+    onStatus?.("invoice")
+    const quote = await withTimeout(wallet.createMintQuoteBolt11(amount), "the mint did not issue an invoice")
+    quoteId = quote.quote
+    bolt11 = quote.request
+    // Persist the quote BEFORE the invoice is shown/paid, so a reload while waiting reuses THIS exact invoice.
+    await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, amount, mint: mintUrl })
+  }
+
+  onInvoice?.(bolt11, quoteId) // (re)surface the same invoice to pay
+  await waitForPaid(wallet, quoteId, { onStatus, signal })
 
   onStatus?.("minting")
-  const minted = await withTimeout(wallet.mintProofsBolt11(amount, quote.quote), "the mint did not issue the ecash")
-  return minted?.proofs ?? minted
+  const minted = await withTimeout(wallet.mintProofsBolt11(amount, quoteId), "the mint did not issue the ecash")
+  const proofs = cleanProofs(minted?.proofs ?? minted)
+  // Persist minted proofs BEFORE locking: a reload between mint and lock resumes from here, never re-minting.
+  await persistStage(orderId, { stage: "minted", quote: quoteId, amount, mint: mintUrl, mintedProofs: proofs })
+  return proofs
 }
 
 // Attach the reportable proofs (Y + amount + keyset, never the spendable secret/C) to the lock-term fields.
@@ -103,13 +125,20 @@ function reportProofs(states, lockedProofs, fields) {
   return { ...fields, proofs }
 }
 
-// Poll the mint until the invoice is PAID (or already ISSUED on a re-entry); honor an AbortSignal.
-async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 2000, tries = 150 } = {}) {
+// Poll the mint until the invoice is PAID (or already ISSUED on a re-entry); honor an AbortSignal. A transient
+// poll failure (the mint rate-limiting our status checks, or a network blip) is NOT a funding failure -- the
+// invoice may simply be unpaid yet -- so per-poll errors are swallowed and we keep waiting. Only the abort
+// signal or the overall budget (~6 min at 3s) ends the wait. Polling slower also stays under mint rate limits.
+async function waitForPaid(wallet, quoteId, { onStatus, signal, intervalMs = 3000, tries = 120 } = {}) {
   for (let i = 0; i < tries; i++) {
     if (signal?.aborted) throw new Error("funding cancelled")
 
-    const { state } = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
-    if (state === "PAID" || state === "ISSUED") return
+    try {
+      const { state } = await withTimeout(wallet.checkMintQuoteBolt11(quoteId), "the mint did not answer")
+      if (state === "PAID" || state === "ISSUED") return
+    } catch {
+      // a rate-limited / slow status check is not a funding failure; keep polling
+    }
 
     onStatus?.("waiting")
     await sleep(intervalMs)

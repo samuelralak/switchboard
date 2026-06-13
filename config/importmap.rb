@@ -46,3 +46,10 @@ pin "nostr-tools/relay", to: "nostr-tools--relay.js" # @2.23.5 vendored
 # renamed CashuWallet->Wallet / CashuMint->Mint and SIG_ALL is still in flux (we use SIG_INPUTS).
 # Vendored self-contained (see above) so the escrow-locking code never loads from a CDN.
 pin "@cashu/cashu-ts", to: "@cashu--cashu-ts.js" # @4.5.1 vendored
+
+# QR rendering for the Lightning funding invoice. Self-hosted (script-src stays 'self'): a convenience lib,
+# not crypto, that renders a bolt11 to inline SVG. Vendored as a self-contained esbuild bundle of
+# qrcode-generator (a CJS default export): build with
+#   echo 'import qr from "qrcode-generator"; export default qr;' > e.js
+#   npm i qrcode-generator@1.4.4 esbuild && npx esbuild e.js --bundle --format=esm --platform=browser --minify
+pin "qrcode-generator", to: "qrcode-generator.js" # @1.4.4 vendored

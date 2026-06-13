@@ -26,7 +26,7 @@ class OrdersController < ApplicationController
 	def create
 		order = Orders::Place.call(actor: current_user, **place_params)
 
-		redirect_to order_path(order), notice: "Order placed. Fund the escrow to begin."
+		redirect_to order_path(order), notice: placed_notice(order)
 	end
 
 	def fund
@@ -77,6 +77,16 @@ class OrdersController < ApplicationController
 	end
 
 	private
+
+	# A catalog buyer funds immediately, so they are told to fund. A request CLAIMER is the provider and the
+	# POSTER funds the budget, so the claimer must never be told to fund the escrow.
+	def placed_notice(order)
+		if order.entry_point == Orders::EntryPoints::REQUEST_CLAIM
+			"Request claimed. The poster will lock the budget to you, then you can deliver."
+		else
+			"Order placed. Fund the escrow to begin."
+		end
+	end
 
 	def place_params
 		params.expect(order: %i[coordinate mint_url dedupe_key tier]).to_h.symbolize_keys

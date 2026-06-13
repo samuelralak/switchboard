@@ -88,6 +88,7 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_redirected_to order_path(order)
 		assert_equal Orders::EntryPoints::CATALOG_ORDER, order.entry_point
 		assert_equal 2_000, order.amount_sats
+		assert_match(/fund the escrow/i, flash[:notice]) # the consumer funds, so they are told to
 	end
 
 	test "claims an open request, with the signer as provider" do
@@ -99,6 +100,9 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		order = Order.find_by(provider_pubkey: @session_pubkey)
 		assert_redirected_to order_path(order)
 		assert_equal Orders::EntryPoints::REQUEST_CLAIM, order.entry_point
+		# The claimer is the provider; the POSTER funds, so the claimer must NOT be told to fund the escrow.
+		assert_match(/claimed/i, flash[:notice])
+		assert_no_match(/fund the escrow/i, flash[:notice])
 	end
 
 	test "a chosen tier-2 flows through place_params to the created order" do

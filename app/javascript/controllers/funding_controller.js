@@ -6,7 +6,7 @@ import { ensureSignerFor } from "nostr/signer_store"
 // All keys/preimage/token stay in the browser (brief sec 6.3); Rails only receives the observable report.
 export default class extends Controller {
   static targets = [
-    "start", "panel", "status", "invoice", "bolt11", "error", "form",
+    "start", "panel", "status", "invoice", "qr", "bolt11", "error", "form",
     "mintUrl", "locktime", "lockPubkey", "refundPubkey",
   ]
   static values = {
@@ -153,6 +153,26 @@ export default class extends Controller {
   showInvoice(bolt11) {
     this.invoiceTarget.classList.remove("hidden")
     this.bolt11Target.value = bolt11
+    this.renderQr(bolt11)
+  }
+
+  // Render the invoice as a scannable QR (lazy-imported, self-hosted). Convenience only: a failure must never
+  // block funding, so it is fire-and-forget and swallows errors. Lightning QRs encode the bolt11 UPPERCASED in
+  // alphanumeric mode (bech32 is case-insensitive) for a less dense, easier-to-scan code; the copyable text
+  // below stays as issued.
+  async renderQr(bolt11) {
+    if (!this.hasQrTarget) return
+    try {
+      const { default: qrcode } = await import("qrcode-generator")
+      const qr = qrcode(0, "M")
+      qr.addData(bolt11.toUpperCase(), "Alphanumeric")
+      qr.make()
+      this.qrTarget.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+      this.qrTarget.querySelector("svg")?.setAttribute("width", "100%")
+      this.qrTarget.querySelector("svg")?.setAttribute("height", "100%")
+    } catch {
+      // QR is a convenience; the copyable invoice text remains if rendering fails
+    }
   }
 
   copy() {
