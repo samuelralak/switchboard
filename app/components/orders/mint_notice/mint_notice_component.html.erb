@@ -3,7 +3,8 @@
     <p class="text-xs text-ink-muted">Escrow mint: <span class="font-mono text-ink-secondary"><%= host %></span></p>
   <% end %>
   <p class="<%= "mt-1 " if mint %>text-xs leading-relaxed text-ink-muted">
-    A Cashu mint custodies the backing sats. If it goes offline or fails, locked funds can be lost even though
-    the lock is yours, and the timelock refund needs the mint online to pay out. Fund only what you can afford to lose.
+    A Cashu mint custodies the backing sats while they're locked. The lock is yours, but if the mint goes
+    offline or fails, those funds can be lost, and the timelock refund needs the mint back online to pay out.
+    Pick a mint you trust, and keep amounts modest while the platform is young.
   </p>
 </div>

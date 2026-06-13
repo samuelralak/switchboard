@@ -79,7 +79,7 @@ module Catalog
 				# the test allowlist carries two mints, so the buyer picks rather than a hidden field
 				assert_selector "select[name='order[mint_url]']"
 				assert_selector "select[name='order[mint_url]'] option[value='http://127.0.0.1:3338']"
-				assert_text "afford to lose" # the custodial caveat sits under the picker
+				assert_text "can be lost" # the custodial caveat sits under the picker
 			end
 
 			# A single-mint allowlist (a realistic prod posture) drops the picker for a hidden field carrying the

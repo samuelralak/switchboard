@@ -8,7 +8,7 @@ module Orders
 			def test_states_the_custodial_caveat_without_naming_a_mint
 				render_inline(MintNoticeComponent.new)
 
-				assert_text "afford to lose"
+				assert_text "can be lost" # the honest custodial-mint caveat
 				assert_no_text "Escrow mint:"
 			end
 
@@ -17,7 +17,7 @@ module Orders
 
 				assert_text "Escrow mint:"
 				assert_selector "span.font-mono", text: "mint.coinos.io"
-				assert_text "afford to lose"
+				assert_text "can be lost"
 			end
 
 			def test_falls_back_to_the_raw_value_when_it_is_not_a_url
