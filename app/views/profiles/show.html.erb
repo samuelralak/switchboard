@@ -1,6 +1,6 @@
 <% content_for :title, (@user&.display || "Profile") %>
 
-<div class="mx-auto max-w-4xl">
+<div>
   <% if @user %>
     <%= render Profiles::Header::HeaderComponent.new(user: @user) %>
 
