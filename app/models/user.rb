@@ -25,6 +25,12 @@ class User < ApplicationRecord
 		nil
 	end
 
+	# Operator takedown: is this pubkey flagged? Drives Event.not_from_flagged, the live-broadcast gate, the
+	# profile 404, and the order-placement guard, so a flagged author's content stays hidden on every surface.
+	def self.flagged?(pubkey)
+		exists?(pubkey:, flagged: true)
+	end
+
 	# Bech32 npub for display; falls back to raw hex if encoding fails.
 	def npub
 		Nostr::Bech32.npub_encode(pubkey)

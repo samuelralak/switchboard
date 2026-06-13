@@ -56,41 +56,56 @@ module Events
 		# now-sourceless profile/relay projection. (A re-sent copy could re-appear; durable deletion tracking
 		# is a follow-up, not needed for the erasure guarantee on content we currently hold.)
 		def process_deletion(deletion)
-			deletion_targets(deletion).each do |target|
-				target.destroy
-				resync_after_delete(target)
-			end
+			targets = deletion_targets(deletion)
+			return if targets.empty?
+
+			# All-or-nothing across the e/a target set: a mid-loop failure must not leave a NIP-09 deletion
+			# half-applied (some referenced events erased, others permanently served). The re-sync side effects
+			# (job enqueues / live-board removal) run AFTER the destroys commit, so a queue hiccup cannot strand
+			# a partially-applied erasure either.
+			Event.transaction { targets.each(&:destroy) }
+			targets.each { |target| resync_after_delete(target) }
 		end
 
 		def deletion_targets(deletion)
-			pubkey = deletion.pubkey
-			by_id = Event.by_author(pubkey).where(event_id: deletion.tag_values("e"))
-			by_coordinate = deletion.tag_values("a").filter_map do |a|
-				kind, author, d_tag = a.split(":", 3)
-				next unless author == pubkey
+			by_id = Event.by_author(deletion.pubkey).where(event_id: deletion.tag_values("e")).to_a
+			by_coordinate = deletion.tag_values("a").flat_map { |a| events_for_a_tag(a, deletion.pubkey) }
 
-				Event.where(pubkey:, kind: kind.to_i, d_tag: d_tag.to_s)
-			end
-
-			(by_id.to_a + by_coordinate.flat_map(&:to_a)).uniq(&:id)
+			(by_id + by_coordinate).uniq(&:id)
 		end
 
-		# Re-sync whatever projection the now-deleted event fed, so deleted personal data stops being served.
+		# Same-author events at a NIP-09 `a` coordinate. Addressable coordinates carry a d (the listing id);
+		# replaceable kinds (kind-0 / kind:10002) are one-per-pubkey with a stored d_tag of NULL, so match on
+		# (pubkey, kind) and ignore the empty d.
+		def events_for_a_tag(a_tag, pubkey)
+			kind, author, d_tag = a_tag.split(":", 3)
+			return [] unless author == pubkey
+
+			kind = kind.to_i
+			scope = Kinds.addressable?(kind) ? Event.where(pubkey:, kind:, d_tag: d_tag.to_s) : Event.where(pubkey:, kind:)
+			scope.to_a
+		end
+
+		# Re-sync whatever projection the now-deleted event fed, so deleted content stops being served: clear the
+		# sourceless profile / relay-list projection, and drop a deleted listing's card from open live boards.
 		def resync_after_delete(event)
 			case event.kind
 			when Kinds::METADATA   then Users::ProjectJob.perform_later(event.pubkey)
 			when Kinds::RELAY_LIST then Users::RelayListProjectJob.perform_later(event.pubkey)
+			when Kinds::CLASSIFIED then broadcast_classified(event, visible: false)
 			end
 		end
 
 		# Route a kind-30402 event to the right live surface by its marker: an open request to the demand
 		# board, everything else to the supply catalog. Requests and listings share the kind, so the marker
 		# is the only discriminator (mirrors the Catalog::Search / Requests::Search scope split).
-		def broadcast_classified(event)
+		# visible: nil lets the Update decide (active/open AND author not flagged); visible: false forces a
+		# remove-only broadcast (a deleted listing dropping off open boards).
+		def broadcast_classified(event, visible: nil)
 			if event.tag_values("t").include?(Requests::OpenRequest.marker)
-				Requests::Ui::Update.call(event:)
+				Requests::Ui::Update.call(event:, visible:)
 			else
-				Catalog::Ui::Update.call(event:)
+				Catalog::Ui::Update.call(event:, visible:)
 			end
 		end
 

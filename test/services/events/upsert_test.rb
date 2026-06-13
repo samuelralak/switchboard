@@ -233,6 +233,75 @@ module Events
 			assert_nil user.metadata_event_id
 		end
 
+		test "a NIP-09 deletion of a kind-0 via an a tag (replaceable coordinate, empty d) still erases it" do
+			pubkey = SecureRandom.hex(32)
+			meta = stored(kind: Events::Kinds::METADATA, pubkey:)
+			meta["content"] = { "name" => "bob" }.to_json
+			meta["tags"] = [] # a real kind-0 carries no d tag (replaceable, not addressable)
+			perform_enqueued_jobs { Events::Upsert.call(event_data: meta) }
+			assert_equal "bob", User.find_by(pubkey:).name
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "a", "#{Events::Kinds::METADATA}:#{pubkey}:" ] ] # replaceable coordinate, empty d
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_equal 0, Event.of_kind(Events::Kinds::METADATA).where(pubkey:).count
+			assert_nil User.find_by(pubkey:).name
+		end
+
+		test "a NIP-09 deletion of a kind:10002 clears the projected relay list (erasure symmetry with kind-0)" do
+			pubkey = SecureRandom.hex(32)
+			relays = stored(kind: Events::Kinds::RELAY_LIST, pubkey:)
+			relays["tags"] = [ [ UserRelay::RELAY_TAG, "wss://relay.example.com" ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: relays) }
+			assert_operator UserRelay.where(pubkey:).count, :>, 0
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "e", relays["id"] ] ]
+			perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) }
+
+			assert_equal 0, UserRelay.where(pubkey:).count
+		end
+
+		test "a NIP-09 multi-target deletion is atomic: a destroy failure rolls the whole set back" do
+			pubkey = SecureRandom.hex(32)
+			a = stored(kind: Events::Kinds::CLASSIFIED, pubkey:, d: "a")
+			b = stored(kind: Events::Kinds::CLASSIFIED, pubkey:, d: "b")
+			perform_enqueued_jobs { Events::Upsert.call(event_data: a); Events::Upsert.call(event_data: b) }
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "a", "#{Events::Kinds::CLASSIFIED}:#{pubkey}:a" ],
+				[ "a", "#{Events::Kinds::CLASSIFIED}:#{pubkey}:b" ] ]
+
+			calls = 0
+			Event.class_eval do
+				alias_method :__orig_destroy, :destroy
+				define_method(:destroy) do
+					calls += 1
+					raise "destroy boom" if calls == 2
+
+					__orig_destroy
+				end
+			end
+
+			assert_raises(RuntimeError) { Events::Upsert.call(event_data: deletion) }
+			assert_equal 2, Event.classified.where(pubkey:).count # neither destroyed: the set rolled back
+		ensure
+			Event.class_eval { alias_method :destroy, :__orig_destroy; remove_method :__orig_destroy }
+		end
+
+		test "deleting a listing broadcasts its removal to open boards" do
+			pubkey = SecureRandom.hex(32)
+			listing = stored(kind: Events::Kinds::CLASSIFIED, pubkey:, d: "x")
+			perform_enqueued_jobs { Events::Upsert.call(event_data: listing) }
+
+			deletion = stored(kind: Events::Kinds::DELETION, pubkey:)
+			deletion["tags"] = [ [ "e", listing["id"] ] ]
+			ids = recording_broadcasts { perform_enqueued_jobs { Events::Upsert.call(event_data: deletion) } }
+
+			assert_equal [ listing["id"] ], ids
+		end
+
 		private
 
 		# Temporarily replace target.call with a recorder of broadcast event_ids, then restore it. Two
@@ -241,7 +310,7 @@ module Events
 			recorded = []
 			singleton = target.singleton_class
 			singleton.send(:alias_method, :__orig_call, :call)
-			singleton.send(:define_method, :call) { |event:| recorded << event.event_id }
+			singleton.send(:define_method, :call) { |event:, **| recorded << event.event_id }
 			yield
 			recorded
 		ensure
@@ -255,7 +324,7 @@ module Events
 		def raising_broadcast
 			singleton = Catalog::Ui::Update.singleton_class
 			singleton.send(:alias_method, :__orig_call, :call)
-			singleton.send(:define_method, :call) { |event:| raise "broadcast boom" }
+			singleton.send(:define_method, :call) { |**| raise "broadcast boom" }
 			yield
 		ensure
 			singleton.send(:alias_method, :call, :__orig_call)

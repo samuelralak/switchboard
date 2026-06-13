@@ -87,6 +87,14 @@ module Orders
 			assert_equal Orders::Tiers::TIER2_ARBITER, order.tier
 		end
 
+		test "rejects an order against an operator-flagged author's coordinate (takedown stops new commerce)" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 2_000)
+			User.create!(pubkey: "a" * 64, first_seen_at: Time.current, flagged: true)
+
+			assert_raises(NotFoundError) { place(coordinate_for(listing), actor) }
+		end
+
 		test "rejects a coordinate that is not kind-30402" do
 			actor = User.create!(pubkey: SecureRandom.hex(32))
 

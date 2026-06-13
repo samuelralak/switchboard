@@ -3,12 +3,14 @@
 module Catalog
 	module Ui
 		# Broadcasts a listing update to every open catalog for the event's coordinate. An unpublished/inactive
-		# version is remove-only (re-adding would undo the unpublish for every open catalog; mirrors
-		# Catalog::Search's status filter). The card+drawer plumbing lives in Shared::CardBroadcast.
+		# version (or an operator-flagged author) is remove-only (re-adding would undo the unpublish/takedown
+		# for every open catalog; mirrors Catalog::Search's status + not_from_flagged filters). visible: false
+		# forces remove-only (a deleted listing). The card+drawer plumbing lives in Shared::CardBroadcast.
 		class Update
-			def self.call(event:)
+			def self.call(event:, visible: nil)
 				card = State.card(event:)
-				Shared::CardBroadcast.call(card:, visible: card.listing.active?)
+				visible = card.listing.active? && !User.flagged?(event.pubkey) if visible.nil?
+				Shared::CardBroadcast.call(card:, visible:)
 			end
 		end
 	end

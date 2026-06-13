@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_12_052458) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
@@ -254,6 +254,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_12_052458) do
     t.index ["nip05"], name: "index_users_on_nip05"
     t.index ["nostr_created_at"], name: "index_users_on_nostr_created_at"
     t.index ["pubkey"], name: "index_users_on_pubkey", unique: true
+    t.index ["pubkey"], name: "index_users_on_pubkey_where_flagged", where: "flagged"
     t.check_constraint "metadata_event_id IS NULL OR metadata_event_id::text ~ '^[a-f0-9]{64}$'::text", name: "users_metadata_event_id_hex"
     t.check_constraint "pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "users_pubkey_hex"
   end

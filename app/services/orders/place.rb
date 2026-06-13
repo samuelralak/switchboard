@@ -28,6 +28,9 @@ module Orders
 			event = Event.by_coordinate(coordinate)
 			raise NotFoundError, "listing or request not found" unless event
 			raise NotFoundError, "listing or request has expired" if event.expires_at&.past?
+			# Operator takedown stops new commerce too: a flagged author's coordinate is unorderable, not just
+			# hidden from browse (by_coordinate bypasses the not_from_flagged scope).
+			raise NotFoundError, "listing or request is unavailable" if User.flagged?(event.pubkey)
 
 			event
 		end

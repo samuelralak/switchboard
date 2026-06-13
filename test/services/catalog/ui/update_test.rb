@@ -22,6 +22,23 @@ module Catalog
 				assert_equal %i[broadcast_remove_to broadcast_remove_to], actions.map(&:first)
 			end
 
+			test "an operator-flagged author's active listing is remove-only (takedown beats the live broadcast)" do
+				event = build_event(title: "Scam", d: "scam")
+				User.create!(pubkey: event.pubkey, first_seen_at: Time.current, flagged: true)
+
+				actions = recording_turbo_actions { Catalog::Ui::Update.call(event:) }
+
+				assert_equal %i[broadcast_remove_to broadcast_remove_to], actions.map(&:first)
+			end
+
+			test "visible: false forces remove-only (a deleted listing dropping off open boards)" do
+				event = build_event(title: "Gone", d: "gone")
+
+				actions = recording_turbo_actions { Catalog::Ui::Update.call(event:, visible: false) }
+
+				assert_equal %i[broadcast_remove_to broadcast_remove_to], actions.map(&:first)
+			end
+
 			private
 
 			# Record the Turbo stream actions Update.call issues, without broadcasting.

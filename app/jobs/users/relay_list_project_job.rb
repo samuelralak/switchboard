@@ -10,7 +10,13 @@ module Users
 
 		def perform(pubkey)
 			event = Event.of_kind(Events::Kinds::RELAY_LIST).by_author(pubkey).first
-			RelayListUpsert.call(event_data: event.raw_event) if event
+			if event
+				RelayListUpsert.call(event_data: event.raw_event)
+			else
+				# No kind:10002 remains (e.g. a NIP-09 deletion): clear the now-sourceless relay projection,
+				# symmetric with Users::ProjectJob clearing a deleted profile.
+				UserRelay.where(pubkey:).delete_all
+			end
 		end
 	end
 end
