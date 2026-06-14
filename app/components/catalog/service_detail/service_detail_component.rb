@@ -8,17 +8,28 @@ module Catalog
 		# service" CTA), rendering from Catalog::Listing and gracefully omitting fields a real
 		# kind-30402 event does not carry (schema, capability, mode).
 		class ServiceDetailComponent < ApplicationComponent
-			attr_reader :listing, :show_cta
+			attr_reader :listing, :viewer, :show_cta
 
 			# show_cta: false drops the buyer action (the provider reuses this same detail in the messages
-			# drawer, where ordering their own service makes no sense).
-			def initialize(listing:, show_cta: true)
+			# drawer, where ordering their own service makes no sense). viewer (the signed-in account, or nil) lets
+			# the author of an externally-posted listing see the republish path instead of a dead disabled button.
+			def initialize(listing:, viewer: nil, show_cta: true)
 				@listing = listing
+				@viewer = viewer
 				@show_cta = show_cta
 			end
 
 			delegate :automated?, to: :listing
 			delegate :default_mint, to: "Orders::Policy"
+
+			# Only a listing published THROUGH Switchboard (carries the env-scoped service marker) is orderable
+			# with escrow here. The aggregated catalog also surfaces externally-posted NIP-99 listings, which the
+			# server order path rejects (Orders::Place requires conforms?), so the buyer must never reach an order
+			# the server would refuse. One rule, read here and enforced there.
+			def hosted? = listing.conforms?
+
+			# Is the current viewer this listing's author? Shown the republish path, not the public disabled state.
+			def owner? = viewer.present? && viewer.pubkey == listing.event.pubkey
 
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
 			def order_coordinate = listing.coordinate

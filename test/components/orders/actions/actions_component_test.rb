@@ -138,7 +138,8 @@ module Orders
 
 				render_inline(ActionsComponent.new(order:, viewer: viewer(order.consumer_pubkey)))
 				assert_selector "[data-controller='settlement']"
-				assert_text "Claim your payout"
+				assert_text "This order was refunded to you"
+				assert_selector "[data-settlement-target='payout']", visible: :all
 
 				render_inline(ActionsComponent.new(order:, viewer: viewer(order.provider_pubkey)))
 				assert_no_selector "[data-controller]"
@@ -150,7 +151,8 @@ module Orders
 
 				render_inline(ActionsComponent.new(order:, viewer: viewer(order.provider_pubkey)))
 				assert_selector "[data-controller='settlement']"
-				assert_text "Claim your payout"
+				assert_text "This order was released to you"
+				assert_selector "[data-settlement-target='payout']", visible: :all
 
 				render_inline(ActionsComponent.new(order:, viewer: viewer(order.consumer_pubkey)))
 				assert_no_selector "[data-controller]"

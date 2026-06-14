@@ -206,12 +206,11 @@
 			data-settlement-own-value="<%= viewer.pubkey %>"
 			data-settlement-peer-value="<%= viewer.pubkey == order.provider_pubkey ? order.consumer_pubkey : order.provider_pubkey %>"
 			data-settlement-tier-value="<%= order.tier %>">
-			<div class="flex items-start gap-2">
-				<%= render Shared::Icon::IconComponent.new(name: "coins-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
-				<p class="text-sm leading-relaxed text-ink-secondary">
-					This order <%= payout_verb %> to you. Claim your payout below, or restore it from your relay backup on a new device.
-				</p>
-			</div>
+			<%# The PayoutComponent owns the coin icon, amount, and claim copy; here we only frame the outcome and
+			    point a fresh device at the restore action below (the panel stays hidden until it has a token). %>
+			<p class="text-sm leading-relaxed text-ink-secondary">
+				This order was <%= payout_verb %> to you. On a new device, restore your payout from the relay backup below.
+			</p>
 
 			<%= render Orders::Payout::PayoutComponent.new %>
 

@@ -14,7 +14,7 @@ module Shared
 			def test_default_spacing_uses_header_wrapper
 				render_inline(PageHeaderComponent.new(title: "My requests"))
 
-				assert_selector "header.mb-9"
+				assert_selector "header.mb-6"
 			end
 
 			def test_medium_spacing_uses_div_wrapper
@@ -45,7 +45,7 @@ module Shared
 			def test_unknown_spacing_falls_back_to_lg
 				render_inline(PageHeaderComponent.new(title: "My requests", spacing: :nope))
 
-				assert_selector "header.mb-9"
+				assert_selector "header.mb-6"
 			end
 
 			def test_renders_an_optional_action_slot

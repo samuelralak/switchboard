@@ -86,7 +86,39 @@
   <%# buyer action (hidden when the provider views their own service in the messages drawer) %>
   <% if show_cta %>
   <div>
-    <% if orderable? %>
+    <% if !hosted? %>
+      <%# Posted outside Switchboard: not orderable with escrow here. The author sees the republish path; the
+          rest of the world sees a disabled action with an honest reason. %>
+      <% if owner? %>
+        <div class="rounded-xl border border-copper-dim/40 bg-copper/5 p-4">
+          <div class="flex items-start gap-2.5">
+            <%= render Shared::Icon::IconComponent.new(name: "alert-02", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+            <div>
+              <p class="text-sm font-medium text-ink">Not published through Switchboard</p>
+              <p class="mt-1 text-sm leading-relaxed text-ink-secondary">
+                This listing was posted elsewhere, so buyers can't order it with escrow here. Republish it through Provider studio to make it orderable.
+              </p>
+            </div>
+          </div>
+          <div class="mt-4">
+            <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, tag: :a,
+              href: helpers.new_studio_listing_path, icon: "arrow-right-01") do %>Publish in Provider studio<% end %>
+          </div>
+        </div>
+      <% else %>
+        <div class="rounded-xl border border-border bg-inset p-4">
+          <div class="flex items-start gap-2.5">
+            <%= render Shared::Icon::IconComponent.new(name: "alert-02", size: :sm, color: "text-ink-muted", extra: "mt-0.5 shrink-0") %>
+            <p class="text-sm leading-relaxed text-ink-secondary">
+              This service was posted outside Switchboard, so it can't be ordered with escrow here. Only services published through Switchboard support escrow ordering.
+            </p>
+          </div>
+        </div>
+        <div class="mt-3">
+          <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, disabled: true, icon: "arrow-right-01") do %>Request this service<% end %>
+        </div>
+      <% end %>
+    <% elsif orderable? %>
       <form action="<%= helpers.orders_path %>" method="post" class="block">
         <input type="hidden" name="authenticity_token" value="<%= helpers.form_authenticity_token %>">
         <input type="hidden" name="order[coordinate]" value="<%= order_coordinate %>">
@@ -137,7 +169,7 @@
     <% else %>
       <%= render Shared::Button::ButtonComponent.new(variant: :primary, full: true, icon: "arrow-right-01") do %>Request this service<% end %>
     <% end %>
-    <% if request_note %>
+    <% if hosted? && request_note %>
       <p class="mt-3 text-xs leading-relaxed text-ink-muted"><%= request_note %></p>
     <% end %>
   </div>

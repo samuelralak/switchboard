@@ -33,6 +33,16 @@ module Orders
 			def funding_left
 				helpers.distance_of_time_in_words(Time.current, row.funding_deadline_at)
 			end
+
+			# Relative age for the row meta line (mirrors the provider inbox's "X ago").
+			def created
+				"#{helpers.time_ago_in_words(row.created_at)} ago"
+			end
+
+			# A short order reference (the leading chunk of the id) for the meta line.
+			def reference
+				row.id.to_s.first(8)
+			end
 		end
 	end
 end

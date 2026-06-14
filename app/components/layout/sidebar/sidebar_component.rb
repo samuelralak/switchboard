@@ -31,7 +31,7 @@ module Layout
 					{ label: "GitHub", href: REPO_URL, icon: "hgi-github-01", external: true },
 					{ label: "Contact", href: "https://njump.me/#{CONTACT_NPUB}", icon: "hgi-mail-01", external: true },
 					{ label: "Terms & privacy", href: helpers.terms_path, icon: "hgi-legal-document-01", external: false },
-					{ label: "Donate", href: helpers.donate_path, icon: "hgi-favourite", external: false }
+					{ label: "Donate", href: helpers.donate_path, icon: "hgi-favourite", external: false, accent: true }
 				]
 			end
 

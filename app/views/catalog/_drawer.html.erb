@@ -3,6 +3,6 @@
     unit. Shared by the page render (pages/home) and the Catalog::Ui::Update broadcast. %>
 <div id="service-drawer-<%= listing.dom_id %>-wrap">
   <%= render Shared::Drawer::DrawerComponent.new(title: listing.title, id: "service-drawer-#{listing.dom_id}") do %>
-    <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: listing) %>
+    <%= render Catalog::ServiceDetail::ServiceDetailComponent.new(listing: listing, viewer: current_user) %>
   <% end %>
 </div>

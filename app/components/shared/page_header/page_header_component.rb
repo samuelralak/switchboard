@@ -2,18 +2,19 @@
 
 module Shared
 	module PageHeader
-		# The standard heading block at the top of a page: an optional copper eyebrow,
-		# a required display title, and an optional muted subtitle. The spacing controls
-		# the wrapper element and its bottom margin:
-		#   :lg  <header class="mb-9">  (default, top-of-page sections)
-		#   :md  <div class="mb-6">     (tighter, in-panel sub-sections)
+		# The standard heading block at the top of a page: an optional copper eyebrow, a required display title,
+		# and an optional muted subtitle. Sized to match the site-wide compact header (the orders/messages
+		# pages) so authoring pages read consistently with the rest of the app. The spacing controls the
+		# wrapper element and its bottom margin:
+		#   :lg  <header class="mb-6">  (default, top-of-page sections)
+		#   :md  <div class="mb-6">     (in-panel sub-sections; same margin, non-landmark wrapper)
 		class PageHeaderComponent < ApplicationComponent
 			# An optional top-right action (a primary CTA on an index/management page); when absent the header
 			# renders title-only, exactly as before.
 			renders_one :action
 
 			SPACINGS = {
-				lg: { tag: :header, margin: "mb-9" },
+				lg: { tag: :header, margin: "mb-6" },
 				md: { tag: :div, margin: "mb-6" }
 			}.freeze
 
