@@ -22,8 +22,8 @@ function withTimeout(promise, message, ms = MINT_CALL_TIMEOUT) {
 
 // Tier-1 (HTLC) mint -> lock -> report. Returns { payload, token, preimage, lockedProofs }; payload matches
 // the Rails Orders::Funding contract (mint_url, hashlock, locktime, lock/refund pubkeys, proofs[{y,amount,
-// keyset_id}]). onInvoice(bolt11, quoteId) surfaces the invoice to pay; onStatus(stage) drives the UI;
-// signal cancels.
+// keyset_id}]). onInvoice(bolt11, quoteId, { total, fee }) surfaces the invoice + fee breakdown; onStatus(stage)
+// drives the UI; signal cancels.
 export async function mintLockAndReport({
   wallet, mintUrl, amount, providerPubkey, consumerRefundPubkey, locktime, orderId, onInvoice, onStatus, signal, backup,
 }) {
@@ -106,7 +106,8 @@ export async function reportFromSaved(wallet, saved) {
 //   - a quote already in flight (a reload before the mint): reuse the SAME invoice, never re-quote -- UNLESS it
 //     expired unpaid (then re-issue; a paid quote is never dropped, so a payment is never orphaned).
 //   - fresh: create the quote and persist it BEFORE the invoice is surfaced, so even a reload before payment resumes.
-// onInvoice(bolt11, quoteId) (re)surfaces the invoice; onStatus(stage) drives the UI; signal cancels.
+// onInvoice(bolt11, quoteId, { total, fee }) (re)surfaces the invoice and its fee breakdown; onStatus(stage)
+// drives the UI; signal cancels.
 async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onStatus, signal }) {
   await ensureMintSupports(wallet)
 
@@ -145,7 +146,11 @@ async function mintPaidProofs(wallet, amount, { orderId, mintUrl, onInvoice, onS
     await persistStage(orderId, { stage: "quote", quote: quoteId, request: bolt11, expiry, amount, mint: mintUrl, mintedProofs: existing })
   }
 
-  onInvoice?.(bolt11, quoteId) // (re)surface the invoice to pay
+  // Surface the invoice WITH its fee breakdown so the consumer sees why the total exceeds the order amount. Only
+  // a FRESH mint (no recovered proofs) splits cleanly into amount + fee; a top-up invoice covers a partial
+  // shortfall, not the whole order, so its fee is null and the UI shows just the total.
+  const fresh = existing.length === 0
+  onInvoice?.(bolt11, quoteId, { total: owed, fee: fresh ? owed - amount : null })
   await waitForPaid(wallet, quoteId, { expiry, onStatus, signal })
 
   onStatus?.("minting")

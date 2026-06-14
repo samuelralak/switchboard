@@ -7,6 +7,7 @@ import { ensureSignerFor } from "nostr/signer_store"
 export default class extends Controller {
   static targets = [
     "start", "panel", "status", "invoice", "qr", "bolt11", "error", "form",
+    "feeNote", "feeAmount", "feeTotal",
     "mintUrl", "locktime", "lockPubkey", "refundPubkey",
   ]
   static values = {
@@ -85,7 +86,7 @@ export default class extends Controller {
   // as a signer + the provider + the PLATFORM arbiter, no hashlock; tier-1 locks an HTLC to the provider.
   // me.pubkeyHex (the consumer ESCROW key) is both the 2-of-3 consumer signer and the timelock-refund key.
   async mintAndLock(funding, wallet, me, provider, locktime, signer, relays) {
-    const onInvoice = (bolt11) => this.showInvoice(bolt11)
+    const onInvoice = (bolt11, _quoteId, meta) => this.showInvoice(bolt11, meta)
     const onStatus = (stage) => this.setStatus(STATUS[stage] || stage)
     const backup = (proofs) => this.backupMinted(funding, signer, relays, proofs)
     const common = { wallet, mintUrl: this.mintValue, amount: this.amountValue, locktime, orderId: this.orderIdValue, onInvoice, onStatus, backup }
@@ -165,10 +166,28 @@ export default class extends Controller {
     this.formTarget.appendChild(input)
   }
 
-  showInvoice(bolt11) {
+  showInvoice(bolt11, meta) {
     this.invoiceTarget.classList.remove("hidden")
     this.bolt11Target.value = bolt11
     this.renderQr(bolt11)
+    this.showFeeBreakdown(meta)
+  }
+
+  // Make the mint fee explicit: the invoice is the order amount PLUS the mint's swap fee, so the consumer pays
+  // a little more than the escrow amount. Only shown when there is a real fee on a fresh fund (a free mint or a
+  // partial top-up has fee == 0/null, so the breakdown stays hidden and the invoice speaks for itself).
+  showFeeBreakdown(meta) {
+    if (!this.hasFeeNoteTarget) return
+
+    const fee = Number(meta?.fee ?? 0)
+    if (!(fee > 0)) {
+      this.feeNoteTarget.classList.add("hidden")
+      return
+    }
+
+    this.feeAmountTarget.textContent = fee.toLocaleString()
+    this.feeTotalTarget.textContent = Number(meta.total).toLocaleString()
+    this.feeNoteTarget.classList.remove("hidden")
   }
 
   // Render the invoice as a scannable QR (lazy-imported, self-hosted). Convenience only: a failure must never
