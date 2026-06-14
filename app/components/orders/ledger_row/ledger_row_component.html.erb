@@ -1,36 +1,25 @@
+<%# Consumer order row. Shares the selling row's visual language (card geometry, leading box, two-line layout,
+    borderless state chip, inline mono amount) but keeps its own data: a service icon, the capability, and the
+    funding countdown that is the consumer's one action. %>
 <a href="<%= order_path %>" <%= "aria-current=\"page\"".html_safe if selected? %>
-	class="group flex w-full items-center gap-4 rounded-2xl border p-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= selected? ? "border-border-strong bg-surface-2" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2" %>">
-	<div class="grid size-12 shrink-0 place-items-center rounded-lg border border-border bg-inset">
-		<%= render Shared::Icon::IconComponent.new(name: "package", color: "text-ink-faint") %>
+	class="group flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= selected? ? "border-border-strong bg-surface-2" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2" %>">
+	<div class="grid size-9 shrink-0 place-items-center rounded-lg border border-border bg-inset">
+		<%= render Shared::Icon::IconComponent.new(name: "package", size: :sm, color: "text-ink-faint") %>
 	</div>
 
 	<div class="min-w-0 flex-1">
-		<%# Title owns the first line so a long service name is never crushed by the status chip in the narrow
-		    hub column; it truncates on its own terms instead. %>
-		<h3 class="truncate font-display font-medium leading-snug tracking-tight text-ink transition-colors group-hover:text-copper"><%= row.title %></h3>
-		<%# Meta line: the status chip leads (color on the dot + text, neutral border, so a list scans calmly),
-		    then the capability, a thin-rule-separated order reference, and the age. Mono rides only on the data
-		    (capability + reference); chip label and age are prose, so they stay sans. %>
-		<div class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-faint">
-			<span class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 font-medium <%= status[:text] %>">
-				<span class="size-1.5 rounded-full <%= status[:lamp] %>" aria-hidden="true"></span><%= status[:label] %>
-			</span>
-			<% if row.cap.present? %>
-				<span class="font-mono text-ink-muted"><%= row.cap %></span>
-				<span class="inline-block h-2.5 w-px bg-border" aria-hidden="true"></span>
-			<% end %>
-			<span class="font-mono"><%= reference %></span>
-			<span class="inline-block h-2.5 w-px bg-border" aria-hidden="true"></span>
-			<span><%= created %></span>
+		<div class="flex items-center gap-2">
+			<h3 class="truncate text-sm font-medium text-ink transition-colors group-hover:text-copper"><%= row.title %></h3>
+			<%# Top-right: the funding deadline is the consumer's one action, so it leads in copper while awaiting;
+			    once funded the slot falls back to the order's age, mirroring the selling row's timestamp. %>
+			<span class="ml-auto shrink-0 text-xs <%= awaiting? ? "font-medium text-copper" : "text-ink-faint" %>"><%= awaiting? ? "fund in #{funding_left}" : created %></span>
 		</div>
-	</div>
-
-	<div class="flex shrink-0 flex-col items-end gap-1">
-		<%= render Shared::PriceTag::PriceTagComponent.new(amount: row.sats, suffix: "sat") %>
-		<%# Awaiting funding is the row's one actionable state, so the deadline reads in copper (prose, not mono).
-		    Width-capped so the long phrase wraps instead of starving the title/meta column on narrow screens. %>
-		<% if awaiting? %>
-			<span class="block max-w-28 text-right text-xs font-medium leading-tight text-copper">fund within <%= funding_left %></span>
-		<% end %>
+		<div class="mt-2 flex items-center gap-2">
+			<%= render Shared::Chip::ChipComponent.new(tone: status[:tone], label: status[:label]) %>
+			<% if row.cap.present? %>
+				<span class="truncate font-mono text-xs text-ink-faint"><%= row.cap %></span>
+			<% end %>
+			<span class="ml-auto shrink-0 font-mono text-xs tabular-nums text-ink-secondary"><%= number_with_delimiter(row.sats) %> <span class="text-ink-faint">sat</span></span>
+		</div>
 	</div>
 </a>

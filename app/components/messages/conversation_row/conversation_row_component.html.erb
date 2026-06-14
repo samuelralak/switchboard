@@ -1,13 +1,13 @@
 <a href="<%= href %>"
    <%= "aria-current=\"page\"".html_safe if selected? %>
-   class="flex gap-3 rounded-xl border px-3.5 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= selected? ? "border-border-strong bg-surface-2" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2" %>">
+   class="group flex gap-3 rounded-xl border px-3.5 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= selected? ? "border-border-strong bg-surface-2" : "border-border bg-surface hover:border-border-strong hover:bg-surface-2" %>">
   <%= render Shared::Avatar::AvatarComponent.new(seed: conversation.npub, size: 38, rounded: :lg) %>
   <div class="min-w-0 flex-1">
     <div class="flex items-center gap-2">
       <% if conversation.unread? %>
         <span class="size-1.5 shrink-0 rounded-full bg-copper" aria-hidden="true"></span>
       <% end %>
-      <span class="truncate text-sm <%= conversation.unread? ? "font-semibold text-ink" : "font-medium text-ink-secondary" %>"><%= conversation.service %></span>
+      <span class="truncate text-sm transition-colors group-hover:text-copper <%= conversation.unread? ? "font-semibold text-ink" : "font-medium text-ink-secondary" %>"><%= conversation.service %></span>
       <span class="ml-auto shrink-0 text-xs text-ink-faint"><%= conversation.created %></span>
     </div>
     <div class="mt-2 flex items-center gap-2">

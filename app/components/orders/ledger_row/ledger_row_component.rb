@@ -30,18 +30,20 @@ module Orders
 				row.state == Orders::States::AWAITING_FUNDING
 			end
 
+			# Compact time left to fund for the row's top-right slot ("2h" / "3d" / "45m"), matching the brevity
+			# of the selling row's timestamp; past-due reads "now".
 			def funding_left
-				helpers.distance_of_time_in_words(Time.current, row.funding_deadline_at)
+				seconds = (row.funding_deadline_at - Time.current).to_i
+				return "now" if seconds <= 0
+				return "#{seconds / 86_400}d" if seconds >= 86_400
+				return "#{seconds / 3_600}h" if seconds >= 3_600
+
+				"#{[ seconds / 60, 1 ].max}m"
 			end
 
-			# Relative age for the row meta line (mirrors the provider inbox's "X ago").
+			# Relative age for the row's top-right slot once funded (mirrors the provider inbox's "X ago").
 			def created
 				"#{helpers.time_ago_in_words(row.created_at)} ago"
-			end
-
-			# A short order reference (the leading chunk of the id) for the meta line.
-			def reference
-				row.id.to_s.first(8)
 			end
 		end
 	end
