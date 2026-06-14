@@ -27,7 +27,7 @@ gem "tailwindcss-rails", "~> 4.4"
 # Flexible form builder with full markup control [https://github.com/heartcombo/simple_form]
 gem "simple_form", "~> 5.4"
 # Reusable, testable, encapsulated view components [https://viewcomponent.org]
-gem "view_component", "~> 4.11"
+gem "view_component", "~> 4.12"
 # Render NIP-99 listing content (Markdown) to HTML; GFM, raw HTML escaped by default [https://github.com/gjtorikian/commonmarker]
 gem "commonmarker", "~> 2.8"
 
