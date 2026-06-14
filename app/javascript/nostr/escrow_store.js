@@ -1,8 +1,8 @@
 // Shared per-origin IndexedDB for browser-held escrow material (brief sec 6.3: never sent to the runtime).
 // One database, one version; add a store name here and bump VERSION when the schema grows.
 const DB_NAME = "switchboard"
-const VERSION = 1
-const STORES = [ "escrow_keys", "escrow_secrets" ]
+const VERSION = 2
+const STORES = [ "escrow_keys", "escrow_secrets", "escrow_payouts" ]
 
 function openDb() {
   return new Promise((resolve, reject) => {

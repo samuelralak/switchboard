@@ -65,4 +65,12 @@ class CashuEscrowTest < ApplicationSystemTestCase
 		assert_equal r["amount"], r["lockedTotal"], "the top-up must recover the partial mint and lock the full amount"
 		assert r["tokenOk"], "the recovered lock must produce a cashu token"
 	end
+
+	test "settlement captures the redeemed payout instead of discarding it" do
+		r = run_scenario("settlementCapturesPayout")
+		assert r["persisted"], "the redeemed proofs must be persisted, not dropped"
+		assert r["tokenOk"], "the payout must be surfaced as a valid cashu token"
+		assert r["spendable"], "the captured payout proofs must be unspent and spendable by the payee"
+		assert_operator r["amount"], :>, 0, "the payout must carry the redeemed sats"
+	end
 end

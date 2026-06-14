@@ -14,7 +14,7 @@ module Orders
 				@viewer = viewer
 			end
 
-			def render? = fund? || release? || settle? || redeem_after_ruling?
+			def render? = fund? || release? || settle? || redeem_after_ruling? || payout?
 
 			def fund? = awaiting? && consumer?
 			def release? = funded? && consumer?
@@ -29,6 +29,16 @@ module Orders
 			def dispute? = funded? && order.tier2? && party? && order.dispute.blank? && order.release.blank?
 			# After the operator rules, the favoured party completes the 2-of-3 spend with the arbiter's sig.
 			def redeem_after_ruling? = disputed? && order.tier2? && viewer.pubkey == ruling_winner_pubkey
+
+			# A SETTLED order's payee can re-surface and claim their payout token: the provider after a release, the
+			# consumer after a refund. The token lives client-side (the settlement controller fills the panel from a
+			# local or relay backup), so this branch just renders the claim surface for the right party.
+			def payout?
+				(released_terminal? && provider?) || (refunded_terminal? && consumer?)
+			end
+
+			# "released" or "refunded": the verb shown on the terminal payout panel.
+			def payout_verb = released_terminal? ? "released" : "refunded"
 
 			def relays_json = NostrClient.configuration.relays.to_json
 			# Gift-wraps (the delivered result) use the NIP-17 inbox relay set, matching the consumer result panel.
@@ -60,6 +70,8 @@ module Orders
 			def awaiting? = order.current_state == Orders::States::AWAITING_FUNDING
 			def funded? = order.current_state == Orders::States::FUNDED
 			def disputed? = order.current_state == Orders::States::DISPUTED
+			def released_terminal? = order.current_state == Orders::States::RELEASED
+			def refunded_terminal? = order.current_state == Orders::States::REFUNDED
 			def consumer? = viewer.pubkey == order.consumer_pubkey
 			def provider? = viewer.pubkey == order.provider_pubkey
 			def party? = consumer? || provider?

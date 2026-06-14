@@ -1,3 +1,4 @@
+import { getEncodedToken } from "@cashu/cashu-ts"
 import { ensureMintSupports, lockHtlc, lockP2PK2of3, topUpAmount, proofState } from "nostr/cashu_escrow"
 import { RelaySet } from "nostr/relay_set"
 import { buildRumor, wrapMessage, unwrap, Kind } from "nostr/nip17"
@@ -10,6 +11,7 @@ import { idbGet, idbPut } from "nostr/escrow_store"
 // locktime, P2PK pubkeys).
 
 const BACKUP_SUBJECT = "switchboard-escrow-backup"
+const PAYOUT_SUBJECT = "switchboard-escrow-payout"
 const FETCH_TIMEOUT = 4000
 const MINT_CALL_TIMEOUT = 20000
 
@@ -269,12 +271,107 @@ function sanitizeRecord(record) {
   return record
 }
 
+// --- the SETTLEMENT payout (the spendable proofs a redeem/refund produces) ---
+
+// Capture a settled payout so the payee NEVER loses it: the settlement swap mints fresh ecash whose random
+// secrets exist only in this proof set. Persist locally (mandatory -- the payee's primary claim material) and to
+// an encrypted self-DM on relays (best-effort cross-device backup), and return a copyable Cashu token. `kind` is
+// "released" (provider) or "refunded" (consumer). Uses its own idb store so it never clobbers the locked-order
+// record. The relay copy is best-effort: the settlement swap already happened and the token is held locally +
+// shown, so a relay outage must not fail an irreversible settlement.
+export async function keepPayout({ signer, ownPubkey, relays, orderId, mint, proofs, kind }) {
+  const clean = cleanProofs(proofs)
+  const amount = clean.reduce((sum, proof) => sum + Number(proof.amount), 0)
+  const record = { orderId, kind, mint, proofs: clean, amount, savedAt: Math.floor(Date.now() / 1000) }
+
+  // Persist the raw proofs FIRST. They carry random, seedless secrets that exist only here, so they are the
+  // irreplaceable claim material; every later step (token encoding, the relay backup) is best-effort and
+  // re-derivable from this record, and so must never run before -- or be able to discard -- the proofs.
+  await savePayout(record)
+
+  // Encode a copyable token and re-persist it. Best-effort: the token is re-derivable from { mint, proofs } on
+  // load, so an encode hiccup must not lose the already-saved proofs.
+  try {
+    record.token = encodePayoutToken(record)
+    await savePayout(record)
+  } catch {
+    // proofs are saved; loadPayout re-derives the token from { mint, proofs }
+  }
+
+  await backupPayoutToRelay(record, { signer, ownPubkey, relays })
+
+  return { token: record.token ?? null, amount }
+}
+
+// Encode a payout record's proofs as a copyable "cashuB..." token the payee can redeem at the mint anywhere.
+function encodePayoutToken({ mint, proofs }) {
+  return getEncodedToken({ mint, unit: "sat", proofs })
+}
+
+// Ensure a payout record carries a token, re-deriving it from { mint, proofs } when a prior encode did not
+// persist one, so a saved/restored payout always surfaces a claimable token. Returns the record (or null).
+function withDerivedToken(record) {
+  if (!record) return null
+  if (record.token || !record.mint || !Array.isArray(record.proofs)) return record
+
+  try {
+    record.token = encodePayoutToken(record)
+  } catch {
+    // leave the token absent; the proofs stay in the record for manual recovery
+  }
+
+  return record
+}
+
+// Best-effort persist of a payout to its own idb store. Never throws: a storage failure (quota, private mode)
+// after an irreversible settlement must not abort -- the returned token + the relay backup remain claim paths.
+async function savePayout(record) {
+  try {
+    await idbPut("escrow_payouts", record.orderId, record)
+  } catch {
+    // ignore; the surfaced token + the relay backup still carry the payout
+  }
+}
+
+// Best-effort encrypted self-DM backup of a payout to relays (cross-device recovery). Never throws: the swap
+// already happened and the token is held locally + shown, so a relay outage must not fail a settlement.
+async function backupPayoutToRelay(record, { signer, ownPubkey, relays }) {
+  try {
+    const rumor = buildRumor({ authorPubkey: ownPubkey, content: JSON.stringify(record), recipients: [ ownPubkey ], subject: PAYOUT_SUBJECT })
+    const { toSelf } = await wrapMessage(rumor, signer, ownPubkey)
+    const set = new RelaySet(relays, { signer })
+
+    try {
+      await set.publishToMany(toSelf)
+    } finally {
+      set.close()
+    }
+  } catch {
+    // the local copy + the surfaced token remain the payee's claim path
+  }
+}
+
+// The payee's locally-saved payout for an order, or null (token re-derived if a prior encode did not save one).
+export async function loadPayout(orderId) {
+  return withDerivedToken(await idbGet("escrow_payouts", orderId))
+}
+
+// Disaster recovery: the payout from the encrypted self-DM backup on relays, or null.
+export async function restorePayoutFromRelay({ signer, ownPubkey, relays, orderId }) {
+  return withDerivedToken(await restoreFromRelay({ signer, ownPubkey, relays, orderId, subject: PAYOUT_SUBJECT }))
+}
+
 // Disaster recovery: the order's unlock material from the encrypted self-DM backup on relays, or null.
-// The backup is a SELF-DM, so accept ONLY a wrap THIS signer's own key authored (unwrap authenticates
-// rumor.pubkey as the verified seal signer, so an attacker cannot forge one as ownPubkey) carrying the
-// backup subject. Anyone can gift-wrap a forged {orderId, proofs} p-tagged to ownPubkey; without the
-// self-author + subject pin a losing party could plant bogus proofs and disable the winner's recovery.
-export async function restoreSecretsFromRelay({ signer, ownPubkey, relays, orderId }) {
+export function restoreSecretsFromRelay({ signer, ownPubkey, relays, orderId }) {
+  return restoreFromRelay({ signer, ownPubkey, relays, orderId, subject: BACKUP_SUBJECT })
+}
+
+// Read a self-DM backup for `orderId` carrying `subject`, or null. The backup is a SELF-DM, so accept ONLY a
+// wrap THIS signer's own key authored (unwrap authenticates rumor.pubkey as the verified seal signer, so an
+// attacker cannot forge one as ownPubkey) carrying the expected subject. Anyone can gift-wrap a forged record
+// p-tagged to ownPubkey; without the self-author + subject pin a losing party could plant bogus data and
+// disable the winner's recovery.
+async function restoreFromRelay({ signer, ownPubkey, relays, orderId, subject }) {
   const set = new RelaySet(relays, { signer })
 
   try {
@@ -282,12 +379,12 @@ export async function restoreSecretsFromRelay({ signer, ownPubkey, relays, order
       try {
         const rumor = await unwrap(wrap, signer)
         if (rumor.pubkey !== ownPubkey) continue
-        if (!rumor.tags.some(([ key, value ]) => key === "subject" && value === BACKUP_SUBJECT)) continue
+        if (!rumor.tags.some(([ key, value ]) => key === "subject" && value === subject)) continue
 
         const record = JSON.parse(rumor.content)
         if (record.orderId === orderId) return record
       } catch {
-        // skip a wrap this signer cannot read or that is not an escrow backup
+        // skip a wrap this signer cannot read or that is not for this subject
       }
     }
 

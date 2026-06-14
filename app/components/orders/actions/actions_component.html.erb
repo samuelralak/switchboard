@@ -85,6 +85,8 @@
 						data: { settlement_target: "refund", action: "settlement#refund" }) do %>Refund<% end %>
 				</div>
 			<% end %>
+			<%= render Orders::Payout::PayoutComponent.new %>
+
 			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
 			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
 		</div>
@@ -143,6 +145,8 @@
 				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
 					data: { settlement_target: "redeem", action: "settlement#redeem" }) do %>Redeem<% end %>
 			</div>
+			<%= render Orders::Payout::PayoutComponent.new %>
+
 			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
 			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
 		</div>
@@ -168,6 +172,34 @@
 			<div class="mt-4">
 				<%= render Shared::Button::ButtonComponent.new(variant: :primary, icon: "arrow-right-01",
 					data: { settlement_target: "disputeRedeem", action: "settlement#disputeRedeem" }) do %>Claim with arbiter co-signature<% end %>
+			</div>
+			<%= render Orders::Payout::PayoutComponent.new %>
+
+			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
+			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>
+		</div>
+	<% elsif payout? %>
+		<%# Terminal order: re-surface the payee's claimable payout. The settlement controller fills it from the
+		    local copy on connect, or restores it from the encrypted relay backup on a fresh device. %>
+		<div data-controller="settlement"
+			data-settlement-order-id-value="<%= order.id %>"
+			data-settlement-mint-value="<%= order.mint_url %>"
+			data-settlement-relays-value="<%= relays_json %>"
+			data-settlement-own-value="<%= viewer.pubkey %>"
+			data-settlement-peer-value="<%= viewer.pubkey == order.provider_pubkey ? order.consumer_pubkey : order.provider_pubkey %>"
+			data-settlement-tier-value="<%= order.tier %>">
+			<div class="flex items-start gap-2">
+				<%= render Shared::Icon::IconComponent.new(name: "coins-01", size: :sm, color: "text-copper", extra: "mt-0.5 shrink-0") %>
+				<p class="text-sm leading-relaxed text-ink-secondary">
+					This order <%= payout_verb %> to you. Claim your payout below, or restore it from your relay backup on a new device.
+				</p>
+			</div>
+
+			<%= render Orders::Payout::PayoutComponent.new %>
+
+			<div class="mt-3">
+				<%= render Shared::Button::ButtonComponent.new(variant: :ghost, size: :sm, icon: "refresh",
+					data: { settlement_target: "restore", action: "settlement#restore" }) do %>Restore from backup<% end %>
 			</div>
 			<p data-settlement-target="status" role="status" class="mt-3 text-sm text-ink-secondary"></p>
 			<p data-settlement-target="error" role="alert" class="mt-3 hidden text-sm text-lamp-fault"></p>

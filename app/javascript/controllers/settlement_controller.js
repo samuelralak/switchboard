@@ -6,11 +6,24 @@ import { ensureSignerFor } from "nostr/signer_store"
 // consumer reveals. All crypto + keys stay in the browser (brief sec 6.3); Rails learns the outcome from
 // the mint via the reconcile sweep, which broadcasts the new state back to this page.
 export default class extends Controller {
-  static targets = [ "release", "refund", "verify", "redeem", "disputeRedeem", "status", "error" ]
+  static targets = [
+    "release", "refund", "verify", "redeem", "disputeRedeem", "restore",
+    "status", "error", "payout", "payoutToken", "payoutAmount",
+  ]
   static values = {
     orderId: String, mint: String, relays: String, own: String, peer: String,
     locktime: Number, amount: Number, hashlock: String, lockPubkey: String, settleUrl: String, releaseUrl: String,
     tier: String, arbiterPubkey: String, arbiterUrl: String,
+  }
+
+  // Re-surface a payout already saved on this device (after a reload, or on the settled order page) so the payee
+  // can always re-copy their claimable token without re-settling.
+  async connect() {
+    if (!this.hasPayoutTarget) return
+
+    const { loadPayout } = await import("nostr/order_funding")
+    const payout = await loadPayout(this.orderIdValue)
+    if (payout?.token) this.showPayout(payout)
   }
 
   release() { this.run(this.releaseTarget, () => this.doRelease()) }
@@ -18,6 +31,7 @@ export default class extends Controller {
   verify() { this.run(this.verifyTarget, () => this.doVerify()) }
   redeem() { this.run(this.redeemTarget, () => this.doRedeem()) }
   disputeRedeem() { this.run(this.disputeRedeemTarget, () => this.doDisputeRedeem()) }
+  restore() { this.run(this.restoreTarget, () => this.doRestorePayout()) }
 
   get isTier2() { return this.tierValue === TIER2_ARBITER }
 
@@ -79,10 +93,11 @@ export default class extends Controller {
     if (!saved?.token) throw new Error("Your escrow token could not be found or restored on this device.")
 
     const { refundExpired } = await import("nostr/order_settlement")
-    await refundExpired({ wallet: await this.wallet(), token: saved.token, refundPrivkey: (await this.identity()).privkeyHex })
+    const settled = await refundExpired({ wallet: await this.wallet(), token: saved.token, refundPrivkey: (await this.identity()).privkeyHex })
+    await this.keepPayout(settled.proofs, "refunded") // CAPTURE the refunded ecash before anything else; it is the consumer's money
     await this.settle() // the proofs are now spent at the mint; have Rails register the refund now
 
-    this.setStatus("Refund claimed. This order is settling to refunded.")
+    this.setStatus("Refund claimed. Your payout is below.")
     return "latch"
   }
 
@@ -130,11 +145,12 @@ export default class extends Controller {
     if (!(await this.allUnspent(wallet, delivery.proofs))) return this.alreadySettled()
 
     const { redeemDelivered } = await import("nostr/order_settlement")
-    await redeemDelivered({ wallet, proofs: delivery.proofs,
+    const settled = await redeemDelivered({ wallet, proofs: delivery.proofs,
       preimage: reveal.data.preimage, providerPrivkey: (await this.identity()).privkeyHex })
+    await this.keepPayout(settled.proofs, "released") // CAPTURE the redeemed ecash before anything else; it is the provider's money
     await this.settle() // the proofs are now spent at the mint; have Rails register the release now
 
-    this.setStatus("Redeemed. The budget is yours; this order is settling to released.")
+    this.setStatus("Redeemed. Your payout is below.")
     return "latch"
   }
 
@@ -149,10 +165,11 @@ export default class extends Controller {
 
     const { partySign, redeemTier2 } = await import("nostr/order_settlement")
     const signed = partySign({ proofs: cosign.data.proofs, privkey: (await this.identity()).privkeyHex })
-    await redeemTier2({ wallet, signedProofs: signed })
+    const settled = await redeemTier2({ wallet, signedProofs: signed })
+    await this.keepPayout(settled.proofs, "released") // CAPTURE the redeemed ecash before anything else
     await this.settle()
 
-    this.setStatus("Redeemed with the consumer's co-signature. The budget is yours; settling to released.")
+    this.setStatus("Redeemed with the consumer's co-signature. Your payout is below.")
     return "latch"
   }
 
@@ -168,10 +185,11 @@ export default class extends Controller {
     const { partySign, applyArbiterSignatures, redeemTier2 } = await import("nostr/order_settlement")
     const signed = partySign({ proofs, privkey: (await this.identity()).privkeyHex })
     const arbiterSigs = await this.fetchArbiterSignatures(proofs.map((proof) => proof.secret))
-    await redeemTier2({ wallet, signedProofs: applyArbiterSignatures(signed, arbiterSigs) })
+    const settled = await redeemTier2({ wallet, signedProofs: applyArbiterSignatures(signed, arbiterSigs) })
+    await this.keepPayout(settled.proofs, "released") // CAPTURE the redeemed ecash before anything else
     await this.settle()
 
-    this.setStatus("Redeemed with the platform arbiter's co-signature; this order is settling.")
+    this.setStatus("Redeemed with the platform arbiter's co-signature. Your payout is below.")
     return "latch"
   }
 
@@ -217,6 +235,43 @@ export default class extends Controller {
     await this.settle()
     this.setStatus("Already settled at the mint. This order is reconciling.")
     return "latch"
+  }
+
+  // --- payout: the redeemed/refunded ecash is the payee's money; capture, back up, and surface it ---
+
+  // Persist + back up the freshly settled proofs and surface a claimable token. Called the instant a redeem or
+  // refund returns its proofs -- they carry random, un-derivable secrets, so dropping them would burn the funds.
+  async keepPayout(proofs, kind) {
+    const { keepPayout } = await import("nostr/order_funding")
+    const payout = await keepPayout({
+      signer: await this.signer(), ownPubkey: this.ownValue, relays: this.relays(),
+      orderId: this.orderIdValue, mint: this.mintValue, proofs, kind,
+    })
+    this.showPayout(payout)
+  }
+
+  // Cross-device recovery: restore the payout token from the encrypted relay backup when local state is gone.
+  async doRestorePayout() {
+    const { restorePayoutFromRelay } = await import("nostr/order_funding")
+    const payout = await restorePayoutFromRelay({ signer: await this.signer(), ownPubkey: this.ownValue, relays: this.relays(), orderId: this.orderIdValue })
+    if (!payout?.token) throw new Error("No payout backup was found for this order on your relays.")
+
+    this.showPayout(payout)
+    this.setStatus("Payout restored from your relay backup.")
+    return "latch"
+  }
+
+  // Reveal the payout panel with the claimable token + amount (idempotent; safe to call again on reload).
+  showPayout({ token, amount }) {
+    if (!this.hasPayoutTarget || !token) return
+
+    this.payoutTokenTarget.value = token
+    if (this.hasPayoutAmountTarget) this.payoutAmountTarget.textContent = String(amount ?? "")
+    this.payoutTarget.classList.remove("hidden")
+  }
+
+  copyPayout() {
+    navigator.clipboard?.writeText(this.payoutTokenTarget.value)
   }
 
   // Ask Rails to re-derive the order's state from the mint now (post-spend), so settlement registers

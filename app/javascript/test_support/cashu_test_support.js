@@ -288,6 +288,38 @@ const scenarios = {
     return { lockedTotal: totalOf(payload.proofs), amount, proofCount: payload.proofs.length, tokenOk: /^cashu/.test(token) }
   },
 
+  // Payout capture regression (the critical fund-loss fix): after a redeem, the fresh proofs MUST be captured,
+  // persisted, and surfaced -- not discarded. Lock -> redeem -> keepPayout, then confirm the payout is saved,
+  // is a valid Cashu token, and the captured proofs are UNSPENT (genuinely spendable by the payee).
+  async settlementCapturesPayout(mint) {
+    const consumer = new Wallet(mint, { unit: "sat" }), provider = new Wallet(mint, { unit: "sat" })
+    await escrow.ensureMintSupports(consumer)
+    await escrow.ensureMintSupports(provider)
+    const providerKp = newKeypair(), consumerKp = newKeypair()
+    const orderId = `payout-${toHex(createRandomSecretKey())}`
+
+    const proofs = await mintTestSats(consumer, 64)
+    const lock = await escrow.lockHtlc({ wallet: consumer, amount: 64, proofs,
+      providerPubkey: providerKp.pkHex, consumerRefundPubkey: consumerKp.pkHex, locktime: Math.floor(Date.now() / 1000) + 3600 })
+
+    // Provider redeems, then CAPTURES the payout exactly as the settlement controller now does.
+    const redeemed = await escrow.redeemWithPreimage({ wallet: provider, lockedProofs: lock.lockedProofs,
+      preimage: lock.preimage, providerPrivkey: providerKp.skHex })
+    const { NsecSigner } = await import("nostr/signer")
+    const signer = NsecSigner.fromHex(providerKp.skHex)
+    await orderFunding.keepPayout({ signer, ownPubkey: signer.getPublicKey(), relays: [], orderId, mint, proofs: redeemed.proofs, kind: "released" })
+
+    const payout = await orderFunding.loadPayout(orderId)
+    const states = await escrow.proofState({ wallet: provider, proofs: payout?.proofs ?? [] })
+
+    return {
+      persisted: !!payout?.token,
+      tokenOk: /^cashu/.test(payout?.token || ""),
+      amount: payout?.amount,
+      spendable: states.length > 0 && states.every((s) => s.state === "UNSPENT"),
+    }
+  },
+
   // Drive the consumer refund path through order_settlement.refundExpired against a past-locktime lock,
   // confirming the wrapper reclaims the budget and the locked proofs end SPENT.
   async settlementRefund(mint) {

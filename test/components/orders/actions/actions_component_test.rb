@@ -132,12 +132,27 @@ module Orders
 				assert_no_selector "[data-controller]"
 			end
 
-			test "a terminal order shows no actions to either party" do
+			test "a refunded order lets the consumer claim the payout and shows the provider nothing" do
 				order = funded(build_order)
 				order.state_machine.transition_to!(Orders::States::REFUNDED)
 
 				render_inline(ActionsComponent.new(order:, viewer: viewer(order.consumer_pubkey)))
+				assert_selector "[data-controller='settlement']"
+				assert_text "Claim your payout"
 
+				render_inline(ActionsComponent.new(order:, viewer: viewer(order.provider_pubkey)))
+				assert_no_selector "[data-controller]"
+			end
+
+			test "a released order lets the provider claim the payout and shows the consumer nothing" do
+				order = funded(build_order)
+				order.state_machine.transition_to!(Orders::States::RELEASED)
+
+				render_inline(ActionsComponent.new(order:, viewer: viewer(order.provider_pubkey)))
+				assert_selector "[data-controller='settlement']"
+				assert_text "Claim your payout"
+
+				render_inline(ActionsComponent.new(order:, viewer: viewer(order.consumer_pubkey)))
 				assert_no_selector "[data-controller]"
 			end
 
