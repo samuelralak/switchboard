@@ -1,3 +1,8 @@
-<span class="inline-flex shrink-0 items-center gap-1 rounded-full border border-copper-dim/40 bg-copper/10 px-2 py-0.5 text-xs font-medium text-copper">
-  <i class="hgi-stroke hgi-checkmark-circle-02 text-xs" aria-hidden="true"></i><%= label %>
+<%# Verified mark for detail/preview contexts: a small filled copper shield (the house trust glyph). No %>
+<%# checkmark, no visible text; the meaning rides the title attr + sr-only label. Cards use the edge spine. %>
+<span class="inline-flex shrink-0 items-center text-copper" title="<%= label %>">
+  <svg viewBox="0 0 24 24" class="size-4 fill-current" aria-hidden="true" focusable="false">
+    <path d="M12 2.5 5 5v6c0 4.2 2.9 7.4 7 8.9 4.1-1.5 7-4.7 7-8.9V5l-7-2.5Z" />
+  </svg>
+  <span class="sr-only"><%= label %></span>
 </span>

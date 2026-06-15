@@ -10,7 +10,13 @@
         data-attested="<%= request.attested? %>"
         data-price="<%= budget_value %>"
         data-created="<%= created_at %>"
-        class="group flex w-full items-start gap-4 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-border-strong hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+        class="group relative flex w-full items-start gap-4 rounded-2xl border bg-surface p-4 text-left transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas <%= request.attested? ? "border-border-strong hover:border-copper-dim" : "border-border hover:border-border-strong" %>">
+  <% if request.attested? %>
+    <%# Verified: a quiet copper spine on the leading edge (reuses the nav-rail "canonical one" gesture). %>
+    <span class="pointer-events-none absolute inset-y-3 left-0 w-0.5 rounded-r-full bg-copper-dim transition-colors group-hover:bg-copper">
+      <span class="sr-only">Posted on Switchboard</span>
+    </span>
+  <% end %>
   <% if image.present? %>
     <img src="<%= image %>" alt="" loading="lazy"
          data-controller="image-fallback" data-action="error->image-fallback#failed"
@@ -25,7 +31,6 @@
     <div class="flex items-center gap-2.5">
       <h3 class="truncate font-display font-medium leading-snug tracking-tight text-ink transition-colors group-hover:text-copper"><%= title %></h3>
       <span class="shrink-0"><%= render Shared::Chip::ChipComponent.new(tone: :live, label: "open") %></span>
-      <%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: request.attested?, label: "Posted on Switchboard") %>
     </div>
     <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
       <% if capability.present? %><span class="font-mono text-ink-faint"><%= capability %></span><% end %>

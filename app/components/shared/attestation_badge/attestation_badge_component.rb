@@ -2,9 +2,9 @@
 
 module Shared
 	module AttestationBadge
-		# The platform-attestation trust badge ("Listed on Switchboard" for a service, "Posted on Switchboard"
-		# for a request), shown on a kind-30402 the hosted platform has vouched for. Renders nothing unless the
-		# item is attested, so callers can render it unconditionally.
+		# The platform-attestation verified mark: a small copper shield shown inline on detail pages and the
+		# settings previews for a kind-30402 the platform has vouched for (`label` names it for AT/hover). Cards
+		# use the copper edge spine instead. Renders nothing unless attested, so callers stay unconditional.
 		class AttestationBadgeComponent < ApplicationComponent
 			attr_reader :label
 
