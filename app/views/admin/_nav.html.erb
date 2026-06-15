@@ -1,0 +1,8 @@
+<%# Operator surface sub-nav. The admin pages are otherwise URL-only; this links them so an operator who reaches
+    one can reach the rest. %>
+<nav class="mx-auto mb-6 flex max-w-3xl items-center gap-6 border-b border-border text-sm">
+  <% [["Disputes", admin_disputes_path], ["Flagged", admin_flags_path], ["Settings", admin_settings_path]].each do |label, path| %>
+    <% active = current_page?(path) %>
+    <%= link_to label, path, class: "-mb-px border-b-2 pb-2 font-medium transition-colors #{active ? "border-copper text-ink" : "border-transparent text-ink-muted hover:text-ink"}" %>
+  <% end %>
+</nav>

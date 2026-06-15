@@ -12,10 +12,17 @@ module Attestation
 	# validate in prod. Mirrors the listing marker scheme.
 	NAMESPACE_BASE = "switchboard"
 
-	# Catalog policies: how the catalog treats attestation. off disables the feature; badge shows every listing
-	# and marks the attested ones; exclude surfaces only attested listings.
+	# Catalog policies: the operator's DEFAULT catalog view (a viewer can override it per Attestation::VIEWS).
+	# off disables the feature (no badges, no filter); badge defaults visitors to seeing everything (attested
+	# items badged); exclude defaults them to verified-only. Defaults to exclude (fail closed: vouched-for items
+	# first), overridable per-deploy via ENV and at runtime by the operator (AttestationSetting precedence).
 	POLICIES       = %w[off badge exclude].freeze
-	DEFAULT_POLICY = "badge"
+	DEFAULT_POLICY = "exclude"
+
+	# A viewer's catalog view: all listings, or only platform-attested ones. The operator policy sets the
+	# default (badge -> all, exclude -> verified); each viewer can override it (Attestation::Policy.default_view,
+	# the on-catalog filter, and the saved per-account preference).
+	VIEWS = %w[all verified].freeze
 
 	# The issuing key, read from ENV: a dedicated attestation key, or R_op as the fallback (reuse the platform's
 	# existing operational identity). Touched only by Attestation::IssuerIdentity.

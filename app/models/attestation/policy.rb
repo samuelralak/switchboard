@@ -13,8 +13,14 @@ module Attestation
 			Rails.application.config.x.attestation
 		end
 
-		# off | badge | exclude. An unset/unknown value falls back to the default.
+		# off | badge | exclude, resolved at request time with precedence: the operator's persisted choice
+		# (AttestationSetting) wins, then the ENV/boot value, then the default. Read live (not memoized) so an
+		# operator toggle takes effect on the next request; the single-row read is trivial and the ActiveRecord
+		# query cache serves the repeated reads within one request, so it is not worth a request-scoped memo.
 		def policy
+			stored = AttestationSetting.policy
+			return stored if POLICIES.include?(stored.to_s)
+
 			raw = config.policy.to_s
 			POLICIES.include?(raw) ? raw : DEFAULT_POLICY
 		end
@@ -64,12 +70,10 @@ module Attestation
 			!off? && Issuer.configured?
 		end
 
-		# Should a listing be surfaced in the catalog given the policy? Always under off/badge; only when
-		# attested under exclude. Keeps the policy decision here rather than in the broadcast service.
-		def surfaceable?(listing)
-			return true unless enabled? && exclude?
-
-			listing.attested?
+		# The operator's default catalog view (a viewer can override it; see Attestation::VIEWS). exclude defaults
+		# to verified-only, anything else to all. Only meaningful when enabled?.
+		def default_view
+			exclude? ? "verified" : "all"
 		end
 
 		# Does the listing event carry a current, issuer-signed attestation? Strict on the event id (the e-tag),

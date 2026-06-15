@@ -89,4 +89,7 @@
   .markdown table { @apply mb-3 w-full border-collapse text-left text-xs; }
   .markdown th, .markdown td { @apply border-b border-border px-2 py-1.5; }
   .markdown th { @apply font-medium text-ink; }
+
+  /* Pre-hide unattested cards when verified, so there's no flash before the catalog controller connects. */
+  .catalog-verified-cloak [data-attested="false"] { @apply hidden; }
 }

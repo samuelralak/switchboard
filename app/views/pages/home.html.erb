@@ -3,7 +3,11 @@
 <%= turbo_stream_from @catalog.stream %>
 <%= turbo_stream_from @board.stream %>
 
+<%# Pre-hide unattested cards (CSS) when verified, so there's no flash before the controller connects. %>
 <section data-controller="catalog" data-catalog-mode-value="all"
+         data-catalog-attestation-value="<%= @catalog_view %>"
+         <% if signed_in? %>data-catalog-attestation-persist-url-value="<%= settings_browsing_path %>"<% end %>
+         class="<%= "catalog-verified-cloak" if @catalog_view == "verified" %>"
          data-action="keydown@window->catalog#focusSearch">
   <%# Hero + intent search %>
   <div class="mx-auto mb-7 max-w-4xl text-center">
@@ -78,6 +82,18 @@
         </nav>
 
         <div class="flex flex-wrap items-center justify-end gap-2 sm:ml-auto sm:flex-nowrap sm:pb-2">
+          <%# Per-viewer attestation filter (All vs platform-Verified). Shown only when attestation is on; the
+              operator policy sets the default, each viewer overrides it (remembered locally + per account). %>
+          <% if @attestation_filter %>
+            <div role="group" aria-label="Filter by platform verification" class="inline-flex h-10 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 sm:h-9">
+              <button type="button" data-catalog-target="attestationButton" data-attestation="all" data-action="catalog#setAttestation" aria-pressed="<%= @catalog_view == "all" %>"
+                      class="h-8 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-7 <%= @catalog_view == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>">All</button>
+              <button type="button" data-catalog-target="attestationButton" data-attestation="verified" data-action="catalog#setAttestation" aria-pressed="<%= @catalog_view == "verified" %>"
+                      class="flex h-8 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-7 <%= @catalog_view == "verified" ? "bg-surface-2 text-ink" : "text-ink-muted" %>">
+                <i class="hgi-stroke hgi-checkmark-circle-02 text-xs <%= @catalog_view == "verified" ? "text-copper" : "text-ink-muted" %>" aria-hidden="true"></i>Verified
+              </button>
+            </div>
+          <% end %>
           <el-dropdown class="relative">
             <button type="button" class="inline-flex h-10 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-ink-secondary transition-colors hover:border-border-strong hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-9">
               Sort: <span data-catalog-target="sortLabel" class="text-ink">Newest</span>
@@ -93,7 +109,7 @@
           <%# Fulfillment mode applies to services only; hidden on the Open-requests lens. %>
           <div data-catalog-target="modeFilter" class="inline-flex h-10 items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 sm:h-9">
             <% [["all", "All"], ["automated", "Automated"], ["manual", "Human"]].each do |value, label| %>
-              <button type="button" data-catalog-target="modeButton" data-mode="<%= value %>" data-action="catalog#setMode"
+              <button type="button" data-catalog-target="modeButton" data-mode="<%= value %>" data-action="catalog#setMode" aria-pressed="<%= value == "all" %>"
                       class="h-8 rounded-md px-3.5 text-sm font-medium transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright focus-visible:ring-offset-2 focus-visible:ring-offset-canvas sm:h-7 <%= value == "all" ? "bg-surface-2 text-ink" : "text-ink-muted" %>"><%= label %></button>
             <% end %>
           </div>
@@ -119,6 +135,23 @@
       <%= render Shared::EmptyState::EmptyStateComponent.new(
             title: "No open requests here", body: "Nothing matches, or none posted yet. Post one the catalog doesn't cover.", icon: "sent") %>
     </div>
+
+    <%# Filter-aware empty state: shown when the Verified filter hides everything in the active lens but the All
+        view has more. Distinguishes "nothing here" from "you are only viewing verified" and offers a way out. %>
+    <% if @attestation_filter %>
+      <div data-catalog-target="verifiedEmpty" data-view="service" hidden class="mt-2">
+        <%= render Shared::EmptyState::EmptyStateComponent.new(
+              title: "No verified services yet", body: "You're viewing platform-verified listings only. Switch to All to see everything on the marketplace.", icon: "checkmark-circle-02") do %>
+          <%= render Shared::Button::ButtonComponent.new(variant: :primary, size: :sm, data: { action: "catalog#setAttestation", attestation: "all" }) do %>Show all listings<% end %>
+        <% end %>
+      </div>
+      <div data-catalog-target="verifiedEmpty" data-view="request" hidden class="mt-2">
+        <%= render Shared::EmptyState::EmptyStateComponent.new(
+              title: "No verified requests yet", body: "You're viewing platform-verified requests only. Switch to All to see everything on the board.", icon: "checkmark-circle-02") do %>
+          <%= render Shared::Button::ButtonComponent.new(variant: :primary, size: :sm, data: { action: "catalog#setAttestation", attestation: "all" }) do %>Show all requests<% end %>
+        <% end %>
+      </div>
+    <% end %>
   </div>
 
   <%# Detail drawers (one per card), opened via commandfor. A live broadcast appends a newly-arrived

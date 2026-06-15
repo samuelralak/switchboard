@@ -13,6 +13,9 @@ class User < ApplicationRecord
 	# Uniqueness is enforced by the DB unique index, not a (racy) model validation.
 	validates :pubkey, presence: true, format: { with: Events::Kinds::HEX64 }
 	validates :first_seen_at, presence: true
+	# Saved catalog view (Attestation::VIEWS), or nil to follow the operator default. A local preference, not
+	# projected from kind-0.
+	validates :catalog_view, inclusion: { in: Attestation::VIEWS }, allow_nil: true
 	validate :external_identities_is_array
 
 	# Decode an npub to its hex pubkey, or nil when it is not a valid npub (rejects nsec/naddr/malformed). The

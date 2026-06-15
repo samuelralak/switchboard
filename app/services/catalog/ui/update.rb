@@ -11,8 +11,7 @@ module Catalog
 				card = State.card(event:)
 
 				if visible.nil?
-					live = card.listing.active? && !User.flagged?(event.pubkey)
-					visible = live && Attestation::Policy.surfaceable?(card.listing)
+					visible = card.listing.active? && !User.flagged?(event.pubkey)
 				end
 
 				Shared::CardBroadcast.call(card:, visible:)

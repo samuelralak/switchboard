@@ -73,5 +73,18 @@ module Catalog
 
 			assert_equal [ "Clean service" ], Catalog::Search.call.map(&:title)
 		end
+
+		test "returns all listings and tags only the attested ones (a per-viewer filter, not a server cut)" do
+			attested = build_event(title: "Vetted", d: "vetted", extra_tags: [ [ "t", Catalog::Listing.marker ] ])
+			build_event(title: "Unvetted", d: "unvetted", extra_tags: [ [ "t", Catalog::Listing.marker ] ])
+			Attestation::Issue.call(event: attested, manager: fake_manager)
+
+			results = Catalog::Search.call
+
+			assert_equal %w[Unvetted Vetted].sort, results.map(&:title).sort, "both listings still surface server-side"
+			by_title = results.index_by(&:title)
+			assert by_title["Vetted"].attested?, "the labelled listing is tagged attested"
+			assert_not by_title["Unvetted"].attested?, "the unlabelled listing is not"
+		end
 	end
 end

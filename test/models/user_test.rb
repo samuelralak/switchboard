@@ -39,6 +39,28 @@ class UserTest < ActiveSupport::TestCase
 		assert_match(/\Anpub1[0-9a-z]+\z/, User.new(pubkey: SecureRandom.hex(32)).npub)
 	end
 
+	test "catalog_view accepts nil or a known view and rejects others" do
+		base = { pubkey: SecureRandom.hex(32), first_seen_at: Time.current }
+
+		assert User.new(**base, catalog_view: nil).valid?
+		assert User.new(**base, catalog_view: "all").valid?
+		assert User.new(**base, catalog_view: "verified").valid?
+		assert_not User.new(**base, catalog_view: "bogus").valid?
+	end
+
+	test "catalog_view survives a kind-0 re-projection" do
+		pubkey = SecureRandom.hex(32)
+		user = User.create!(pubkey:, first_seen_at: Time.current, catalog_view: "all")
+
+		Users::Upsert.call(event_data: {
+			"id" => SecureRandom.hex(32), "pubkey" => pubkey, "created_at" => Time.current.to_i,
+			"kind" => 0, "content" => { "name" => "alice" }.to_json, "tags" => []
+		})
+
+		assert_equal "alice", user.reload.name
+		assert_equal "all", user.catalog_view
+	end
+
 	test "listings are this pubkey's active classified events" do
 		pubkey = SecureRandom.hex(32)
 		mine = build_event(kind: Events::Kinds::CLASSIFIED, d: "a")

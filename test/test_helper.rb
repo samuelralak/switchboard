@@ -5,6 +5,10 @@ require_relative "../config/environment"
 require "rails/test_help"
 require "nostr"
 
+# Pin the attestation policy to badge for the suite (the production default is exclude, which would hide every
+# unattested fixture). Attestation-specific tests override this per-case; see with_policy in the attestation tests.
+Rails.application.config.x.attestation.policy = "badge"
+
 module ActiveSupport
 	class TestCase
 		# Run tests in parallel with specified workers
@@ -86,6 +90,23 @@ module ActiveSupport
 			yield
 		ensure
 			escrow.mint_allowlist = previous
+		end
+
+		# Run the block with a specific attestation policy on the ENV/config layer (the persisted AttestationSetting
+		# still wins per Attestation::Policy precedence), then restore. The suite default is badge (set at the top).
+		def with_policy(value)
+			previous = Attestation::Policy.config.policy
+			Attestation::Policy.config.policy = value
+			yield
+		ensure
+			Attestation::Policy.config.policy = previous
+		end
+
+		# A relay-manager double whose publish is a no-op (the attestation issuer broadcasts through it).
+		def fake_manager
+			manager = Object.new
+			manager.define_singleton_method(:publish) { |_event| [ :ok ] }
+			manager
 		end
 
 		# The compressed arbiter pubkey for the test key (derived directly, independent of ENV).

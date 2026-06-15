@@ -24,17 +24,10 @@ module Catalog
 		# filtered in SQL so the `limit` applies to visible rows (not starved by a backlog of unpublished
 		# ones). jsonb @> uses the tags GIN index. Note: Event.active is NIP-40 expiry, distinct from this.
 		# Open requests share kind 30402 and are excluded by their marker, so the demand board never leaks
-		# into the supply catalog (Requests::Search applies the symmetric include). Under the exclude policy,
-		# only platform-attested listings surface.
+		# into the supply catalog (Requests::Search applies the symmetric include). Attestation is a per-viewer
+		# VIEW (Policy.mark tags the attested ones), filtered client-side, not a server-side exclusion.
 		def catalog_scope
-			scope = Event.classified.active.not_from_flagged.not_unpublished.without_tag("t", Requests::OpenRequest.marker)
-			scope = scope.attested_by(Attestation::Policy.issuer_pubkey) if exclude_unattested?
-
-			scope
-		end
-
-		def exclude_unattested?
-			Attestation::Policy.enabled? && Attestation::Policy.exclude?
+			Event.classified.active.not_from_flagged.not_unpublished.without_tag("t", Requests::OpenRequest.marker)
 		end
 	end
 end

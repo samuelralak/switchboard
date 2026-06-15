@@ -1,25 +1,34 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Client-side marketplace browser for the catalog: one "ask for anything" search over two lenses —
-// Services (supply) and Open requests (demand) — plus a fulfillment-mode filter (services only) and a
-// sort, all instant and reload-free. Cards declare data-type ("service" | "request"); the active lens
-// (view) shows one type at a time. Live cards streamed in via Turbo are filtered on connect, so the
-// active lens + filter keep applying as new listings/requests arrive. Also drives the single-lens
-// My-requests page (set data-catalog-view-value="request", no tabs).
+// Client-side marketplace browser for the catalog: one "ask for anything" search over two lenses,
+// Services (supply) and Open requests (demand), plus a fulfillment-mode filter (services only), a
+// platform-verification filter (all vs attested-only), and a sort, all instant and reload-free. Cards
+// declare data-type ("service" | "request") and data-attested ("true" | "false"); the active lens (view)
+// shows one type at a time. Live cards streamed in via Turbo are filtered on connect, so the active lens +
+// filters keep applying as new listings/requests arrive.
 export default class extends Controller {
-  static targets = ["query", "card", "count", "empty", "modeButton", "modeFilter", "tab", "viewSelect", "clear", "results", "list", "sortLabel"]
+  static targets = ["query", "card", "count", "empty", "verifiedEmpty", "modeButton", "modeFilter", "attestationButton", "tab", "viewSelect", "clear", "results", "list", "sortLabel"]
   static values = {
     mode: { type: String, default: "all" },
     sort: { type: String, default: "newest" },
     view: { type: String, default: "service" },
+    attestation: { type: String, default: "all" }, // "all" or "verified": the viewer's verification filter
+    attestationPersistUrl: { type: String, default: "" }, // present only when signed in: save as account default
     cap: { type: Number, default: 200 }, // max live cards kept per lens before the oldest are pruned
   }
 
   connect() {
+    // The value-changed callbacks no-op until `ready`, so the whole-grid passes run once here, not 3-4x.
     this.autogrow()
     this.updateQueryState()
     this.syncView()
+    this.updateModeButtons()
+    this.updateAttestationButtons()
+    this.ready = true
+    this.applySort()
     this.apply()
+    // Drop the cloak; from here applyToCard's inline display controls visibility (incl. switching to "all").
+    this.element.classList.remove("catalog-verified-cloak")
   }
 
   // Cancel any pending refresh frame so a Turbo navigation away does not leave an orphaned callback
@@ -40,6 +49,13 @@ export default class extends Controller {
   setSort(event) {
     this.sortValue = event.currentTarget.dataset.sort
     if (this.hasSortLabelTarget) this.sortLabelTarget.textContent = event.currentTarget.textContent.trim()
+  }
+
+  // Toggle the verification filter (All <-> Verified). Persists the choice (cookie for anyone, account
+  // default when signed in) so it carries across visits and devices.
+  setAttestation(event) {
+    this.attestationValue = event.currentTarget.dataset.attestation
+    this.persistAttestation()
   }
 
   // Switch the lens (Services <-> Open requests). The search box filters whichever lens is active.
@@ -101,23 +117,31 @@ export default class extends Controller {
   }
 
   modeValueChanged() {
+    if (!this.ready) return
     this.updateModeButtons()
     this.apply()
   }
 
+  attestationValueChanged() {
+    if (!this.ready) return
+    this.updateAttestationButtons()
+    this.apply()
+  }
+
   sortValueChanged() {
+    if (!this.ready) return
     this.applySort()
   }
 
   viewValueChanged() {
+    if (!this.ready) return
     this.syncView()
     this.apply()
     this.scheduleRefresh()
   }
 
-  // Reorder rows in place by the active sort, within EACH lens's list container independently (so a
-  // price/budget sort never interleaves services with requests). Newest = the server order (and live
-  // prepends already arrive newest-first), so only a price sort reorders the DOM.
+  // Reorder each lens's rows in place by the active sort (kept separate so a price sort never interleaves the
+  // two lenses). Newest re-sorts by data-created: a prior price sort mutated the order, so it must be restored.
   applySort() {
     if (!this.hasListTarget) return
     const key = (card, attr) => Number(card.dataset[attr] || 0)
@@ -142,7 +166,7 @@ export default class extends Controller {
   refresh() {
     this.pruneOverflow() // prune first so the badge counts only the cards that remain
     this.updateCount()
-    if (this.sortValue !== "newest") this.applySort() // newest = the prepend order, no reorder needed
+    if (this.sortValue !== "newest") this.applySort() // live prepends already arrive newest-first, no reorder
   }
 
   // Bound the live-streamed DOM: keep only the newest `cap` cards per lens (the oldest sit off-screen at
@@ -190,9 +214,16 @@ export default class extends Controller {
     card.style.display = onLens && this.matchesFilters(card) ? "" : "none"
   }
 
-  // Filter match independent of the active lens (query + mode), so a tab's count reflects how many it
-  // holds even while the other lens is showing.
+  // Filter match independent of the active lens (query + mode + verification), so a tab's count reflects how
+  // many it holds even while the other lens is showing.
   matchesFilters(card) {
+    return this.matchesBase(card) &&
+      (this.attestationValue !== "verified" || card.dataset.attested === "true") // verification filter
+  }
+
+  // The non-verification filters (query + mode), so the empty state can tell "nothing here at all" apart from
+  // "hidden by the verified filter" (cards the All view would show).
+  matchesBase(card) {
     const query = (this.hasQueryTarget ? this.queryTarget.value : "").trim().toLowerCase()
     const text = card.dataset.search || ""
     const type = card.dataset.type || "service"
@@ -226,10 +257,41 @@ export default class extends Controller {
   updateModeButtons() {
     this.modeButtonTargets.forEach((button) => {
       const active = button.dataset.mode === this.modeValue
+      button.setAttribute("aria-pressed", String(active))
       button.classList.toggle("bg-surface-2", active)
       button.classList.toggle("text-ink", active)
       button.classList.toggle("text-ink-muted", !active)
     })
+  }
+
+  updateAttestationButtons() {
+    this.attestationButtonTargets.forEach((button) => {
+      const active = button.dataset.attestation === this.attestationValue
+      button.setAttribute("aria-pressed", String(active))
+      button.classList.toggle("bg-surface-2", active)
+      button.classList.toggle("text-ink", active)
+      button.classList.toggle("text-ink-muted", !active)
+      // The Verified checkmark turns copper only when its button is active, so it dims with its label otherwise.
+      const icon = button.querySelector("i")
+      if (icon) {
+        icon.classList.toggle("text-copper", active)
+        icon.classList.toggle("text-ink-muted", !active)
+      }
+    })
+  }
+
+  // Remember the choice in a cookie (read server-side next render) and, when signed in, as the account default.
+  persistAttestation() {
+    const value = this.attestationValue
+    const secure = location.protocol === "https:" ? "; secure" : ""
+    document.cookie = `catalog_view=${value}; path=/; max-age=31536000; samesite=lax${secure}`
+    if (!this.attestationPersistUrlValue) return
+    const token = document.querySelector('meta[name="csrf-token"]')?.content
+    fetch(this.attestationPersistUrlValue, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Accept": "application/json", "X-CSRF-Token": token },
+      body: JSON.stringify({ catalog_view: value }),
+    }).catch(() => {})
   }
 
   updateCount() {
@@ -244,10 +306,22 @@ export default class extends Controller {
     } else if (this.hasCountTarget) {
       this.countTarget.textContent = countOf(this.viewValue)
     }
-    // Per-lens empty state: show the active lens's empty block when nothing in it matches.
+    this.updateEmptyState(countOf)
+  }
+
+  // Per-lens empty state: the verified-filtered block (with a Show all action) when the lens is empty only
+  // because of the verified filter, else the plain empty block.
+  updateEmptyState(countOf) {
+    const filteredEmpty = (type) => this.attestationValue === "verified" &&
+      this.cardTargets.some((c) => (c.dataset.type || "service") === type && this.matchesBase(c) && c.dataset.attested !== "true")
+    const showVerified = (view) => view === this.viewValue && countOf(view) === 0 && filteredEmpty(view)
+
+    this.verifiedEmptyTargets.forEach((block) => {
+      block.hidden = !showVerified(block.dataset.view || this.viewValue)
+    })
     this.emptyTargets.forEach((empty) => {
       const view = empty.dataset.view || this.viewValue
-      empty.hidden = !(view === this.viewValue && countOf(view) === 0)
+      empty.hidden = !(view === this.viewValue && countOf(view) === 0 && !showVerified(view))
     })
   }
 }

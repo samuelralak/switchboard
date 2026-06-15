@@ -10,10 +10,19 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_15_032542) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "attestation_settings", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "policy", default: "exclude", null: false
+    t.boolean "singleton", default: true, null: false
+    t.datetime "updated_at", null: false
+    t.index ["singleton"], name: "index_attestation_settings_on_singleton", unique: true
+    t.check_constraint "policy::text = ANY (ARRAY['off'::character varying, 'badge'::character varying, 'exclude'::character varying]::text[])", name: "attestation_settings_policy"
+  end
 
   create_table "events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.text "content", default: "", null: false
@@ -103,7 +112,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
     t.datetime "updated_at", null: false
     t.index ["order_id"], name: "index_order_disputes_on_order_id", unique: true
     t.check_constraint "opened_by_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "order_disputes_opened_by_hex"
-    t.check_constraint "status::text = ANY (ARRAY['open'::character varying, 'ruled_for_provider'::character varying, 'ruled_for_consumer'::character varying]::text[])", name: "order_disputes_status"
+    t.check_constraint "status::text = ANY (ARRAY['open'::character varying::text, 'ruled_for_provider'::character varying::text, 'ruled_for_consumer'::character varying::text])", name: "order_disputes_status"
   end
 
   create_table "order_effects", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -113,7 +122,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
     t.uuid "order_id", null: false
     t.datetime "updated_at", null: false
     t.index ["order_id"], name: "index_order_effects_on_order_id", unique: true
-    t.check_constraint "kind::text = ANY (ARRAY['released'::character varying, 'refunded'::character varying]::text[])", name: "order_effects_kind"
+    t.check_constraint "kind::text = ANY (ARRAY['released'::character varying::text, 'refunded'::character varying::text])", name: "order_effects_kind"
   end
 
   create_table "order_locks", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -173,8 +182,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
     t.datetime "updated_at", null: false
     t.index ["order_id", "most_recent"], name: "index_order_transitions_parent_most_recent", unique: true, where: "most_recent"
     t.index ["order_id", "sort_key"], name: "index_order_transitions_parent_sort", unique: true
-    t.check_constraint "from_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'disputed'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "order_transitions_from_state"
-    t.check_constraint "to_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'disputed'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "order_transitions_to_state"
+    t.check_constraint "from_state::text = ANY (ARRAY['awaiting_funding'::character varying::text, 'funded'::character varying::text, 'disputed'::character varying::text, 'released'::character varying::text, 'refunded'::character varying::text, 'expired'::character varying::text])", name: "order_transitions_from_state"
+    t.check_constraint "to_state::text = ANY (ARRAY['awaiting_funding'::character varying::text, 'funded'::character varying::text, 'disputed'::character varying::text, 'released'::character varying::text, 'refunded'::character varying::text, 'expired'::character varying::text])", name: "order_transitions_to_state"
   end
 
   create_table "orders", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -190,19 +199,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
     t.string "provider_pubkey", limit: 64, null: false
     t.string "tier", limit: 32, default: "tier1_htlc", null: false
     t.datetime "updated_at", null: false
-    t.index ["consumer_pubkey", "listing_coordinate"], name: "index_orders_active_order_per_consumer", unique: true, where: "(((entry_point)::text = 'catalog_order'::text) AND ((current_state)::text = ANY ((ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'disputed'::character varying])::text[])))"
+    t.index ["consumer_pubkey", "listing_coordinate"], name: "index_orders_active_order_per_consumer", unique: true, where: "(((entry_point)::text = 'catalog_order'::text) AND ((current_state)::text = ANY (ARRAY[('awaiting_funding'::character varying)::text, ('funded'::character varying)::text, ('disputed'::character varying)::text])))"
     t.index ["consumer_pubkey"], name: "index_orders_on_consumer_pubkey"
     t.index ["dedupe_key"], name: "index_orders_on_dedupe_key", unique: true
     t.index ["funding_deadline_at"], name: "index_orders_funding_due", where: "((current_state)::text = 'awaiting_funding'::text)"
-    t.index ["listing_coordinate"], name: "index_orders_active_claim_per_request", unique: true, where: "(((entry_point)::text = 'request_claim'::text) AND ((current_state)::text = ANY ((ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'disputed'::character varying])::text[])))"
+    t.index ["listing_coordinate"], name: "index_orders_active_claim_per_request", unique: true, where: "(((entry_point)::text = 'request_claim'::text) AND ((current_state)::text = ANY (ARRAY[('awaiting_funding'::character varying)::text, ('funded'::character varying)::text, ('disputed'::character varying)::text])))"
     t.index ["provider_pubkey"], name: "index_orders_on_provider_pubkey"
     t.check_constraint "amount_sats > 0", name: "orders_amount_positive"
     t.check_constraint "consumer_pubkey::text <> provider_pubkey::text", name: "orders_parties_differ"
     t.check_constraint "consumer_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "orders_consumer_pubkey_hex"
-    t.check_constraint "current_state::text = ANY (ARRAY['awaiting_funding'::character varying, 'funded'::character varying, 'disputed'::character varying, 'released'::character varying, 'refunded'::character varying, 'expired'::character varying]::text[])", name: "orders_current_state"
-    t.check_constraint "entry_point::text = ANY (ARRAY['catalog_order'::character varying, 'request_claim'::character varying]::text[])", name: "orders_entry_point"
+    t.check_constraint "current_state::text = ANY (ARRAY['awaiting_funding'::character varying::text, 'funded'::character varying::text, 'disputed'::character varying::text, 'released'::character varying::text, 'refunded'::character varying::text, 'expired'::character varying::text])", name: "orders_current_state"
+    t.check_constraint "entry_point::text = ANY (ARRAY['catalog_order'::character varying::text, 'request_claim'::character varying::text])", name: "orders_entry_point"
     t.check_constraint "provider_pubkey::text ~ '^[a-f0-9]{64}$'::text", name: "orders_provider_pubkey_hex"
-    t.check_constraint "tier::text = ANY (ARRAY['tier1_htlc'::character varying, 'tier2_arbiter'::character varying]::text[])", name: "orders_tier"
+    t.check_constraint "tier::text = ANY (ARRAY['tier1_htlc'::character varying::text, 'tier2_arbiter'::character varying::text])", name: "orders_tier"
   end
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -233,6 +242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_13_155306) do
     t.text "about"
     t.text "banner"
     t.boolean "bot", default: false, null: false
+    t.string "catalog_view"
     t.datetime "created_at", null: false
     t.string "display_name"
     t.jsonb "external_identities", default: [], null: false

@@ -54,6 +54,10 @@ Rails.application.routes.draw do
 		# Non-custodial relay-list (NIP-65) editor: show renders the form; update is the post-broadcast reconcile
 		# (the browser signs + broadcasts the kind-10002, then PATCHes here to force-fetch it back).
 		resource :relays, only: %i[show update]
+		# Catalog view preference (all vs platform-verified): show renders the chooser; update saves the account
+		# default (also the endpoint the on-catalog filter PATCHes for signed-in viewers). settings_browsing_path.
+		# controller: keeps the singular BrowsingController name (a singular resource defaults to the plural).
+		resource :browsing, only: %i[show update], controller: "browsing"
 	end
 
 	# Open requests (funded bounties): the public board (index), and authoring your own (new + preview).
@@ -102,6 +106,8 @@ Rails.application.routes.draw do
 		end
 		# Operator takedown: hide a flagged pubkey's public content (catalog/requests/profile).
 		resources :flags, only: %i[index create destroy], param: :pubkey
+		# Platform settings (the catalog attestation policy).
+		resource :settings, only: %i[show update]
 	end
 
 	# Static informational pages (linked from the sidebar footer), public.

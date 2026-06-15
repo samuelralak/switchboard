@@ -11,8 +11,7 @@ module Requests
 				card = State.card(event:)
 
 				if visible.nil?
-					live = card.request.open? && !User.flagged?(event.pubkey)
-					visible = live && Attestation::Policy.surfaceable?(card.request)
+					visible = card.request.open? && !User.flagged?(event.pubkey)
 				end
 
 				Shared::CardBroadcast.call(card:, visible:)

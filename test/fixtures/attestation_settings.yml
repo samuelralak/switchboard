@@ -1,0 +1,3 @@
+# Intentionally empty: the attestation policy is a singleton operator setting, and a fixture row would shadow the
+# ENV/default fallback in every test (AttestationSetting.policy would always return the fixture's value). Tests
+# that exercise the persisted layer create the row explicitly.

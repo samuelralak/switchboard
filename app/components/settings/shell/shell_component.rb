@@ -15,6 +15,7 @@ module Settings
 				[
 					{ key: :profile, label: "Profile", icon: "hgi-user-circle", path: helpers.settings_profile_path },
 					{ key: :relays, label: "Relays", icon: "hgi-radar-01", path: helpers.settings_relays_path },
+					{ key: :browsing, label: "Browsing", icon: "hgi-shield-01", path: helpers.settings_browsing_path },
 					{ key: :signer, label: "Signer", icon: "hgi-square-lock-02", soon: true },
 					{ key: :notifications, label: "Notifications", icon: "hgi-notification-02", soon: true }
 				]

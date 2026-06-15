@@ -42,11 +42,5 @@ module Attestation
 			tags = [ [ "d", SecureRandom.hex(4) ], %w[title Svc], %w[price 1500 sat], [ "t", Catalog::Listing.marker ] ]
 			Events::Sign.call(private_key:, kind: Events::Kinds::CLASSIFIED, content: "svc", tags:)
 		end
-
-		def fake_manager
-			manager = Object.new
-			manager.define_singleton_method(:publish) { |_event| [ :ok ] }
-			manager
-		end
 	end
 end

@@ -53,6 +53,18 @@ module Requests
 
 				assert_text "claim in 3d"
 			end
+
+			# Guards the broadcast path: a card built without Attestation::Policy.mark must still emit the right
+			# data-attested (Attestable resolves it live), so the client filter and badge work on streamed cards.
+			test "data-attested reflects attestation live, without mark preloading" do
+				labelled = request(title: "Vetted", extra_tags: [ %w[price 5000 sat] ])
+				Attestation::Issue.call(event: labelled.event, manager: fake_manager)
+				render_inline(RequestCardComponent.new(request: OpenRequest.new(labelled.event)))
+				assert_selector "[data-attested='true']"
+
+				render_inline(RequestCardComponent.new(request: request(title: "Plain", extra_tags: [ %w[price 5000 sat] ])))
+				assert_selector "[data-attested='false']"
+			end
 		end
 	end
 end

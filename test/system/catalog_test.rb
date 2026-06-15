@@ -36,6 +36,37 @@ class CatalogTest < ApplicationSystemTestCase
 		assert_equal "Summarize a thread", first_card_title
 	end
 
+	test "switching back to Newest after a price sort restores newest-first order" do
+		within_sort { click_button "Highest price" }
+		assert_equal "Quick code review", first_card_title
+
+		within_sort { click_button "Newest" }
+		assert_equal "Summarize a thread", first_card_title # the most-recent listing leads again
+	end
+
+	test "the verification filter shows only attested listings, and All reveals the rest" do
+		vetted = seed(d: "vet", title: "Vetted audit", desc: "", cap: "audit", price: 999, mode: "manual", ago: 30.minutes.ago)
+		Attestation::Issue.call(event: vetted, manager: fake_manager) # signs the platform label over this listing
+		visit root_path
+		assert_text "Vetted audit"
+
+		within("[aria-label='Filter by platform verification']") { click_button "Verified" }
+		assert_selector '[data-catalog-target="card"]', text: "Vetted audit", visible: true
+		assert_no_selector '[data-catalog-target="card"]', text: "Summarize a thread", visible: true
+
+		within("[aria-label='Filter by platform verification']") { click_button "All" }
+		assert_selector '[data-catalog-target="card"]', text: "Summarize a thread", visible: true
+	end
+
+	test "verified on an all-unattested lens shows the guided empty state, and Show all restores the listings" do
+		# The seed listings are all unattested, so the Verified view empties the lens.
+		within("[aria-label='Filter by platform verification']") { click_button "Verified" }
+		assert_text "No verified services yet"
+
+		click_button "Show all listings"
+		assert_selector '[data-catalog-target="card"]', text: "Summarize a thread", visible: true
+	end
+
 	test "the lens switch toggles between services and open requests" do
 		seed_request(title: "Fix my bike from a photo", cap: "repair", budget: 5000)
 		visit root_path

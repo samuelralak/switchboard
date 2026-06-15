@@ -34,13 +34,13 @@ module Profiles
 			# Builds the render state from an already-resolved identity (Profiles::Resolve owns the npub decode,
 			# the 404, and the lazy fetch). Pure construction, like the sibling Ui::State factories.
 			def self.portfolio(pubkey:, user:, owner:)
-				Portfolio.new(
-					pubkey:,
-					user:,
-					owner:,
-					listings: user ? Catalog::ProviderListings.call(pubkey:) : [],
-					requests: user ? Requests::AuthoredRequests.call(pubkey:) : []
-				)
+				listings = user ? Catalog::ProviderListings.call(pubkey:) : []
+				requests = user ? Requests::AuthoredRequests.call(pubkey:) : []
+				# Bulk-load attestation so the cards' badges/data-attested cost one query each, not one per card.
+				Attestation::Policy.mark(listings)
+				Attestation::Policy.mark(requests)
+
+				Portfolio.new(pubkey:, user:, owner:, listings:, requests:)
 			end
 		end
 	end

@@ -1,0 +1,42 @@
+<% content_for(:title, "Settings") %>
+
+<%= render Settings::Shell::ShellComponent.new(active: :browsing) do %>
+  <div class="mb-6">
+    <h2 class="font-display text-lg font-semibold tracking-tight text-ink">Browsing</h2>
+    <p class="mt-0.5 text-sm text-ink-muted">How the catalog and request board appear to you. You can also switch this anytime from the filter on the catalog.</p>
+  </div>
+
+  <% unless @attestation_enabled %>
+    <div class="mb-5 flex items-start gap-2.5 rounded-lg border border-border bg-inset px-3.5 py-3 text-sm text-ink-muted">
+      <%= render Shared::Icon::IconComponent.new(name: "information-circle", size: :sm, color: "text-ink-faint", extra: "mt-0.5 shrink-0") %>
+      <span>Platform verification is off right now, so every listing shows regardless of this choice. Your preference is saved for when it is on.</span>
+    </div>
+  <% end %>
+
+  <%= form_with url: settings_browsing_path, method: :patch do %>
+    <fieldset class="space-y-2">
+      <legend class="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-faint">Catalog view</legend>
+
+      <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
+        <input type="radio" name="catalog_view" value="all" <%= "checked" if @catalog_view == "all" %> class="mt-0.5 accent-copper">
+        <span class="text-sm">
+          <span class="font-medium text-ink">All listings</span>
+          <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">See everything on the marketplace, including services and requests published outside Switchboard. Best for discovery.</span>
+        </span>
+      </label>
+
+      <label class="flex cursor-pointer gap-2.5 rounded-lg border border-border p-3 has-[:checked]:border-copper-dim has-[:checked]:bg-copper/5">
+        <input type="radio" name="catalog_view" value="verified" <%= "checked" if @catalog_view == "verified" %> class="mt-0.5 accent-copper">
+        <span class="text-sm">
+          <span class="font-medium text-ink">Verified only</span>
+          <span class="mt-0.5 block text-xs leading-relaxed text-ink-muted">See only listings and requests the platform has attested, hiding anything published outside Switchboard:</span>
+          <span class="mt-1.5 inline-block"><%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: true) %></span>
+        </span>
+      </label>
+    </fieldset>
+
+    <div class="mt-5">
+      <%= render Shared::Button::ButtonComponent.new(variant: :primary, type: "submit") do %>Save preference<% end %>
+    </div>
+  <% end %>
+<% end %>

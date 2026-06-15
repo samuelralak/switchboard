@@ -37,6 +37,60 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 		assert_response :success
 	end
 
+	test "defaults the catalog view to the operator default and shows the verification filter" do
+		# Suite default policy is badge -> default view "all", feature enabled (R_op issuer present).
+		get root_url
+
+		assert_includes response.body, 'data-catalog-attestation-value="all"'
+		assert_includes response.body, "Filter by platform verification"
+	end
+
+	test "a valid catalog_view cookie overrides the operator default and cloaks unverified cards" do
+		cookies[:catalog_view] = "verified"
+
+		get root_url
+
+		assert_includes response.body, 'data-catalog-attestation-value="verified"'
+		assert_includes response.body, "catalog-verified-cloak"
+	end
+
+	test "an invalid catalog_view cookie falls back to the operator default" do
+		cookies[:catalog_view] = "bogus"
+
+		get root_url
+
+		assert_includes response.body, 'data-catalog-attestation-value="all"'
+	end
+
+	test "an invalid cookie falls through to a signed-in viewer's saved account default, not the operator default" do
+		sign_in
+		current_user.update!(catalog_view: "verified")
+		cookies[:catalog_view] = "bogus"
+
+		get root_url
+
+		assert_includes response.body, 'data-catalog-attestation-value="verified"'
+	end
+
+	test "the cookie wins over a signed-in viewer's saved account default" do
+		sign_in
+		current_user.update!(catalog_view: "all")
+		cookies[:catalog_view] = "verified"
+
+		get root_url
+
+		assert_includes response.body, 'data-catalog-attestation-value="verified"'
+	end
+
+	test "with attestation off the filter is hidden and the view is forced to all" do
+		with_policy("off") do
+			get root_url
+		end
+
+		assert_includes response.body, 'data-catalog-attestation-value="all"'
+		assert_not_includes response.body, "Filter by platform verification"
+	end
+
 	test "renders the terms & privacy page publicly" do
 		get terms_url
 
@@ -51,4 +105,21 @@ class PagesControllerTest < ActionDispatch::IntegrationTest
 		assert_includes response.body, "afraidstorm87@walletofsatoshi.com"
 		assert_includes response.body, "bc1q2kkvcqkn9s5alhcr8uw0t80kga994eukzmxsa3"
 	end
+
+	private
+
+	def current_user
+		User.find_by(pubkey: @session_pubkey)
+	end
+
+	def sign_in
+		keypair = Nostr::Keygen.new.generate_key_pair
+		@session_pubkey = keypair.public_key.to_s
+		tags = nip98_tags(url: verify_url, challenge: LoginChallenge.issue.nonce)
+		event = sign_event(kind: Events::Kinds::HTTP_AUTH, tags:, keypair:)
+		post session_url, headers: { "Authorization" => "Nostr #{Base64.strict_encode64(JSON.generate(event))}" }
+		assert_response :created
+	end
+
+	def verify_url = "#{Rails.application.config.x.canonical_origin}/session"
 end

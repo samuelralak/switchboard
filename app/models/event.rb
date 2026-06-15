@@ -33,15 +33,6 @@ class Event < ApplicationRecord
 	# projection, preserved across re-projection (Users::Upsert#assign_kind0 never touches it). Empty
 	# subquery (no flagged users) leaves every row, so this is a no-op cost in the common case.
 	scope :not_from_flagged, -> { where.not(pubkey: User.where(flagged: true).select(:pubkey)) }
-	# Carries a current platform attestation: a kind-1985 "listed" label (this env's namespace) from `issuer`
-	# whose `e` tag pins THIS event's id (so an edit drops the attestation until re-issued). Used by the
-	# catalog's exclude policy.
-	scope :attested_by, lambda { |issuer|
-		listed = [ [ "l", Attestation::LABEL_VALUE, Attestation::Policy.namespace ] ].to_json
-		sql = "EXISTS (SELECT 1 FROM events lbl WHERE lbl.kind = ? AND lbl.pubkey = ? AND lbl.tags @> ? " \
-			"AND lbl.tags @> jsonb_build_array(jsonb_build_array('e', events.event_id)))"
-		where(sql, Events::Kinds::LABEL, issuer, listed)
-	}
 
 	# A kind:pubkey:d coordinate -> the single matching event, or nil.
 	def self.by_coordinate(coordinate)

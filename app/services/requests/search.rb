@@ -24,16 +24,13 @@ module Requests
 		# Request-marked classified events the poster has NOT withdrawn (status=inactive), filtered in SQL so
 		# the `limit` applies to visible rows. Both filters use the tags GIN index. The marker include is what
 		# keeps service listings off the board (and, symmetrically, requests out of the catalog). My-requests
-		# (a poster's own) shows all their own; the public board applies the exclude policy.
+		# (a poster's own) shows all their own. Attestation is a per-viewer VIEW (Policy.mark tags the attested
+		# ones), filtered client-side, not a server-side exclusion.
 		def board_scope
 			scope = Event.classified.active.not_from_flagged.with_tag("t", OpenRequest.marker).not_unpublished
 			return scope.by_author(pubkey) if pubkey.present?
 
-			exclude_unattested? ? scope.attested_by(Attestation::Policy.issuer_pubkey) : scope
-		end
-
-		def exclude_unattested?
-			Attestation::Policy.enabled? && Attestation::Policy.exclude?
+			scope
 		end
 	end
 end

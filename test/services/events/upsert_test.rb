@@ -321,6 +321,18 @@ module Events
 			assert_equal [ listing["id"] ], ids
 		end
 
+		test "an attestation label rebroadcasts the listing it covers (so its badge flips on live)" do
+			pubkey = SecureRandom.hex(32)
+			listing = stored(kind: Events::Kinds::CLASSIFIED, pubkey:, d: "svc")
+			perform_enqueued_jobs { Events::Upsert.call(event_data: listing) }
+
+			label = stored(kind: Events::Kinds::LABEL)
+			label["tags"] = [ [ "a", "#{Events::Kinds::CLASSIFIED}:#{pubkey}:svc" ], [ "e", listing["id"] ] ]
+			ids = recording_broadcasts { perform_enqueued_jobs { Events::Upsert.call(event_data: label) } }
+
+			assert_equal [ listing["id"] ], ids
+		end
+
 		private
 
 		# Temporarily replace target.call with a recorder of broadcast event_ids, then restore it. Two
