@@ -47,8 +47,20 @@ module Events
 			deleted.each { |target| resync_after_delete(target) }
 
 			broadcast_classified(event) if event.kind == Kinds::CLASSIFIED
+			rebroadcast_attested_listing(event) if event.kind == Kinds::LABEL
 			Users::ProjectJob.perform_later(event.pubkey) if event.kind == Kinds::METADATA
 			Users::RelayListProjectJob.perform_later(event.pubkey) if event.kind == Kinds::RELAY_LIST
+		end
+
+		# A platform attestation (kind-1985) just landed: re-broadcast the listing it references (the `a`
+		# coordinate) so an open catalog repaints with the "Listed on Switchboard" badge, or surfaces it under
+		# the exclude policy. Best-effort: a label for an unknown/foreign coordinate is simply ignored.
+		def rebroadcast_attested_listing(label)
+			coordinate = label.tag("a")
+			return if coordinate.blank?
+
+			listing = Event.by_coordinate(coordinate)
+			broadcast_classified(listing) if listing&.kind == Kinds::CLASSIFIED
 		end
 
 		# NIP-09: honor a kind-5 by destroying the events it references via `e` (event id) and `a` (kind:pubkey:d

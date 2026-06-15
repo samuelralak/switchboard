@@ -9,6 +9,7 @@ module Requests
 	# schema (a request states a need, it does not offer a service). Every accessor tolerates absent tags.
 	class OpenRequest
 		include Events::Nip99Presentation
+		include Attestation::Attestable
 
 		BASE_MARKER   = "switchboard-request"
 		DEFAULT_TITLE = "Untitled request"

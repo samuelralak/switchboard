@@ -7,6 +7,7 @@ module Catalog
 	# basis, fulfillment, and the input schema. Every accessor tolerates absent tags.
 	class Listing
 		include Events::Nip99Presentation
+		include Attestation::Attestable
 
 		BASE_MARKER   = "switchboard-service"
 		DEFAULT_TITLE = "Untitled service"

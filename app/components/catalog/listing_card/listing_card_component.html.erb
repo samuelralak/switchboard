@@ -26,6 +26,7 @@
       <% if fulfillment.present? %>
         <span class="shrink-0"><%= render Shared::Chip::ChipComponent.new(tone: fulfillment_tone, label: fulfillment_label) %></span>
       <% end %>
+      <%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: listing.attested?) %>
     </div>
     <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs">
       <% if capability.present? %><span class="font-mono text-ink-faint"><%= capability %></span><% end %>

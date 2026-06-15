@@ -9,7 +9,12 @@ module Requests
 		class Update
 			def self.call(event:, visible: nil)
 				card = State.card(event:)
-				visible = card.request.open? && !User.flagged?(event.pubkey) if visible.nil?
+
+				if visible.nil?
+					live = card.request.open? && !User.flagged?(event.pubkey)
+					visible = live && Attestation::Policy.surfaceable?(card.request)
+				end
+
 				Shared::CardBroadcast.call(card:, visible:)
 			end
 		end

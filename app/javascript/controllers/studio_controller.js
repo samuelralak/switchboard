@@ -207,6 +207,9 @@ export default class extends Controller {
       const result = await broadcastListing(this.collectData(), this.config(), signer, this.relaysValue)
       if (result.reached === 0) return this.failPublish([ "Couldn't reach any relay. Check your connection and try again." ])
       this.showReceipt(result, await this.enableEscrowReceiving(signer))
+
+      const { reportForAttestation } = await import("nostr/attestation_report")
+      reportForAttestation(result.event) // best-effort: ask the platform to attest our published listing
     } catch (error) {
       this.failPublish([ `Couldn't publish: ${error.message}` ])
     }

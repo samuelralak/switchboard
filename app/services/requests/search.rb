@@ -13,17 +13,27 @@ module Requests
 			requests = board_scope.recent.limit(limit).map { |event| OpenRequest.new(event) }
 			requests = requests.select(&:open?) # drops claimed/expired (non-"active") once those states exist
 			requests = requests.select { |request| request.matches?(query) } if query.present?
-			requests.first(shown)
+			requests = requests.first(shown)
+			Attestation::Policy.mark(requests)
+
+			requests
 		end
 
 		private
 
 		# Request-marked classified events the poster has NOT withdrawn (status=inactive), filtered in SQL so
 		# the `limit` applies to visible rows. Both filters use the tags GIN index. The marker include is what
-		# keeps service listings off the board (and, symmetrically, requests out of the catalog).
+		# keeps service listings off the board (and, symmetrically, requests out of the catalog). My-requests
+		# (a poster's own) shows all their own; the public board applies the exclude policy.
 		def board_scope
 			scope = Event.classified.active.not_from_flagged.with_tag("t", OpenRequest.marker).not_unpublished
-			pubkey.present? ? scope.by_author(pubkey) : scope
+			return scope.by_author(pubkey) if pubkey.present?
+
+			exclude_unattested? ? scope.attested_by(Attestation::Policy.issuer_pubkey) : scope
+		end
+
+		def exclude_unattested?
+			Attestation::Policy.enabled? && Attestation::Policy.exclude?
 		end
 	end
 end

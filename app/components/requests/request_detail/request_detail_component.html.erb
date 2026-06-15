@@ -10,6 +10,7 @@
   <div>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <%= render Shared::Chip::ChipComponent.new(tone: :live, label: "open request") %>
+      <%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: request.attested?, label: "Posted on Switchboard") %>
       <% if request.capability.present? %>
         <span class="font-mono text-xs text-ink-faint"><%= request.capability %></span>
       <% end %>

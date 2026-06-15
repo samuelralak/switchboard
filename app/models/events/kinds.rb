@@ -29,6 +29,7 @@ module Events
 		SEAL           = 13      # NIP-59
 		DIRECT_MESSAGE = 14      # NIP-17
 		FILE_MESSAGE   = 15      # NIP-17
+		LABEL          = 1985    # NIP-32 label event (platform listing attestation)
 		NUTZAP         = 9321    # NIP-61
 		ZAP_REQUEST    = 9734    # NIP-57
 		ZAP            = 9735    # NIP-57

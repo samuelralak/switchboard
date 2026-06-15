@@ -76,6 +76,11 @@ Rails.application.routes.draw do
 	# DB row id, which is regenerated when a re-publish supersedes the coordinate.
 	get "studio/edit", to: "studio#edit", as: :edit_studio_listing
 
+	# After a browser publish (a service from the studio OR an open request from the request form), the client
+	# reports the signed kind-30402 so the platform can attest it (the interim attestation trigger). Session-
+	# authenticated, the same standard as the studio/requests flows (not the NIP-98 /api standard).
+	post "attestations", to: "attestations#create", as: :attestations
+
 	# A provider's public profile = their portfolio: identity (kind-0) + their published services. Public; the
 	# owner additionally gets manage controls. npub-keyed so it is shareable. A valid-but-unindexed npub lazily
 	# fetches its kind-0 and shows a placeholder rather than 404ing (the pubkey is real even if not yet ingested).

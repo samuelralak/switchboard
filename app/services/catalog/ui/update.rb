@@ -9,7 +9,12 @@ module Catalog
 		class Update
 			def self.call(event:, visible: nil)
 				card = State.card(event:)
-				visible = card.listing.active? && !User.flagged?(event.pubkey) if visible.nil?
+
+				if visible.nil?
+					live = card.listing.active? && !User.flagged?(event.pubkey)
+					visible = live && Attestation::Policy.surfaceable?(card.listing)
+				end
+
 				Shared::CardBroadcast.call(card:, visible:)
 			end
 		end
