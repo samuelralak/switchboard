@@ -29,6 +29,34 @@ module Layout
 
 				assert_selector "img[src='https://example.com/avatar.png']"
 			end
+
+			def test_an_operator_gets_an_admin_link
+				user = User.new(pubkey: "a" * 64)
+				with_operator(user.pubkey) do
+					render_inline(IdentityMenuComponent.new(user:))
+				end
+
+				assert_selector "a[href='#{Rails.application.routes.url_helpers.admin_disputes_path}']", text: "Admin"
+			end
+
+			def test_a_non_operator_has_no_admin_link
+				user = User.new(pubkey: "a" * 64)
+				with_operator("b" * 64) do
+					render_inline(IdentityMenuComponent.new(user:))
+				end
+
+				assert_no_selector "a", text: "Admin"
+			end
+
+			private
+
+			def with_operator(pubkey)
+				saved = Rails.application.config.x.operator_pubkeys
+				Rails.application.config.x.operator_pubkeys = [ pubkey ]
+				yield
+			ensure
+				Rails.application.config.x.operator_pubkeys = saved
+			end
 		end
 	end
 end

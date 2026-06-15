@@ -36,6 +36,11 @@ module Layout
 					{ label: "Settings", href: helpers.settings_path }
 				]
 			end
+
+			# Operators get a separate link into the admin surface (disputes/flags/settings).
+			def operator? = Operator.authorized?(@user.pubkey)
+
+			def admin_path = helpers.admin_disputes_path
 		end
 	end
 end
