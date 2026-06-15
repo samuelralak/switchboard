@@ -8,13 +8,28 @@ module Shared
 		class AttestationBadgeComponent < ApplicationComponent
 			attr_reader :label
 
-			def initialize(attested:, label: "Listed on Switchboard")
+			def initialize(attested:, label: "Listed on Switchboard", focusable: false)
 				@attested = attested
 				@label = label
+				@focusable = focusable
 			end
 
 			def render?
 				@attested
+			end
+
+			# Keyboard-reachable (tab stop + focus ring) only where the mark is not already inside an interactive
+			# card; the hover/focus tooltip then reveals its meaning to keyboard users too. On cards the wrapper
+			# must stay non-focusable (it lives inside the card's <button>).
+			def wrapper_class
+				base = "group/verified relative inline-flex shrink-0 items-center"
+				return base unless @focusable
+
+				"#{base} rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright"
+			end
+
+			def tabindex
+				@focusable ? 0 : nil
 			end
 		end
 	end

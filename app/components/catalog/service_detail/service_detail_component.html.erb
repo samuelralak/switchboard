@@ -12,7 +12,7 @@
       <% if listing.fulfillment.present? %>
         <%= render Shared::Chip::ChipComponent.new(tone: automated? ? :copper : :muted, label: automated? ? "automated" : "human") %>
       <% end %>
-      <%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: listing.attested?) %>
+      <%= render Shared::AttestationBadge::AttestationBadgeComponent.new(attested: listing.attested?, focusable: true) %>
       <% if delivery_label %>
         <span class="text-xs text-ink-muted"><%= delivery_label %></span>
       <% end %>

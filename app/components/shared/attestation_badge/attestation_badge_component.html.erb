@@ -1,8 +1,9 @@
-<%# Verified mark: a copper shield-with-check that pops on card hover; hovering it reveals a tooltip naming %>
-<%# the attestation. No chip, no inline text; the sr-only label carries the meaning to assistive tech. %>
-<span class="group/verified relative inline-flex shrink-0 items-center">
-  <i class="hgi-stroke hgi-security-check text-base text-copper transition group-hover:scale-110 group-hover:text-copper-bright" aria-hidden="true"></i>
+<%# Verified mark: a copper shield-with-check. Hovering OR focusing it pops the icon and reveals a tooltip %>
+<%# naming the attestation, keyed to the badge's own group so it works at every render site. The sr-only %>
+<%# label carries the meaning to assistive tech; focusable: adds a tab stop where allowed (see component). %>
+<%= tag.span class: wrapper_class, tabindex: tabindex do %>
+  <i class="hgi-stroke hgi-security-check text-base text-copper transition group-hover/verified:scale-110 group-hover/verified:text-copper-bright group-focus-within/verified:scale-110 group-focus-within/verified:text-copper-bright" aria-hidden="true"></i>
   <span class="sr-only"><%= label %></span>
   <span aria-hidden="true"
-        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink opacity-0 shadow-panel transition-opacity duration-100 group-hover/verified:opacity-100"><%= label %></span>
-</span>
+        class="pointer-events-none absolute left-1/2 top-full z-10 mt-2 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-surface-2 px-2.5 py-1 text-xs font-medium text-ink opacity-0 shadow-panel transition-opacity duration-100 group-hover/verified:opacity-100 group-focus-within/verified:opacity-100"><%= label %></span>
+<% end %>
