@@ -1,8 +1,6 @@
-<%# Verified mark for detail/preview contexts: a small filled copper shield (the house trust glyph). No %>
-<%# checkmark, no visible text; the meaning rides the title attr + sr-only label. Cards use the edge spine. %>
-<span class="inline-flex shrink-0 items-center text-copper" title="<%= label %>">
-  <svg viewBox="0 0 24 24" class="size-4 fill-current" aria-hidden="true" focusable="false">
-    <path d="M12 2.5 5 5v6c0 4.2 2.9 7.4 7 8.9 4.1-1.5 7-4.7 7-8.9V5l-7-2.5Z" />
-  </svg>
+<%# Verified mark: a small copper shield-with-check that pops (scales + brightens) when its card is hovered. %>
+<%# No chip, no visible text; meaning rides the title attr + sr-only label. Same mark on cards/details/previews. %>
+<span class="inline-flex shrink-0 items-center text-copper transition group-hover:scale-110 group-hover:text-copper-bright" title="<%= label %>">
+  <i class="hgi-stroke hgi-security-check text-sm" aria-hidden="true"></i>
   <span class="sr-only"><%= label %></span>
 </span>
