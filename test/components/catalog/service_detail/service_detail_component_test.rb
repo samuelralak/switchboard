@@ -18,7 +18,7 @@ module Catalog
 				assert_selector "button", text: /Order this service/
 			end
 
-			def test_renders_per_hour_pricing_delivery_window_and_an_honest_escrow_note
+			def test_renders_per_hour_pricing_with_an_hours_input_and_an_order_form
 				event = hosted_event(title: "Translate", d: "ph",
 													extra_tags: [ %w[price 500 sat hour], %w[fulfillment manual], %w[delivery_window 24h] ])
 
@@ -27,10 +27,11 @@ module Catalog
 				assert_text "per hour"        # the price-basis caption, not "per request"
 				assert_no_text "per request"
 				assert_text "delivers in 24h" # the delivery window is surfaced
-				assert_text "agree the hours" # the escrow note avoids a fixed total for a per-hour rate
-				assert_no_text "lock 500"
-				assert_selector "button", text: /Request this service/ # per-hour is not directly orderable: inert CTA
-				assert_no_selector "form[action='#{url.orders_path}']"
+				assert_text "agree the hours" # the escrow note describes the per-hour total
+				# Per-hour is now orderable: a real order form with an hours input the buyer multiplies by the rate.
+				assert_selector "form[action='#{url.orders_path}'][method='post']"
+				assert_selector "input[name='order[hours]'][type='number'][min='1']", visible: :all
+				assert_selector "button", text: /Order this service/
 			end
 
 			def test_renders_the_markdown_description_as_html
@@ -60,6 +61,16 @@ module Catalog
 
 				assert_selector "input[name='order[tier]'][value='#{Orders::Tiers::TIER2_ARBITER}']", visible: :all
 				assert_text "Mediated escrow"
+			end
+
+			def test_hides_the_tier_2_choice_for_a_per_hour_listing_even_with_the_arbiter_configured
+				event = hosted_event(title: "T", d: "t2ph", extra_tags: [ %w[price 1500 sat hour] ])
+
+				with_arbiter_key { render_inline(ServiceDetailComponent.new(listing: Catalog::Listing.new(event))) }
+
+				# Per-hour totals vary with the buyer's hours, so the low Tier-2 cap can't gate them: offer Tier-1 only.
+				assert_no_selector "input[name='order[tier]'][value='#{Orders::Tiers::TIER2_ARBITER}']", visible: :all
+				assert_selector "input[name='order[hours]']", visible: :all
 			end
 
 			def test_hides_the_tier_2_choice_when_the_arbiter_is_unconfigured

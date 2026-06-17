@@ -144,6 +144,16 @@
           </fieldset>
         <% end %>
 
+        <%# Per-hour listing: the buyer chooses the hours; the server escrows rate x hours as the fixed total. %>
+        <% if per_hour? %>
+          <div class="mb-3">
+            <label for="order_hours" class="mb-1.5 block text-xs font-medium uppercase tracking-wider text-ink-faint">Hours</label>
+            <input type="number" id="order_hours" name="order[hours]" value="1" min="1" step="1" required inputmode="numeric"
+                   class="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper-bright">
+            <p class="mt-1.5 text-xs text-ink-faint"><%= helpers.number_with_delimiter(listing.price_amount) %> <%= listing.price_currency %>/hour, locked as the total for the hours you choose.</p>
+          </div>
+        <% end %>
+
         <%# Escrow mint: the buyer picks from the vetted, server-validated allowlist when more than one exists. %>
         <% if single_mint? %>
           <input type="hidden" name="order[mint_url]" value="<%= default_mint %>">

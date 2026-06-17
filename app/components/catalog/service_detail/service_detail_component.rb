@@ -19,7 +19,7 @@ module Catalog
 				@show_cta = show_cta
 			end
 
-			delegate :automated?, to: :listing
+			delegate :automated?, :per_hour?, to: :listing
 			delegate :default_mint, to: "Orders::Policy"
 
 			# Only a listing published THROUGH Switchboard (carries the env-scoped service marker) is orderable
@@ -34,10 +34,11 @@ module Catalog
 			# The addressable coordinate the order is placed against (kind:pubkey:d).
 			def order_coordinate = listing.coordinate
 
-			# Escrow locks whole sats, so only a fixed whole-sat listing (with a vetted mint available) is
-			# directly orderable; per-hour / non-sat / price-on-request listings keep the inert CTA for now.
+			# Escrow locks whole sats. A fixed whole-sat listing escrows its price; a per-hour listing escrows the
+			# rate times the buyer's hours (still whole sats, since the rate is). Both are orderable with a vetted
+			# mint; non-sat / price-on-request / automated listings keep the inert CTA for now.
 			def orderable?
-				Orders::Policy.default_mint.present? && !listing.automated? && !listing.per_hour? && listing.whole_sat_price?
+				Orders::Policy.default_mint.present? && !listing.automated? && listing.whole_sat_price?
 			end
 
 			# The vetted escrow mints the buyer picks from (Orders::Create server-validates the choice); a
@@ -62,6 +63,8 @@ module Catalog
 			# the price sits under the lower Tier-2 cap; otherwise the buyer would place an unfundable order
 			# (Orders::Funding#ensure_tier_available! + the per-tier cap reject it). Tier-1 stays the default.
 			def tier2_offered?
+				return false if listing.per_hour? # rate * hours is unknown at render and the low Tier-2 cap can't gate it; hourly uses Tier-1
+
 				Escrow::ArbiterSigner.pubkey.present? && listing.price_amount.to_i <= Orders::Policy.tier2_max_order_sats
 			end
 

@@ -11,6 +11,7 @@ module Orders
 		option :mint_url, type: Types::Strict::String
 		option :dedupe_key, type: Types::Strict::String
 		option :tier, type: Types::Coercible::String, default: -> { Orders::Tiers::TIER1_HTLC }
+		option :hours, default: -> { } # buyer-chosen hours for a per-hour listing; ignored for a fixed price
 		option :actor # the signed-in User
 
 		def call
@@ -66,9 +67,29 @@ module Orders
 
 			{
 				entry_point: EntryPoints::CATALOG_ORDER, consumer_pubkey: actor.pubkey, provider_pubkey: event.pubkey,
-				listing_coordinate: coordinate, amount_sats: whole_sats!(listing.price_amount, listing.whole_sat_price?),
+				listing_coordinate: coordinate, amount_sats: listing_amount(listing),
 				tier: tier
 			}
+		end
+
+		# A per-hour listing escrows the rate times the buyer's hours (the rate comes from the event, the hours
+		# from the client); a fixed-price listing escrows its price. The locked total is whole sats either way:
+		# an orderable rate is already a positive whole sat (whole_sat_price?), so the integer product is too.
+		def listing_amount(listing)
+			return whole_sats!(listing.price_amount, listing.whole_sat_price?) unless listing.per_hour?
+
+			whole_sats!(listing.price_amount * order_hours, listing.whole_sat_price?)
+		end
+
+		# The buyer-chosen hour count for a per-hour order: a plain positive decimal. A strict regex (mirroring
+		# nip99_presentation#parse_amount) is used rather than Integer(), which would silently reinterpret hex
+		# ("0x10"), octal ("010"), underscore ("1_000"), signed, or whitespace-padded forms into a different
+		# escrow total. The per-order cap (CreateContract) still bounds the resulting amount.
+		def order_hours
+			raw = hours.to_s
+			return raw.to_i if raw.match?(/\A[1-9]\d*\z/)
+
+			raise ValidationError, { hours: [ "must be a whole number of hours, at least 1" ] }
 		end
 
 		# The presenter (whole_sat_price?/whole_sat_budget?) is the single source of the rule; this raises a

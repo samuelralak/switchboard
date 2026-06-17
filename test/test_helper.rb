@@ -147,8 +147,9 @@ module ActiveSupport
 		end
 
 		# A kind-30402 listing/request event by a specific author, carrying a NIP-99 price/budget tag.
-		def classified_event(pubkey:, marker:, price: 1_000, currency: "sat", d: SecureRandom.hex(4), extra_tags: [])
-			tags = [ [ "d", d ], [ "title", "Svc" ], [ "t", marker ], [ "price", price.to_s, currency ] ] + extra_tags
+		def classified_event(pubkey:, marker:, price: 1_000, currency: "sat", frequency: nil, d: SecureRandom.hex(4), extra_tags: [])
+			price_tag = [ "price", price.to_s, currency, frequency ].compact # 4th element (e.g. "hour") only when given
+			tags = [ [ "d", d ], [ "title", "Svc" ], [ "t", marker ], price_tag ] + extra_tags
 			Event.create!(
 				event_id: SecureRandom.hex(32), pubkey:, sig: SecureRandom.hex(64), kind: Events::Kinds::CLASSIFIED,
 				content: "Svc", tags:, nostr_created_at: Time.current, raw_event: { "id" => SecureRandom.hex(32) }

@@ -84,6 +84,13 @@ class OrdersController < ApplicationController
 	# A catalog buyer funds immediately, so they are told to fund. A request CLAIMER is the provider and the
 	# POSTER funds the budget, so the claimer must never be told to fund the escrow.
 	def placed_notice(order)
+		# An idempotent re-hit (one active order per consumer/listing) returns the EXISTING order, not a new one.
+		# Say so honestly: a buyer who changed the hours must not think they placed a new order at the new total
+		# when they actually landed on the prior one at its own amount.
+		if !order.previously_new_record? && order.entry_point == Orders::EntryPoints::CATALOG_ORDER
+			return "You already have an open order for this service. Fund or cancel it before placing a different one."
+		end
+
 		if order.entry_point == Orders::EntryPoints::REQUEST_CLAIM
 			"Request claimed. The poster will lock the budget to you, then you can deliver."
 		else
@@ -92,7 +99,7 @@ class OrdersController < ApplicationController
 	end
 
 	def place_params
-		params.expect(order: %i[coordinate mint_url dedupe_key tier]).to_h.symbolize_keys
+		params.expect(order: %i[coordinate mint_url dedupe_key tier hours]).to_h.symbolize_keys
 	end
 
 	def funding_params

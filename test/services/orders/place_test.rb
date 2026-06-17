@@ -18,6 +18,29 @@ module Orders
 			assert_equal 2_000, order.amount_sats
 		end
 
+		test "ordering a per-hour listing escrows the rate times the buyer's hours" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 1_500, frequency: "hour")
+
+			order = Orders::Place.call(coordinate: coordinate_for(listing), mint_url: MINT,
+				dedupe_key: SecureRandom.hex(16), hours: "2", actor:)
+
+			assert_equal 3_000, order.amount_sats, "2 hours at 1,500 sat/hr should lock 3,000 sat"
+		end
+
+		test "rejects a per-hour order without a positive whole number of hours" do
+			actor = User.create!(pubkey: SecureRandom.hex(32))
+			listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 1_500, frequency: "hour")
+
+			# Includes forms Integer() would have silently reinterpreted: hex, octal, underscore, sign, whitespace.
+			[ "0", "", nil, "2.5", "abc", "0x10", "010", "1_000", "-3", " 3 " ].each do |bad|
+				assert_raises(ValidationError, "hours=#{bad.inspect} must be rejected") do
+					Orders::Place.call(coordinate: coordinate_for(listing), mint_url: MINT,
+						dedupe_key: SecureRandom.hex(16), hours: bad, actor:)
+				end
+			end
+		end
+
 		test "claiming a request makes the actor the provider and the request author the consumer" do
 			actor = User.create!(pubkey: SecureRandom.hex(32))
 			request = classified_event(pubkey: "b" * 64, marker: Requests::OpenRequest.marker, price: 3_000)

@@ -101,6 +101,34 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 		assert_match(/fund the escrow/i, flash[:notice]) # the consumer funds, so they are told to
 	end
 
+	test "places an hourly order escrowing the rate times the chosen hours" do
+		sign_in
+		listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 1_500, frequency: "hour")
+
+		post orders_url, params: order_params(coordinate_for(listing)).deep_merge(order: { hours: "3" })
+
+		order = Order.find_by(consumer_pubkey: @session_pubkey)
+		assert_redirected_to order_path(order)
+		assert_equal 4_500, order.amount_sats, "3 hours at 1,500 sat/hr"
+		assert_match(/fund the escrow/i, flash[:notice])
+	end
+
+	test "re-ordering the same listing while one is active returns the existing order with an honest notice" do
+		sign_in
+		listing = classified_event(pubkey: "a" * 64, marker: Catalog::Listing.marker, price: 1_500, frequency: "hour")
+		post orders_url, params: order_params(coordinate_for(listing)).deep_merge(order: { hours: "2" })
+		first = Order.find_by!(consumer_pubkey: @session_pubkey)
+
+		# A different dedupe_key and different hours: the one-active-order rule must return the EXISTING order,
+		# not silently create a new one at the new total nor say "Order placed".
+		post orders_url, params: order_params(coordinate_for(listing)).deep_merge(order: { hours: "5" })
+
+		assert_equal 1, Order.where(consumer_pubkey: @session_pubkey).count, "no second order is created"
+		assert_redirected_to order_path(first)
+		assert_equal 3_000, first.reload.amount_sats, "the original 2-hour amount is unchanged"
+		assert_match(/already have an open order/i, flash[:notice])
+	end
+
 	test "claims an open request, with the signer as provider" do
 		sign_in
 		request = classified_event(pubkey: "b" * 64, marker: Requests::OpenRequest.marker, price: 3_000)
