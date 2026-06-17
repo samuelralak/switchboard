@@ -54,10 +54,10 @@ plugin :solid_queue if ENV["SOLID_QUEUE_IN_PUMA"]
 # In other environments, only set the PID file if requested.
 pidfile ENV["PIDFILE"] if ENV["PIDFILE"]
 
-# Relay publish sockets live on a background EventMachine reactor that does NOT survive fork. Only in
-# clustered mode: tear it down before forking and let each worker boot its own; only a provisioned R_op
-# key with configured DM relays opens connections, so even then dev/test stay socket-free. Defined only
-# when clustered, so the single-process default neither warns nor runs them.
+# Relay publish sockets live on a background EventMachine reactor. The process that SERVES requests must hold
+# them so a server-side publish (the attestation label) reaches relays instead of hitting the fail-loud raise.
+# Only a provisioned R_op key with configured DM relays opens connections, so dev/test stay socket-free either
+# way. The reactor does NOT survive fork, so clustered mode boots per-worker; single mode boots once on boot.
 if worker_count.positive?
 	before_fork do
 		NostrClient.stop if defined?(NostrClient)
@@ -72,5 +72,15 @@ if worker_count.positive?
 		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.dm_relays.any?
 	rescue StandardError => e
 		warn "[NostrClient] before_worker_boot publishing skipped: #{e.class}: #{e.message}"
+	end
+else
+	# Single-process server: no worker fork fires, so this one serving process opens the sockets itself once
+	# Puma has booted. Without this the web process holds no connections and a server-side publish is lost.
+	on_booted do
+		next unless defined?(NostrClient) && defined?(Operational::Signer)
+
+		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.dm_relays.any?
+	rescue StandardError => e
+		warn "[NostrClient] on_booted publishing skipped: #{e.class}: #{e.message}"
 	end
 end
