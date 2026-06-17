@@ -3,10 +3,6 @@
 namespace :attestation do
 	desc "Attest existing conforming listings/requests (one-time, idempotent) so the verified default does not hide them"
 	task backfill: :environment do
-		if Attestation::Policy.require_fee?
-			abort "[attestation:backfill] the fee gate (ATTESTATION_REQUIRE_FEE) is on; nothing is attestable yet."
-		end
-
 		unless Attestation::Policy.issuing?
 			abort "[attestation:backfill] issuing is off (no policy or signing key); nothing to do."
 		end

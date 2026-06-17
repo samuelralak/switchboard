@@ -34,13 +34,11 @@ module Attestation
 			Event.of_kind(Events::Kinds::LABEL).by_author(issuer.pubkey).with_tag("e", event.event_id).exists?
 		end
 
-		# The paid-listing gate. Free to attest unless ATTESTATION_REQUIRE_FEE is on; the actual payment check
-		# (a fee paid outright to the platform npub) lands with the payments epic. Until then, requiring a fee
-		# means nothing is attested, which is the honest behavior: the gate exists, just not yet passable.
+		# The paid-listing gate, a pass-through for now so attestation is never blocked on a fee. The real check
+		# lands with the payments epic. TODO(payments): when ATTESTATION_REQUIRE_FEE is on, verify a posting fee
+		# was paid to the platform for event.coordinate before attesting.
 		def fee_satisfied?
-			return true unless Policy.require_fee?
-
-			false # TODO(payments): verify a posting fee was paid for event.coordinate before attesting
+			true
 		end
 	end
 end

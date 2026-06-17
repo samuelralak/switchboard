@@ -39,6 +39,15 @@ module Attestation
 			end
 		end
 
+		test "the fee gate is a pass-through for now: attestation issues even when a fee is required" do
+			listing = service_listing
+
+			with_require_fee do
+				assert Issue.call(event: listing, manager: fake_manager), "the fee gate must not block issuance yet"
+				assert Catalog::Listing.new(listing).attested?
+			end
+		end
+
 		test "attestation is strict on the event id: a different event is not attested" do
 			Issue.call(event: service_listing, manager: fake_manager)
 
@@ -53,6 +62,15 @@ module Attestation
 		end
 
 		private
+
+		# Turn the fee gate on at the config layer (mirrors with_policy), then restore.
+		def with_require_fee
+			previous = Attestation::Policy.config.require_fee
+			Attestation::Policy.config.require_fee = true
+			yield
+		ensure
+			Attestation::Policy.config.require_fee = previous
+		end
 
 		def service_listing
 			build_event(extra_tags: [ [ "t", Catalog::Listing.marker ], %w[price 1500 sat] ])
