@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Attestation
-	# Issues a platform attestation: signs a kind-1985 label, broadcasts it, and upserts it locally so the
-	# catalog reflects the badge at once. Idempotent per event id; a no-op when off. The platform signs its OWN
-	# label, never the provider's key. Returns the signed label, or nil.
+	# Issues a platform attestation: signs a kind-1985 label, upserts it locally so the catalog reflects the
+	# badge at once, and broadcasts it to relays. Idempotent per event id; a no-op when off. The platform signs
+	# its OWN label, never the provider's key. Returns the signed label, or nil.
 	class Issue < BaseService
 		option :event # the listing Event being attested
 		option :issuer, default: -> { Issuer.new }
@@ -14,13 +14,23 @@ module Attestation
 			return unless fee_satisfied?  # the (deferred) paid gate
 			return if already_attested?   # one current label per event id
 
-			manager.publish(signed)                 # broadcast to relays
-			Events::Upsert.call(event_data: signed) # store locally for an immediate catalog read
+			Events::Upsert.call(event_data: signed) # store locally FIRST: the hosted-catalog badge reads the DB, not relays
+			broadcast                               # relay propagation, best-effort (see below)
 
 			signed
 		end
 
 		private
+
+		# Relay propagation is best-effort. The local upsert above already drives the catalog badge, so a worker
+		# that holds no publish sockets (the single-process web server, where puma's before_worker_boot never
+		# runs) logs and moves on rather than failing the attestation or 500ing the report. A publishing-enabled
+		# process (the backfill task, or a clustered web worker) still broadcasts in full.
+		def broadcast
+			manager.publish(signed)
+		rescue StandardError => e
+			Rails.logger.warn("[attestation] label stored locally but not broadcast: #{e.class}: #{e.message}")
+		end
 
 		def signed
 			@signed ||= issuer.sign(kind: Events::Kinds::LABEL, tags: label_tags)

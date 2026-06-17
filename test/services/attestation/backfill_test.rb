@@ -20,16 +20,16 @@ module Attestation
 			assert Requests::OpenRequest.new(request).attested?
 		end
 
-		test "isolates a failing event and keeps going, counting it as failed" do
+		test "a relay broadcast failure does not break the backfill or lose the local attestation" do
 			ok = build_event(extra_tags: [ [ "t", Catalog::Listing.marker ], %w[price 1000 sat] ])
-			boom = build_event(extra_tags: [ [ "t", Catalog::Listing.marker ], %w[price 1000 sat] ])
+			flaky = build_event(extra_tags: [ [ "t", Catalog::Listing.marker ], %w[price 1000 sat] ])
 
-			result = Backfill.call(manager: manager_failing_for(boom.event_id))
+			result = Backfill.call(manager: manager_failing_for(flaky.event_id))
 
-			assert_equal 1, result[:attested]
-			assert_equal 1, result[:failed]
+			assert_equal 2, result[:attested], "both attest locally; the broadcast is best-effort, not a backfill failure"
+			assert_equal 0, result[:failed]
 			assert Catalog::Listing.new(ok).attested?
-			assert_not Catalog::Listing.new(boom).attested?
+			assert Catalog::Listing.new(flaky).attested?, "stored locally despite the relay broadcast failing"
 		end
 
 		test "does nothing when issuing is off" do
