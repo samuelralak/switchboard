@@ -42,10 +42,21 @@ module Attestation
 		test "a broadcast failure still stores the label locally and does not raise" do
 			listing = service_listing
 			no_connections = Object.new
-			no_connections.define_singleton_method(:publish) { |_event| raise NostrClient::Error, "no relay connections in this process" }
+			no_connections.define_singleton_method(:publish) { |_event, **| raise NostrClient::Error, "no relay connections in this process" }
 
 			assert_nothing_raised { Issue.call(event: listing, manager: no_connections) }
 			assert Catalog::Listing.new(listing).attested?, "the label must be stored locally even when the relay broadcast fails"
+		end
+
+		test "broadcasts the label to the public catalog relays, not the DM-inbox relays" do
+			listing = service_listing
+			targeted = nil
+			capture = Object.new
+			capture.define_singleton_method(:publish) { |_event, urls: nil| targeted = urls; [ :ok ] }
+
+			Issue.call(event: listing, manager: capture)
+
+			assert_equal NostrClient.configuration.relays, targeted, "a public label must target the public relays"
 		end
 
 		test "the fee gate is a pass-through for now: attestation issues even when a fee is required" do

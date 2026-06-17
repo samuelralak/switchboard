@@ -12,7 +12,10 @@ module Operational
 		option :manager, default: -> { NostrClient.manager }
 
 		def call
-			manager.publish(signer.sign(kind:, content:, tags:))
+			# R_op's outbound is the NIP-17/59 inbox channel, so it targets ONLY the DM-inbox relays. The web
+			# process also holds public catalog connections (for attestation labels); never blanket-publish a
+			# wrap to all of them, or it would leak onto public relays.
+			manager.publish(signer.sign(kind:, content:, tags:), urls: NostrClient.configuration.dm_relays)
 		end
 	end
 end

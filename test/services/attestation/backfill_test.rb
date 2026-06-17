@@ -45,7 +45,7 @@ module Attestation
 		# A relay manager that raises when publishing the label e-tagging `event_id`; other publishes are no-ops.
 		def manager_failing_for(event_id)
 			manager = Object.new
-			manager.define_singleton_method(:publish) do |event|
+			manager.define_singleton_method(:publish) do |event, **|
 				raise "relay down" if event["tags"].include?([ "e", event_id ])
 			end
 			manager

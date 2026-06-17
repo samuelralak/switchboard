@@ -105,7 +105,7 @@ module ActiveSupport
 		# A relay-manager double whose publish is a no-op (the attestation issuer broadcasts through it).
 		def fake_manager
 			manager = Object.new
-			manager.define_singleton_method(:publish) { |_event| [ :ok ] }
+			manager.define_singleton_method(:publish) { |_event, **| [ :ok ] }
 			manager
 		end
 

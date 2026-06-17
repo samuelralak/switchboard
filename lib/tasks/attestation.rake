@@ -7,8 +7,8 @@ namespace :attestation do
 			abort "[attestation:backfill] issuing is off (no policy or signing key); nothing to do."
 		end
 
-		if NostrClient.configuration.dm_relays.empty?
-			abort "[attestation:backfill] no publish relays configured; cannot broadcast labels."
+		if NostrClient.configuration.relays.empty?
+			abort "[attestation:backfill] no public catalog relays configured; cannot broadcast labels."
 		end
 
 		# A rake process opens no relay connections, so boot publishing here and tear it down after.

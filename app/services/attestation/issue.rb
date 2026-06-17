@@ -23,11 +23,11 @@ module Attestation
 		private
 
 		# Relay propagation is best-effort. The local upsert above already drives the catalog badge, so a worker
-		# that holds no publish sockets (the single-process web server, where puma's before_worker_boot never
-		# runs) logs and moves on rather than failing the attestation or 500ing the report. A publishing-enabled
-		# process (the backfill task, or a clustered web worker) still broadcasts in full.
+		# that holds no publish sockets logs and moves on rather than failing the attestation or 500ing the
+		# report. The label is a PUBLIC event, so it targets the public catalog relays (where the listing lives
+		# and clients read it), never the DM-inbox relays.
 		def broadcast
-			manager.publish(signed)
+			manager.publish(signed, urls: NostrClient.configuration.relays)
 		rescue StandardError => e
 			Rails.logger.warn("[attestation] label stored locally but not broadcast: #{e.class}: #{e.message}")
 		end

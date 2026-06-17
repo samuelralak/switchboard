@@ -4,6 +4,29 @@ require "test_helper"
 
 module NostrClient
 	class ManagerTest < ActiveSupport::TestCase
+		test "publish with urls targets only the held connections for those relays" do
+			manager = NostrClient::Manager.instance
+			hit = []
+			build = lambda do |url|
+				conn = Object.new
+				conn.define_singleton_method(:publish_async) do |_event|
+					hit << url
+					queue = Queue.new
+					queue << :ok
+					queue
+				end
+				conn
+			end
+			manager.instance_variable_set(:@connections,
+				{ "wss://a.test" => build.call("wss://a.test"), "wss://b.test" => build.call("wss://b.test") })
+
+			manager.publish({ "id" => "x" }, urls: [ "wss://a.test" ])
+
+			assert_equal [ "wss://a.test" ], hit, "only the targeted relay is published to"
+		ensure
+			manager.instance_variable_set(:@connections, {})
+		end
+
 		test "handle_ok delegates the OK verdict to the originating connection" do
 			captured = nil
 			connection = Object.new

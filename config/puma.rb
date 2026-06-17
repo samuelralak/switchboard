@@ -69,7 +69,7 @@ if worker_count.positive?
 		next unless defined?(NostrClient) && defined?(Operational::Signer)
 
 		NostrClient.reactor.reset
-		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.dm_relays.any?
+		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.relays.any?
 	rescue StandardError => e
 		warn "[NostrClient] before_worker_boot publishing skipped: #{e.class}: #{e.message}"
 	end
@@ -79,7 +79,7 @@ else
 	on_booted do
 		next unless defined?(NostrClient) && defined?(Operational::Signer)
 
-		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.dm_relays.any?
+		NostrClient.boot_publishing! if Operational::Signer.configured? && NostrClient.configuration.relays.any?
 	rescue StandardError => e
 		warn "[NostrClient] on_booted publishing skipped: #{e.class}: #{e.message}"
 	end

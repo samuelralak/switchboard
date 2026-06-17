@@ -58,15 +58,17 @@ module NostrClient
 			end
 		end
 
-		# Publishes a signed event to every connection and returns a PublishResult per relay. Arms all
-		# relays first, then collects, so total latency is ~one timeout, not N relays times the timeout.
-		# Raises rather than silently returning [] when this process holds no connections (e.g. a web
-		# worker that never opened publish sockets), so a lost broadcast is loud, not a false success.
-		def publish(event_hash)
-			connections = @mutex.synchronize { @connections.values }
-			raise NostrClient::Error, "no relay connections in this process" if connections.empty?
+		# Publishes a signed event and returns a PublishResult per relay. With `urls`, only those held
+		# connections are targeted; without it, every connection. Targeting lets one Manager hold both the
+		# public catalog relays and the DM-inbox relays yet send a PUBLIC event (an attestation label) only to
+		# the former and a PRIVATE wrap only to the latter, so a wrap can never leak onto a public relay. Arms
+		# all targets first, then collects, so total latency is ~one timeout. Raises rather than silently
+		# returning [] when no targeted connection is held, so a lost broadcast is loud, not a false success.
+		def publish(event_hash, urls: nil)
+			targets = @mutex.synchronize { urls ? @connections.values_at(*Array(urls)).compact : @connections.values }
+			raise NostrClient::Error, "no relay connections in this process" if targets.empty?
 
-			connections.map { |connection| connection.publish_async(event_hash) }.map(&:pop)
+			targets.map { |connection| connection.publish_async(event_hash) }.map(&:pop)
 		end
 
 		def stop
