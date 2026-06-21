@@ -23,7 +23,7 @@ gem "stimulus-rails"
 gem "jbuilder"
 
 # Tailwind CSS v4 via the standalone CLI, no Node required [https://github.com/rails/tailwindcss-rails]
-gem "tailwindcss-rails", "~> 4.4"
+gem "tailwindcss-rails", "~> 4.6"
 # Flexible form builder with full markup control [https://github.com/heartcombo/simple_form]
 gem "simple_form", "~> 5.4"
 # Reusable, testable, encapsulated view components [https://viewcomponent.org]
